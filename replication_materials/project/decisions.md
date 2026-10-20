@@ -48,6 +48,7 @@
 | D42 | 2026-10-20 | License the repository under MIT. | claude | fmm | question | "MIT (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D43 | 2026-10-20 | Cite the CLIP study as the 2026 Journal of Quality Technology article, which is open access. | fmm | fmm | chat | "For the CLIP reference, put Megahed, Fadel Mounir, et al." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D44 | 2026-10-20 | Set the JEV budget to about USD 5, the free credit for a new user. | fmm | fmm | chat | "For JEV set the budget to ~$5, which is what they provide for free for any new user." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D45 | 2026-10-20 | Use APA 7 style for citations, with the published metadata of each work. | fmm | fmm | chat | "I like APA style citations" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 
 ## Corrections
 
