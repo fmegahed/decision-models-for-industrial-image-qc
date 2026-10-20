@@ -1,0 +1,14 @@
+# Process
+
+| Time (UTC) | Stage | Who | What happened | Records | Session |
+|---|---|---|---|---|---|
+| 2026-10-20T07:30Z | inputs | Fadel M. Megahed | Gave the task (GOAL.md): improve the validation BA of JEV on five datasets without touching the test sets (back-filled). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T07:33Z | inputs | Claude Code (Opus 5.5) | Made the manifest paths relative to imgs/, fixed a data-masking bug in the runner, and ran a smoke test (back-filled). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T13:52Z | evaluate | Claude Code (Opus 5.5) | Ran the baselines and repeat baselines on 50 validation images per class (back-filled). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T14:24Z | inputs | Fadel M. Megahed | Asked to delete the duplicate pan test images that the leakage check found (back-filled). | project/decisions.md | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T14:44Z | evaluate | Claude Code (Opus 5.5) | Ran the one-time test of the frozen JEV configurations (back-filled). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T15:11Z | evaluate | Claude Code (Opus 5.5) | Ran the zero-shot JEV ablation, the calibration check and CLIP on the same partition (back-filled). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T15:42Z | evaluate | Claude Code (Opus 5.5) | Replicated CLIP with the learning sets of the CLIP paper and compared Platt scaling with isotonic regression (back-filled). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T17:06Z | evaluate | Claude Code (Opus 5.5) | Ran Clef-Flash locally on validation and once on the test sets (back-filled). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T17:49Z | paper | Fadel M. Megahed | Submitted the MSEC 2027 title and abstract (back-filled). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T18:12Z | inputs | Fadel M. Megahed | Set up the replication record. | project/ | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
