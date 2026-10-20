@@ -1,0 +1,6 @@
+Dataset,Defective criterion,References (normal + defective),Max size (px),JEV refs,JEV zero-shot,Clef-Flash refs,Clef-Flash zero-shot
+Metallic pans,Generic,2 + 2,768,0.47,0.53,0.23,0.26
+Extrusion,"A 3D-printer extrusion with too much or too little plastic. Too much: bulging, lumpy, wavy or blobbed material that is wider than normal. Too little: thin, stringy, broken or sparse material, with gaps where plastic is missing.",1 + 2,768,0.76,0.72,0.52,0.56
+Textiles,Generic,1 + 2,768,0.14,0.29,0.08,0.09
+Pipe staple,"Close-up of a car brake area. The thin black pipe is not held by its metal staple: the small, bright, square clip near the center of the image is absent, and the pipe passes the bracket with nothing holding it.",2 + 2,768,0.8,0.35,0.56,0.49
+Microstructure,"A non-uniform grain structure. Many grains share similar colors: one color (for example red) dominates the image, or two colors (for example cyan and red) dominate, or grains of similar color form a band or region.",1 + 3,768,0.17,0.07,0.11,0.06

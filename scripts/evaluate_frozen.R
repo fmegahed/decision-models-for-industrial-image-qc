@@ -11,6 +11,7 @@ source("R/industrial_defect_classifier.R")
 
 dataset <- Sys.getenv("JEV_DATASET")
 condition <- Sys.getenv("JEV_CONDITION", unset = "references")
+Sys.setenv(JEV_CALL_PURPOSE = paste("test", dataset, condition)) # for the call log (JEV_CALL_LOG)
 check_only <- identical(tolower(Sys.getenv("JEV_CHECK_ONLY")), "true")
 if (!nzchar(Sys.getenv("TYPESAFE_API_KEY"))) stop("Set TYPESAFE_API_KEY")
 
@@ -63,7 +64,8 @@ if (nzchar(as_text(frozen$criteria_file))) {
   criteria <- list(normal = descriptions$normal[[1]], defective = descriptions$defective[[1]])
 }
 
-output_dir <- file.path("results", "final_test")
+results_root <- Sys.getenv("JEV_RESULTS_ROOT", unset = "results") # outputs only; inputs stay in results/
+output_dir <- file.path(results_root, "final_test")
 # The main condition keeps its original file names; others add a suffix.
 stem <- if (condition == "references") dataset else paste0(dataset, "_", condition)
 result_file <- file.path(output_dir, paste0(stem, "_predictions.csv"))

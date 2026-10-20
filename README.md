@@ -4,6 +4,8 @@ Fadel M. Megahed ([fmegahed](https://github.com/fmegahed)) and Ying-Ju (Tessa) C
 
 Status: ongoing work. An abstract is submitted to MSEC 2027 (`paper/msec2027_submitted.md`). An R package, `decisionqc`, is in design (`docs/decisionqc_design.md`).
 
+Analysis: [all paper tables and figures, with their code](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/beyond_clip_analysis.html) (`beyond_clip_analysis.html`, rendered from `beyond_clip_analysis.qmd`). Replication record: [website](https://fmegahed.github.io/decision-models-for-industrial-image-qc/).
+
 ## Objective
 
 Can structured decision models, which return a probability for each allowed answer to a question about an image, (a) detect manufacturing defects as well as few-shot CLIP with fewer labeled examples, and (b) give calibrated class probabilities?
@@ -28,12 +30,18 @@ Balanced accuracy at a threshold chosen on validation. JEV is the hosted TypeSaf
 | Pipe staple (AutoVI) | 100 | 0.98 | 0.96 | 0.99 | 0.61 | 0.57 (50 + 50) |
 | Metallic pans | 78 | 1.00 | 0.96 | 0.92 | 0.94 | 0.91 (10 + 10) |
 
-Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.23). Isotonic regression fitted on validation reduces it to 0.01 to 0.04 on four of the five datasets. About 10 to 20 validation images per class were enough for the calibration step. Details: `experiment_log.md`.
+Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.23). Isotonic regression fitted on validation reduces it to 0.01 to 0.04 on four of the five datasets. Test balanced accuracy settled with about 10 to 20 validation images per class; the calibration error kept falling with more. Details: `experiment_log.md` and the analysis page.
 
 ## Structure
 
 | Path | Contents |
 |---|---|
+| `beyond_clip_analysis.qmd` | The replication document: makes every table and figure of the paper from the saved results; switches re-run the paid and GPU steps |
+| `beyond_clip_analysis.html` | The rendered document (self-contained), for readers who do not run it; also on the record website |
+| `figs/`, `tables/` | Outputs of the document: figures F1 to F7 (PNG, PDF and SVG, in one-column and two-column sizes) and tables T1 to T7 and A1 (CSV and LaTeX) |
+| `fonts/` | Outfit and Cabin (SIL Open Font License), used by the figures |
+| `references.bib`, `apa.csl` | References of the document, in APA style |
+| `replication_materials/` | The replication record: decisions, process, roadmap and paid-call budget (website above) |
 | `experiment_log.md` | The lab notebook: setup notes, every trial (60), decisions and rule changes, and the final-test sections |
 | `R/` | Shared R functions: the JEV/SystemOne client (`industrial_defect_classifier.R`) and calibration functions |
 | `scripts/` | Runnable steps (run from the repository root; see below) |
@@ -56,6 +64,8 @@ The images are not in this repository. Copy the folders of [fmegahed/qe_genai/da
 
 Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr, readr, yardstick and ggplot2. Run every script from the repository root.
 
+- All tables and figures of the paper: `quarto render beyond_clip_analysis.qmd` (Quarto 1.9; the first chunk installs the missing R packages). It reads the saved results in `results/`, needs `imgs/`, makes no API call, and takes a few minutes. Its switches (`run_jev_trials`, `run_jev_test`, `run_clip`, `run_clef`) re-run the paid and GPU steps into `results/rerun/`.
+
 - JEV (paid API): put `TYPESAFE_API_KEY=...` in a `.Renviron` file at the root. Never commit it.
 - Validation trial: `JEV_DATASET=microstructure JEV_TRIAL=<name> Rscript scripts/optimize_jev.R` (settings in the script header).
 - Threshold trial, no API calls: `scripts/rescore_threshold.R`. Progress chart: `scripts/plot_progress.R`.
@@ -74,4 +84,6 @@ The notebook of Megahed et al. (2026): [image_inspection_with_clip.ipynb](https:
 
 ## License
 
-MIT for the code and documents in this repository (see `LICENSE`). The images are not included; each dataset keeps its own license (for example, AutoVI is CC BY-NC-SA 4.0).
+MIT for the code and documents in this repository (see `LICENSE`). The image folders are not included; each dataset keeps its own license.
+
+Figure F1 (`figs/*/F1_reference_images.*`) and `beyond_clip_analysis.html` show the reference images. The pipe staple images in them are from AutoVI (Carvalho et al., 2024) and stay under CC BY-NC-SA 4.0: attribution, non-commercial use only, and adaptations under the same license. The other images are from the data of Megahed et al. (2026).

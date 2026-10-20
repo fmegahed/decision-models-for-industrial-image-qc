@@ -1,0 +1,6 @@
+Dataset,Defect types,Image size (px),Test (nominal / defective),Validation per class,References (normal + defective)
+Metallic pans,One defective class,3264 x 2448,39 / 39,8,2 + 2
+Extrusion,"over, under","85 x 85, 224 x 224",100 / 100,50,1 + 2
+Textiles,"global, local",250 x 250,100 / 100,50,1 + 2
+Pipe staple,Missing staple,400 x 400,50 / 50,50,2 + 2
+Microstructure,"Band, Bimodal, SingleCrystal (low, medium, high)",400 x 400,225 / 225,50,1 + 3

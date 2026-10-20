@@ -11,3 +11,7 @@ imgs/
 
 # The prior-study notebook is public in fmegahed/qe_genai (see README)
 prior_study/
+
+# Quarto render cache (beyond_clip_analysis.html itself is kept: it is part of the record)
+beyond_clip_analysis_cache/
+beyond_clip_analysis_files/

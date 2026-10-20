@@ -1,0 +1,1640 @@
+---
+title: "Beyond CLIP: Calibrated Few-Shot Defect Detection With Structured Decision Models"
+subtitle: "Replication document: data, analysis, tables and figures"
+author:
+  - name: Fadel M. Megahed
+    orcid: 0000-0003-2194-5110
+    affiliations:
+      - name: Farmer School of Business, Miami University
+  - name: Ying-Ju (Tessa) Chen
+    orcid: 0000-0002-6444-6859
+    affiliations:
+      - name: College of Arts and Sciences, University of Dayton
+date: today
+bibliography: references.bib
+csl: apa.csl
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    code-overflow: wrap
+    embed-resources: true
+    theme: simplex
+    fig-align: center
+    grid:
+      sidebar-width: 250px
+      body-width: 1000px
+      margin-width: 50px
+execute:
+  warning: false
+  message: false
+  cache: true
+---
+
+```{css, echo = FALSE}
+table.dataTable { font-size: 0.85rem; }
+table.dataTable thead th { vertical-align: bottom; }
+```
+
+This document reproduces every table and figure of the paper from the saved predictions in `results/`. It renders in a few minutes, offline and at no cost. Switches in @sec-switches re-run the steps that call a paid API or need a GPU. The code of each step is in the document; the JEV client and the calibration functions come from `R/` and are shown in @sec-methods.
+
+The study asks whether structured decision models, which return a probability for each allowed answer to a question about an image, can (a) detect manufacturing defects as well as few-shot CLIP [@radford2021clip; @megahed2026clip] with fewer labeled images, and (b) give calibrated class probabilities.
+
+# Setup
+
+## Switches {#sec-switches}
+
+```{r}
+#| label: switches
+#| cache: false
+# Re-run switches. FALSE reads the saved results in results/.
+run_jev_trials <- FALSE # validation trials with the TypeSafe JEV API (paid)
+run_jev_test   <- FALSE # one-time test of the frozen JEV configurations (paid)
+run_clip       <- FALSE # CLIP on a local GPU (set RETICULATE_PYTHON first)
+run_clef       <- FALSE # Clef-Flash on a local SGLang server (localhost:30000)
+
+# Use "results/rerun" to build this document from re-run outputs.
+results_root <- "results"
+```
+
+## Packages
+
+```{r}
+#| label: packages
+#| cache: false
+# Install the packages that are missing; all calls below use pkg::fun().
+packages <- c(
+  "dplyr", "tidyr", "purrr", "readr", "tibble", "ggplot2", "ggtext",
+  "ggrepel", "patchwork", "RColorBrewer", "knitr", "kableExtra", "DT",
+  "magick", "showtext", "sysfonts", "systemfonts", "ragg", "scales"
+)
+missing <- packages[!vapply(packages, requireNamespace, logical(1),
+                            quietly = TRUE)]
+if (length(missing)) {
+  install.packages(missing, repos = "https://cloud.r-project.org")
+}
+knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
+```
+
+## Figure and table style
+
+Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+
+```{r}
+#| label: fonts-and-colors
+#| cache: false
+# Fonts: register the files in fonts/ for ragg (PNG) and showtext (PDF, SVG).
+title_font <- "Outfit"
+body_font <- "Cabin"
+fonts <- list(
+  Outfit = c(plain = "fonts/Outfit-SemiBold.ttf",
+             bold = "fonts/Outfit-Bold.ttf"),
+  Cabin = c(plain = "fonts/Cabin-Regular.ttf",
+            bold = "fonts/Cabin-Bold.ttf",
+            italic = "fonts/Cabin-Italic.ttf")
+)
+known <- c(systemfonts::system_fonts()$family,
+           systemfonts::registry_fonts()$family)
+for (family in names(fonts)) {
+  f <- fonts[[family]]
+  italic <- if ("italic" %in% names(f)) f[["italic"]] else f[["plain"]]
+  if (!family %in% known) {
+    systemfonts::register_font(family, plain = f[["plain"]],
+                               bold = f[["bold"]], italic = italic,
+                               bolditalic = f[["bold"]])
+  }
+  sysfonts::font_add(family, regular = f[["plain"]], bold = f[["bold"]],
+                     italic = italic, bolditalic = f[["bold"]])
+}
+
+# Colors: one per model, class and calibration method.
+dark2 <- RColorBrewer::brewer.pal(8, "Dark2")
+model_colors <- c("JEV" = dark2[1], "Clef-Flash" = dark2[3],
+                  "CLIP" = dark2[2])
+class_colors <- c(normal = "grey30", defective = dark2[4])
+calibration_colors <- c("raw" = "grey45", "Platt" = dark2[7],
+                        "isotonic" = dark2[5])
+
+# Markdown for a bold word in a color (ggtext).
+paint <- function(text, color) {
+  sprintf("<span style='color:%s'>**%s**</span>", color, text)
+}
+
+# Round half up, as in the paper. Floating point stores 0.725 as
+# 0.72499..., so round() and sprintf() give 0.72.
+round_half_up <- function(x, digits = 2) {
+  sign(x) * floor(abs(x) * 10^digits + 0.5 + 1e-9) / 10^digits
+}
+fmt <- function(x, digits = 2) {
+  formatC(round_half_up(x, digits), format = "f", digits = digits)
+}
+capitalize <- function(s) {
+  paste0(toupper(substr(s, 1, 1)), substr(s, 2, nchar(s)))
+}
+```
+
+```{r}
+#| label: figure-helpers
+#| cache: false
+# Figure sizes for a two-column letter page.
+layouts <- list(
+  "one-column" = list(width = 3.4, base_size = 8),
+  "two-column" = list(width = 7.0, base_size = 9)
+)
+
+# Titles: wrap at a fixed number of characters per layout.
+headline <- function(text, layout) {
+  width <- c("one-column" = 46, "two-column" = 84)[[layout]]
+  paste(strwrap(text, width = width), collapse = "<br>")
+}
+
+# Subtitles are wrapped here, not by ggtext: its text boxes sometimes
+# reserve one line less than they draw, and the subtitle then overlaps the
+# title. Line length counts visible characters only, and a colored span
+# never breaks across lines.
+subline <- function(layout, ...) {
+  text <- paste0(...)
+  spans <- gregexpr("<span[^>]*>.*?</span>", text, perl = TRUE)
+  regmatches(text, spans) <- lapply(
+    regmatches(text, spans),
+    function(s) gsub(" ", " ", s, fixed = TRUE)
+  )
+  words <- strsplit(text, " ", fixed = TRUE)[[1]]
+  visible <- nchar(gsub("<[^>]+>|\\*\\*", "", words))
+  width <- c("one-column" = 68, "two-column" = 125)[[layout]]
+  lines <- character()
+  current <- integer()
+  for (i in seq_along(words)) {
+    line_length <- sum(visible[current]) + length(current) + visible[i]
+    if (length(current) && line_length > width) {
+      lines <- c(lines, paste(words[current], collapse = " "))
+      current <- integer()
+    }
+    current <- c(current, i)
+  }
+  lines <- c(lines, paste(words[current], collapse = " "))
+  gsub(" ", " ", paste(lines, collapse = "<br>"), fixed = TRUE)
+}
+
+# The theme of all figures.
+theme_paper <- function(layout) {
+  ggplot2::theme_bw(base_size = layouts[[layout]]$base_size,
+                    base_family = body_font) +
+    ggplot2::theme(
+      legend.position = "none",
+      plot.title.position = "plot",
+      plot.title = ggtext::element_markdown(
+        family = title_font, face = "bold", lineheight = 1.1,
+        size = ggplot2::rel(1.2), margin = ggplot2::margin(0, 0, 3, 0)
+      ),
+      plot.subtitle = ggtext::element_markdown(
+        colour = "grey25", lineheight = 1.15,
+        margin = ggplot2::margin(0, 0, 6, 0)
+      ),
+      plot.caption.position = "plot",
+      plot.caption = ggtext::element_markdown(
+        colour = "grey35", size = ggplot2::rel(0.8), hjust = 0,
+        lineheight = 1.1, margin = ggplot2::margin(6, 0, 0, 0)
+      ),
+      panel.grid.minor = ggplot2::element_blank(),
+      strip.background = ggplot2::element_rect(fill = "grey95",
+                                               colour = "grey70"),
+      strip.text = ggplot2::element_text(face = "bold", colour = "grey20"),
+      axis.title = ggplot2::element_text(colour = "grey25")
+    )
+}
+
+# Save one figure in both sizes and three formats; show the two-column one.
+save_figure <- function(make_plot, name, height) {
+  for (layout in names(layouts)) {
+    width <- layouts[[layout]]$width
+    plot <- make_plot(layout)
+    dir.create(file.path("figs", layout), recursive = TRUE,
+               showWarnings = FALSE)
+    stem <- file.path("figs", layout, name)
+    # PNG with ragg (system text rendering).
+    ragg::agg_png(paste0(stem, ".png"), width = width,
+                  height = height[[layout]], units = "in", res = 600)
+    print(plot)
+    grDevices::dev.off()
+    # PDF and SVG with showtext (text as outlines).
+    for (device in c("pdf", "svg")) {
+      open <- if (device == "pdf") grDevices::cairo_pdf else grDevices::svg
+      open(paste0(stem, ".", device), width = width,
+           height = height[[layout]])
+      showtext::showtext_begin()
+      print(plot)
+      showtext::showtext_end()
+      grDevices::dev.off()
+    }
+  }
+  make_plot("two-column")
+}
+```
+
+```{r}
+#| label: table-helpers
+#| cache: false
+# Save one table as CSV and LaTeX (for the paper) and show it as an
+# interactive table. `widths` sets LaTeX column widths, `wide` names a
+# long-text column, and `filter` adds a filter box above each column.
+save_table <- function(data, name, caption, digits = 2, widths = NULL,
+                       wide = NULL, filter = FALSE) {
+  data <- dplyr::mutate(
+    data,
+    dplyr::across(dplyr::where(is.double), \(v) round_half_up(v, digits))
+  )
+
+  # Files for the paper.
+  dir.create("tables", showWarnings = FALSE)
+  readr::write_csv(data, file.path("tables", paste0(name, ".csv")))
+  latex <- kableExtra::kbl(data, format = "latex", booktabs = TRUE,
+                           caption = caption)
+  for (column in names(widths)) {
+    latex <- kableExtra::column_spec(latex, match(column, names(data)),
+                                     width = widths[[column]])
+  }
+  writeLines(latex, file.path("tables", paste0(name, ".tex")))
+
+  # Interactive table: search and pages only for long tables.
+  long <- nrow(data) > 15
+  # unname(): a named vector would become a JSON object, which DT ignores.
+  is_number <- unname(vapply(data, is.numeric, logical(1)))
+  column_defs <- list(
+    list(className = "dt-left", targets = which(!is_number) - 1),
+    list(className = "dt-right", targets = which(is_number) - 1)
+  )
+  if (!is.null(wide)) {
+    column_defs <- c(column_defs, list(list(
+      width = "35%", targets = match(wide, names(data)) - 1
+    )))
+  }
+  widget <- DT::datatable(
+    data,
+    rownames = FALSE,
+    filter = if (filter) "top" else "none",
+    class = "compact stripe hover",
+    options = list(
+      dom = if (long) "ftip" else "t",
+      pageLength = 15,
+      scrollX = TRUE,
+      autoWidth = !is.null(wide),
+      columnDefs = column_defs
+    )
+  )
+  # Fixed decimals for numbers; none for columns of whole numbers.
+  doubles <- vapply(data, is.double, logical(1))
+  whole <- vapply(data, function(v) {
+    is.double(v) && all(v == round(v), na.rm = TRUE)
+  }, logical(1))
+  if (any(doubles & !whole)) {
+    widget <- DT::formatRound(widget, names(data)[doubles & !whole], digits)
+  }
+  if (any(whole)) {
+    widget <- DT::formatRound(widget, names(data)[whole], digits = 0)
+  }
+  widget
+}
+```
+
+# Data
+
+## Datasets
+
+The five datasets of @megahed2026clip are copies of [fmegahed/qe_genai/data](https://github.com/fmegahed/qe_genai/tree/main/data) in `imgs/`. The pipe staple images are from AutoVI [@carvalho2024autovi]. The test sets have the sizes of the CLIP study; pan and pipe staple have the same test images. `results/image_split_manifest.csv` lists every image and its split.
+
+```{r}
+#| label: data
+# Dataset names and their order in all tables and figures.
+dataset_order <- c("pan_images", "extrusion", "textiles", "pipe_staple",
+                   "microstructure")
+dataset_labels <- c(pan_images = "Metallic pans", extrusion = "Extrusion",
+                    textiles = "Textiles", pipe_staple = "Pipe staple",
+                    microstructure = "Microstructure")
+label_dataset <- function(x) {
+  factor(dataset_labels[x], levels = dataset_labels[dataset_order])
+}
+# Two-line labels for the narrow one-column figures.
+short_labels <- c(pan_images = "Metallic\npans", extrusion = "Extrusion",
+                  textiles = "Textiles", pipe_staple = "Pipe\nstaple",
+                  microstructure = "Micro-\nstructure")
+
+# Image splits, reference images and the frozen validation sets.
+read_csv_quiet <- function(path) readr::read_csv(path, show_col_types = FALSE)
+splits <- read_csv_quiet("results/image_split_manifest.csv")
+references <- read_csv_quiet(
+  "results/reference_manifest_seed202610_by_dataset.csv"
+) |>
+  dplyr::filter(.data$dataset %in% dataset_order)
+validation <- purrr::map_dfr(dataset_order, function(ds) {
+  read_csv_quiet(file.path("results", "optimization", ds,
+                           "validation_images.csv"))
+})
+```
+
+```{r}
+#| label: image-scan
+# One pass over all images: size, MD5 checksum and a 48 x 48 gray
+# thumbnail (for the near-copy check in the data audit).
+scan_image <- function(path) {
+  image <- magick::image_read(path)
+  info <- magick::image_info(image)
+  thumb <- image |>
+    magick::image_convert(colorspace = "gray") |>
+    magick::image_resize("48x48!") |>
+    magick::image_data(channels = "gray") |>
+    as.integer()
+  list(width = info$width, height = info$height, thumb = as.vector(thumb))
+}
+scans <- purrr::map(splits$image_path, scan_image)
+image_scan <- splits |>
+  dplyr::mutate(
+    width = purrr::map_int(scans, "width"),
+    height = purrr::map_int(scans, "height"),
+    md5 = unname(tools::md5sum(.data$image_path))
+  )
+thumbs <- do.call(rbind, purrr::map(scans, "thumb"))
+```
+
+```{r}
+#| label: tbl-datasets
+#| tbl-cap: "Datasets, splits and reference images."
+# Defect types per dataset, with readable names for three datasets.
+defect_types <- splits |>
+  dplyr::filter(.data$actual_class == "defective") |>
+  dplyr::distinct(.data$dataset, .data$defect_type) |>
+  dplyr::group_by(.data$dataset) |>
+  dplyr::summarise(
+    types = paste(sort(gsub("_", " ", .data$defect_type)), collapse = ", ")
+  )
+named_types <- c(
+  microstructure = "Band, Bimodal, SingleCrystal (low, medium, high)",
+  pan_images = "One defective class",
+  pipe_staple = "Missing staple"
+)
+for (ds in names(named_types)) {
+  defect_types$types[defect_types$dataset == ds] <- named_types[[ds]]
+}
+
+# Image sizes, and image counts per split.
+sizes <- image_scan |>
+  dplyr::distinct(.data$dataset, .data$width, .data$height) |>
+  dplyr::arrange(.data$width) |>
+  dplyr::group_by(.data$dataset) |>
+  dplyr::summarise(
+    size = paste(sprintf("%d x %d", .data$width, .data$height),
+                 collapse = ", ")
+  )
+counts <- splits |>
+  dplyr::filter(.data$split == "test") |>
+  dplyr::count(.data$dataset, .data$actual_class) |>
+  tidyr::pivot_wider(names_from = "actual_class", values_from = "n") |>
+  dplyr::transmute(.data$dataset,
+                   test = paste(.data$nominal, "/", .data$defective))
+val_counts <- validation |>
+  dplyr::count(.data$dataset, .data$actual_class) |>
+  dplyr::group_by(.data$dataset) |>
+  dplyr::summarise(validation = paste(unique(.data$n), collapse = " / "))
+ref_counts <- references |>
+  dplyr::count(.data$dataset, .data$reference_class) |>
+  tidyr::pivot_wider(names_from = "reference_class", values_from = "n") |>
+  dplyr::transmute(.data$dataset,
+                   refs = paste(.data$normal, "+", .data$defective))
+
+# Table T1.
+t1 <- tibble::tibble(dataset = dataset_order) |>
+  dplyr::left_join(defect_types, by = "dataset") |>
+  dplyr::left_join(sizes, by = "dataset") |>
+  dplyr::left_join(counts, by = "dataset") |>
+  dplyr::left_join(val_counts, by = "dataset") |>
+  dplyr::left_join(ref_counts, by = "dataset") |>
+  dplyr::transmute(
+    Dataset = dataset_labels[.data$dataset],
+    `Defect types` = .data$types,
+    `Image size (px)` = .data$size,
+    `Test (nominal / defective)` = .data$test,
+    `Validation per class` = .data$validation,
+    `References (normal + defective)` = .data$refs
+  )
+save_table(t1, "T1_datasets", "Datasets, splits and reference images.")
+```
+
+## Reference images
+
+```{r}
+#| label: fig-references
+#| fig-cap: "The reference images given to the decision models (all from the non-test pool). Pipe staple images: AutoVI [@carvalho2024autovi], CC BY-NC-SA 4.0; other images: the data of @megahed2026clip."
+#| fig-width: 7
+#| fig-height: 7.4
+# Label of one reference image: its class, or its defect type.
+tile_label <- function(class, subtype) {
+  dplyr::case_when(
+    class == "normal" ~ "Normal",
+    subtype == "defective" ~ "Defective",
+    subtype == "missing" ~ "Missing staple",
+    TRUE ~ capitalize(gsub("_", " ", subtype))
+  )
+}
+
+# One image tile: center-cropped and scaled as sent to the models. The
+# pixels go in as a numeric array; as.raster() of a magick image sometimes
+# drew blank or garbled tiles.
+tile_plot <- function(path, class, subtype, layout) {
+  image <- magick::image_read(path)
+  info <- magick::image_info(image)
+  side <- min(info$width, info$height)
+  pixels <- image |>
+    magick::image_crop(sprintf("%dx%d", side, side), gravity = "center") |>
+    magick::image_scale("320x320!") |>
+    magick::image_data(channels = "rgb") |>
+    as.integer() # height x width x 3
+  label <- tile_label(class, subtype)
+  if (layout == "one-column") label <- sub(" ", "<br>", label)
+  ggplot2::ggplot() +
+    ggplot2::annotation_raster(pixels / 255, 0, 1, 0, 1) +
+    ggplot2::coord_fixed(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE) +
+    ggplot2::labs(title = paint(label, class_colors[[class]])) +
+    ggplot2::theme_void(base_size = layouts[[layout]]$base_size,
+                        base_family = body_font) +
+    ggplot2::theme(
+      plot.title = ggtext::element_markdown(
+        hjust = 0.5, size = ggplot2::rel(0.85), lineheight = 1.1,
+        margin = ggplot2::margin(0, 0, 2, 0)
+      ),
+      plot.margin = ggplot2::margin(2, 2, 2, 2)
+    )
+}
+
+# Dataset name at the start of each row.
+row_label <- function(text, layout) {
+  ggplot2::ggplot() +
+    ggplot2::annotate(
+      "text", x = 0, y = 0.5, label = text, hjust = 0, family = title_font,
+      lineheight = 0.95, fontface = "bold",
+      size = layouts[[layout]]$base_size / ggplot2::.pt
+    ) +
+    ggplot2::xlim(0, 1) +
+    ggplot2::ylim(0, 1) +
+    ggplot2::theme_void()
+}
+
+# Figure F1: one row per dataset, normal images first.
+fig_references <- function(layout) {
+  tiles <- purrr::map(dataset_order, function(ds) {
+    refs <- references |>
+      dplyr::filter(.data$dataset == ds) |>
+      dplyr::arrange(dplyr::desc(.data$reference_class == "normal"),
+                     .data$reference_rank)
+    row <- purrr::pmap(
+      list(refs$image_path, refs$reference_class,
+           basename(dirname(refs$image_path))),
+      function(path, class, subtype) tile_plot(path, class, subtype, layout)
+    )
+    name <- if (layout == "one-column") short_labels[[ds]]
+            else dataset_labels[[ds]]
+    spacers <- rep(list(patchwork::plot_spacer()), 4 - length(row))
+    c(list(row_label(name, layout)), row, spacers)
+  })
+  patchwork::wrap_plots(unlist(tiles, recursive = FALSE), ncol = 5,
+                        widths = c(1.1, 1, 1, 1, 1)) +
+    patchwork::plot_annotation(
+      title = headline(
+        "Two to four labeled images are all the decision models see", layout
+      ),
+      subtitle = subline(
+        layout,
+        paint("Normal", class_colors[["normal"]]), " and ",
+        paint("defective", class_colors[["defective"]]),
+        " reference images, center-cropped as sent to the models. ",
+        "Extrusion images are 85 or 224 px, enlarged here for display only."
+      ),
+      # Image sources. AutoVI is CC BY-NC-SA 4.0: the pipe staple tiles of
+      # this figure keep that license.
+      caption = subline(
+        layout,
+        "Images: Megahed et al. (2026), github.com/fmegahed/qe_genai. ",
+        "Pipe staple: AutoVI (Carvalho et al., 2024), CC BY-NC-SA 4.0."
+      ),
+      theme = theme_paper(layout)
+    )
+}
+save_figure(fig_references, "F1_reference_images",
+            height = c("one-column" = 5.2, "two-column" = 7.4))
+```
+
+## Data audit
+
+Each dataset was checked for exact copies (MD5 checksums) and near copies (48 x 48 gray thumbnails, mean absolute difference) across splits. In the working copies, every pan train image had a byte-identical copy in the pan test folder, and the test folder had three more duplicates; extrusion, which comes from video, had three test frames with identical copies in the non-test pool. These files were removed (scripts in `experiments/`). @tbl-audit shows the state after the cleanup: no exact copy remains across splits, and test images are not closer to non-test images than to other test images, except that extrusion frames have close neighbors, as expected for video.
+
+```{r}
+#| label: tbl-audit
+#| tbl-cap: "Data audit: files removed, and copies across splits after the cleanup."
+# Files removed before the experiments (see experiments/ and the log).
+removed <- tibble::tribble(
+  ~dataset,         ~removed,
+  "pan_images",     paste("23 duplicate test files; test/nominal/21.JPG,",
+                          "not in the prior test set"),
+  "extrusion",      "3 pool frames identical to test frames",
+  "textiles",       "none",
+  "pipe_staple",    "none",
+  "microstructure", "none"
+)
+
+# Exact copies (same MD5) and the median distance from each test image to
+# its nearest non-test image and to its nearest other test image.
+audit <- purrr::map_dfr(dataset_order, function(ds) {
+  i <- which(image_scan$dataset == ds)
+  test <- image_scan$split[i] == "test"
+  md5 <- image_scan$md5[i]
+  distances <- stats::dist(thumbs[i, , drop = FALSE], method = "manhattan")
+  distances <- as.matrix(distances) / ncol(thumbs)
+  to_pool <- apply(distances[test, !test, drop = FALSE], 1, min)
+  diag(distances) <- Inf
+  to_test <- apply(distances[test, test, drop = FALSE], 1, min)
+  tibble::tibble(
+    dataset = ds,
+    copies_now = sum(md5[test] %in% md5[!test]),
+    nearest_pool = stats::median(to_pool),
+    nearest_test = stats::median(to_test)
+  )
+})
+
+# Table T2.
+t2 <- removed |>
+  dplyr::left_join(audit, by = "dataset") |>
+  dplyr::transmute(
+    Dataset = dataset_labels[.data$dataset],
+    `Files removed` = .data$removed,
+    `Exact copies across splits now` = .data$copies_now,
+    `Nearest non-test image (median distance)` = .data$nearest_pool,
+    `Nearest other test image (median distance)` = .data$nearest_test
+  )
+save_table(t2, "T2_data_audit",
+           "Data audit: files removed, and copies across splits after the cleanup.",
+           digits = 1, wide = "Files removed")
+```
+
+# Methods {#sec-methods}
+
+## JEV client
+
+`classify_image()` sends one image, the defect criteria and the reference images to a SystemOne endpoint (TypeSafe JEV `jev-1.13.0` [@typesafe2026images], or a local Clef-Flash server [@cloudflare2026clefflash]) and returns the class probabilities. Each paid call can be logged for the replication record.
+
+```{r}
+#| label: jev-client
+#| file: R/industrial_defect_classifier.R
+#| code-fold: true
+```
+
+## Threshold and calibration functions
+
+The threshold of a configuration is the midpoint of the widest run of thresholds, on an exact 0.01 grid, that reach the maximum validation balanced accuracy. Platt scaling [@platt1999probabilistic] and isotonic regression [@zadrozny2002transforming] are fitted on validation predictions only. The expected calibration error (ECE) uses 10 equal-width bins [@guo2017calibration].
+
+```{r}
+#| label: calibration-functions
+#| file: R/calibration_functions.R
+#| code-fold: true
+```
+
+```{r}
+#| label: metric-functions
+# Balanced accuracy, sensitivity, specificity, and ROC AUC (Mann-Whitney
+# form; ties count one half).
+binary_metrics <- function(prob, predicted, truth) {
+  y <- truth == "defective"
+  hit <- predicted == "defective"
+  sens <- mean(hit[y])
+  spec <- mean(!hit[!y])
+  pairs <- outer(prob[y], prob[!y], ">") + 0.5 * outer(prob[y], prob[!y], "==")
+  tibble::tibble(
+    n = length(y),
+    balanced_accuracy = (sens + spec) / 2,
+    sensitivity = sens,
+    specificity = spec,
+    roc_auc = mean(pairs)
+  )
+}
+```
+
+## Decision rule
+
+Each validation trial changed one setting: the criteria text, the reference images, or the image size. A change was kept when the ROC AUC [@hanley1982auc] rose by at least 0.02; repeat runs moved the AUC by less than 0.01. When the AUC was already near 1, the trials were compared by balanced accuracy at their tuned thresholds. The threshold was tuned last, on the final configuration. Each frozen configuration was then evaluated once on the test images.
+
+# Validation trials
+
+```{r}
+#| label: trial-log
+# Read the trial table of experiment_log.md (one row per trial).
+log_lines <- readLines("experiment_log.md", warn = FALSE)
+rows <- log_lines[grepl("^\\| [0-9]+ \\|", log_lines)]
+cells <- strsplit(sub("^\\|(.*)\\|\\s*$", "\\1", rows), "|", fixed = TRUE)
+cells <- lapply(cells, trimws)
+trial_log <- tibble::tibble(
+  order = as.integer(purrr::map_chr(cells, 1)),
+  dataset = purrr::map_chr(cells, 2),
+  trial_id = purrr::map_chr(cells, 3),
+  variable = purrr::map_chr(cells, 4),
+  change = purrr::map_chr(cells, 5),
+  decision = purrr::map_chr(cells, 6)
+)
+
+# Add the saved validation scores of each trial.
+trial_scores <- trial_log |>
+  dplyr::mutate(score = purrr::map2(.data$dataset, .data$trial_id,
+                                    function(ds, id) {
+    file.path(results_root, "optimization", ds, paste0(id, "_score.csv")) |>
+      read_csv_quiet() |>
+      dplyr::select("model", "threshold", "balanced_accuracy", "sensitivity",
+                    "specificity", "roc_auc")
+  })) |>
+  tidyr::unnest("score")
+```
+
+## Progress
+
+```{r}
+#| label: fig-progress
+#| fig-cap: "Validation progress of the JEV tuning, one row per dataset. Repeat runs, the zero-shot ablation and the Clef-Flash trials are not shown."
+#| fig-width: 7
+#| fig-height: 8
+# The JEV tuning steps of each dataset, and the current best (the value of
+# the last kept configuration) for each metric.
+progress <- trial_scores |>
+  dplyr::filter(!.data$decision %in% c("replicate", "ablation", "comparison")) |>
+  dplyr::arrange(.data$dataset, .data$order) |>
+  dplyr::group_by(.data$dataset) |>
+  dplyr::mutate(step = dplyr::row_number(),
+                kept = .data$decision %in% c("baseline", "kept")) |>
+  dplyr::ungroup() |>
+  tidyr::pivot_longer(c("roc_auc", "balanced_accuracy"),
+                      names_to = "metric", values_to = "value") |>
+  dplyr::mutate(metric = factor(
+    .data$metric, c("roc_auc", "balanced_accuracy"),
+    c("ROC AUC (decides each change)",
+      "Balanced accuracy at the trial threshold")
+  )) |>
+  dplyr::group_by(.data$dataset, .data$metric) |>
+  dplyr::arrange(.data$step, .by_group = TRUE) |>
+  dplyr::mutate(best = dplyr::if_else(.data$kept, .data$value, NA_real_)) |>
+  tidyr::fill("best", .direction = "down") |>
+  dplyr::ungroup() |>
+  dplyr::mutate(dataset = label_dataset(.data$dataset))
+
+# Figure F2: AUC and BA columns, one row per dataset.
+fig_progress <- function(layout) {
+  d <- progress
+  if (layout == "one-column") {
+    levels(d$metric) <- c("ROC AUC", "Balanced accuracy")
+  }
+  # Trial names of the kept changes (two-column only), and a note on pans.
+  labels <- dplyr::filter(d, .data$decision == "kept",
+                          .data$dataset != dataset_labels[["pan_images"]])
+  note <- if (layout == "one-column") {
+    "1.00 from the start;<br>1568 to 768 px kept:<br>4 times fewer tokens"
+  } else {
+    "1.00 from the start; 1568 to 768 px kept:<br>about 4 times fewer image tokens"
+  }
+  pan_note <- tibble::tibble(
+    dataset = factor(dataset_labels[["pan_images"]], levels(d$dataset)),
+    metric = factor(levels(d$metric)[1], levels(d$metric)),
+    step = 2.5, value = 0.72, label = note
+  )
+
+  p <- ggplot2::ggplot(d, ggplot2::aes(.data$step, .data$value)) +
+    ggplot2::geom_hline(yintercept = 0.5, colour = "grey70", linewidth = 0.3) +
+    ggplot2::geom_step(ggplot2::aes(y = .data$best), direction = "hv",
+                       colour = model_colors[["JEV"]], linewidth = 0.6) +
+    ggplot2::geom_point(ggplot2::aes(colour = .data$kept, shape = .data$kept),
+                        size = 1.6, stroke = 0.6) +
+    ggtext::geom_richtext(
+      data = pan_note, ggplot2::aes(label = .data$label),
+      family = body_font, size = if (layout == "one-column") 1.9 else 2.4,
+      colour = "grey30", fill = NA, label.colour = NA, lineheight = 1.1
+    ) +
+    ggplot2::scale_colour_manual(
+      values = c(`TRUE` = model_colors[["JEV"]], `FALSE` = "grey55")
+    ) +
+    ggplot2::scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1)) +
+    ggplot2::scale_x_continuous(breaks = scales::breaks_width(2)) +
+    ggplot2::scale_y_continuous(limits = c(0.45, 1.05),
+                                breaks = seq(0.5, 1, 0.1)) +
+    ggplot2::facet_grid(rows = ggplot2::vars(.data$dataset),
+                        cols = ggplot2::vars(.data$metric)) +
+    ggplot2::labs(
+      title = headline(
+        "Criteria that name the visual cue gave the largest gains", layout
+      ),
+      subtitle = subline(
+        layout,
+        paint("Kept", model_colors[["JEV"]]), " and ",
+        paint("not kept", "grey55"),
+        " changes; the line follows the kept configuration. The last step ",
+        "of each row tunes the threshold, which raises BA but not AUC."
+      ),
+      x = "Trial (within dataset)", y = NULL
+    ) +
+    theme_paper(layout)
+
+  if (layout == "two-column") {
+    p <- p + ggrepel::geom_text_repel(
+      data = labels, ggplot2::aes(label = .data$trial_id),
+      family = body_font, size = 2.3, colour = "grey30",
+      nudge_y = ifelse(labels$value > 0.93, -0.13, 0.07),
+      min.segment.length = 0.2, segment.colour = "grey70", seed = 1
+    )
+  }
+  p
+}
+save_figure(fig_progress, "F2_validation_progress",
+            height = c("one-column" = 6.6, "two-column" = 8))
+```
+
+# Frozen configurations
+
+```{r}
+#| label: tbl-frozen
+#| tbl-cap: "Frozen configurations. The thresholds were tuned on validation only."
+# The defective criterion of each configuration ("Generic" = the default
+# criteria of classify_image()).
+frozen <- read_csv_quiet("results/optimization/frozen_configs.csv")
+criterion <- function(file) {
+  if (is.na(file)) return("Generic")
+  read_csv_quiet(file)$defective[[1]]
+}
+
+# One threshold column per condition.
+thresholds <- frozen |>
+  dplyr::select("dataset", "condition", "threshold") |>
+  tidyr::pivot_wider(names_from = "condition", values_from = "threshold")
+
+# Table T3.
+t3 <- frozen |>
+  dplyr::filter(.data$condition == "references") |>
+  dplyr::mutate(criterion = purrr::map_chr(.data$criteria_file, criterion)) |>
+  dplyr::left_join(ref_counts, by = "dataset") |>
+  dplyr::left_join(thresholds, by = "dataset") |>
+  dplyr::arrange(match(.data$dataset, dataset_order)) |>
+  dplyr::transmute(
+    Dataset = dataset_labels[.data$dataset],
+    `Defective criterion` = .data$criterion,
+    `References (normal + defective)` = .data$refs,
+    `Max size (px)` = .data$max_size,
+    `JEV refs` = .data$references,
+    `JEV zero-shot` = .data$zero_shot,
+    `Clef-Flash refs` = .data$clef_refs,
+    `Clef-Flash zero-shot` = .data$clef_zero
+  )
+save_table(t3, "T3_frozen_configurations",
+           "Frozen configurations and thresholds.",
+           widths = c(`Defective criterion` = "6cm"),
+           wide = "Defective criterion")
+```
+
+# Test results
+
+```{r}
+#| label: test-predictions
+# Where the test predictions of each method are. CLIP files hold two
+# predicted classes; use the one at the threshold tuned on validation.
+test_files <- tibble::tribble(
+  ~model,       ~condition,   ~pattern,
+  "JEV",        "references", "final_test/%s_predictions.csv",
+  "JEV",        "zero-shot",  "final_test/%s_zero_shot_predictions.csv",
+  "Clef-Flash", "references", "final_test/%s_clef_refs_predictions.csv",
+  "Clef-Flash", "zero-shot",  "final_test/%s_clef_zero_predictions.csv",
+  "CLIP",       "references", "clip/%s_references_test_predictions.csv",
+  "CLIP",       "zero-shot",  "clip/%s_zero_shot_test_predictions.csv"
+) |>
+  dplyr::mutate(column = ifelse(.data$model == "CLIP", "predicted_tuned",
+                                "predicted_class"))
+# CLIP with the learning sets of the CLIP paper: one setting per dataset.
+clip_paper_setting <- c(
+  pan_images = "pan_10", extrusion = "extrusion_350",
+  textiles = "textiles_50", pipe_staple = "pipe_staple_50",
+  microstructure = "microstructure_72"
+)
+
+# Read all test predictions into one table.
+read_test <- function(path, column, model, condition) {
+  read_csv_quiet(path) |>
+    dplyr::transmute(
+      .data$dataset, .data$defect_type, .data$actual_class,
+      prob = .data$prob_defective, predicted = .data[[column]],
+      model = model, condition = condition
+    )
+}
+same_partition <- purrr::pmap_dfr(test_files,
+                                  function(model, condition, pattern, column) {
+  purrr::map_dfr(dataset_order, function(ds) {
+    path <- file.path(results_root, sprintf(pattern, ds))
+    read_test(path, column, model, condition)
+  })
+})
+paper_sets <- purrr::map_dfr(dataset_order, function(ds) {
+  path <- file.path(results_root, "clip_paper",
+                    paste0(clip_paper_setting[[ds]], "_test_predictions.csv"))
+  read_test(path, "predicted_class", "CLIP", "paper learning sets")
+})
+test_predictions <- dplyr::bind_rows(same_partition, paper_sets)
+
+# Test metrics per method and dataset.
+test_metrics <- test_predictions |>
+  dplyr::group_by(.data$model, .data$condition, .data$dataset) |>
+  dplyr::reframe(binary_metrics(.data$prob, .data$predicted,
+                                .data$actual_class))
+```
+
+## Main results
+
+```{r}
+#| label: tbl-test-results
+#| tbl-cap: "Test balanced accuracy (ROC AUC in parentheses). Every method uses a threshold chosen on validation, except CLIP with the learning sets of the CLIP paper, which uses its rule (the class with the higher maximum similarity)."
+# The seven methods, in the order of the table and of figure F3.
+method_order <- c(
+  "JEV, references", "JEV, zero-shot",
+  "Clef-Flash, references", "Clef-Flash, zero-shot",
+  "CLIP, references", "CLIP, zero-shot", "CLIP, paper learning sets"
+)
+
+# Table T4: one "BA (AUC)" cell per dataset and method.
+t4 <- test_metrics |>
+  dplyr::mutate(
+    method = factor(paste0(.data$model, ", ", .data$condition), method_order),
+    cell = sprintf("%s (%s)", fmt(.data$balanced_accuracy),
+                   fmt(.data$roc_auc)),
+    dataset = label_dataset(.data$dataset)
+  ) |>
+  dplyr::select("dataset", "method", "cell") |>
+  tidyr::pivot_wider(names_from = "method", values_from = "cell") |>
+  dplyr::arrange(.data$dataset) |>
+  dplyr::select("dataset", dplyr::any_of(method_order)) |>
+  dplyr::rename(Dataset = "dataset")
+readr::write_csv(test_metrics, file.path("tables", "T4_test_results_long.csv"))
+save_table(t4, "T4_test_results",
+           "Test balanced accuracy (ROC AUC in parentheses).")
+```
+
+```{r}
+#| label: fig-test-results
+#| fig-cap: "Test balanced accuracy and ROC AUC of each method. Each row is one method; the number next to each point is its value."
+#| fig-width: 7
+#| fig-height: 4
+# Axis labels of the methods, in the color of their model.
+method_names <- c(
+  "JEV + references", "JEV zero-shot",
+  "Clef-Flash + references", "Clef-Flash zero-shot",
+  "CLIP + same references", "CLIP zero-shot", "CLIP, paper learning sets"
+)
+method_axis <- paint(method_names, model_colors[sub(",.*", "", method_order)])
+condition_shapes <- c("references" = 16, "zero-shot" = 1,
+                      "paper learning sets" = 17)
+
+# One row per method, dataset and metric. Value labels go left of the
+# point, or right of it when the value is below 0.5.
+plot_metrics <- test_metrics |>
+  dplyr::mutate(
+    method = factor(paste0(.data$model, ", ", .data$condition), method_order),
+    dataset = label_dataset(.data$dataset)
+  ) |>
+  tidyr::pivot_longer(c("balanced_accuracy", "roc_auc"),
+                      names_to = "metric", values_to = "value") |>
+  dplyr::mutate(
+    metric = factor(.data$metric, c("balanced_accuracy", "roc_auc"),
+                    c("Balanced accuracy", "ROC AUC")),
+    label_x = ifelse(.data$value >= 0.5, .data$value - 0.05,
+                     .data$value + 0.05),
+    label_hjust = ifelse(.data$value >= 0.5, 1, 0)
+  )
+
+# Figure F3: metrics by dataset (two-column) or datasets by metric
+# (one-column).
+fig_test <- function(layout) {
+  d <- plot_metrics
+  if (layout == "one-column") {
+    levels(d$dataset) <- short_labels[dataset_order]
+    facets <- ggplot2::facet_grid(rows = ggplot2::vars(.data$dataset),
+                                  cols = ggplot2::vars(.data$metric))
+  } else {
+    facets <- ggplot2::facet_grid(rows = ggplot2::vars(.data$metric),
+                                  cols = ggplot2::vars(.data$dataset))
+  }
+  ggplot2::ggplot(d, ggplot2::aes(.data$value, .data$method,
+                                  colour = .data$model,
+                                  shape = .data$condition)) +
+    ggplot2::geom_vline(xintercept = 0.5, colour = "grey70", linewidth = 0.3) +
+    ggplot2::geom_point(size = 2.4, stroke = 0.9) +
+    ggplot2::geom_text(
+      ggplot2::aes(x = .data$label_x, label = fmt(.data$value),
+                   hjust = .data$label_hjust),
+      family = body_font, size = 2, colour = "grey35"
+    ) +
+    ggplot2::scale_colour_manual(values = model_colors) +
+    ggplot2::scale_shape_manual(values = condition_shapes) +
+    ggplot2::scale_y_discrete(
+      limits = rev(method_order),
+      labels = function(x) method_axis[match(x, method_order)]
+    ) +
+    ggplot2::scale_x_continuous(limits = c(0.2, 1.04),
+                                breaks = c(0.25, 0.5, 0.75, 1),
+                                labels = c("0.25", "0.5", "0.75", "1")) +
+    facets +
+    ggplot2::labs(
+      title = headline(paste(
+        "JEV with two to four references matches or beats CLIP given the",
+        "same references"
+      ), layout),
+      subtitle = subline(
+        layout,
+        "Filled circle: with two to four references; open circle: ",
+        "zero-shot; triangle: CLIP with the learning sets of the CLIP paper ",
+        "(20 to 700 labeled images)."
+      ),
+      x = NULL, y = NULL
+    ) +
+    theme_paper(layout) +
+    ggplot2::theme(axis.text.y = ggtext::element_markdown(),
+                   panel.grid.major.y = ggplot2::element_line(
+                     colour = "grey93", linewidth = 0.3
+                   ))
+}
+save_figure(fig_test, "F3_test_results",
+            height = c("one-column" = 6.6, "two-column" = 4))
+```
+
+## Defect subtypes
+
+```{r}
+#| label: fig-subtypes
+#| fig-cap: "Test accuracy by defect subtype (recall for defect types, specificity for the nominal class)."
+#| fig-width: 7
+#| fig-height: 5.6
+# Share of test images classified correctly, per subtype, for JEV and
+# Clef-Flash with references and CLIP with the learning sets of the paper.
+compared <- c("JEV references", "Clef-Flash references",
+              "CLIP paper learning sets")
+subtypes <- test_predictions |>
+  dplyr::filter(paste(.data$model, .data$condition) %in% compared) |>
+  dplyr::group_by(.data$model, .data$dataset, .data$defect_type,
+                  .data$actual_class) |>
+  dplyr::summarise(n = dplyr::n(),
+                   accuracy = mean(.data$predicted == .data$actual_class),
+                   .groups = "drop") |>
+  dplyr::mutate(
+    subtype = ifelse(.data$actual_class == "nominal", "Nominal",
+                     capitalize(gsub("_", " ", .data$defect_type))),
+    subtype = sprintf("%s <span style='color:grey55'>(%d)</span>",
+                      .data$subtype, .data$n),
+    dataset = label_dataset(.data$dataset),
+    model = factor(.data$model, names(model_colors))
+  )
+
+# Nominal first, then the defect types in alphabetical order.
+subtype_levels <- subtypes |>
+  dplyr::distinct(.data$subtype, .data$actual_class) |>
+  dplyr::arrange(.data$actual_class == "nominal", dplyr::desc(.data$subtype)) |>
+  dplyr::pull("subtype")
+subtypes$subtype <- factor(subtypes$subtype, subtype_levels)
+
+# Figure F4: one column per model, one row per dataset.
+fig_subtypes <- function(layout) {
+  d <- subtypes
+  model_strips <- if (layout == "one-column") {
+    c("JEV", "Clef-Flash", "CLIP")
+  } else {
+    c("JEV + references", "Clef-Flash + references",
+      "CLIP, paper learning sets")
+  }
+  levels(d$model) <- paint(model_strips, model_colors)
+  if (layout == "one-column") levels(d$dataset) <- short_labels[dataset_order]
+
+  ggplot2::ggplot(d, ggplot2::aes(.data$accuracy, .data$subtype,
+                                  colour = .data$model)) +
+    ggplot2::geom_vline(xintercept = 0.5, colour = "grey70", linewidth = 0.3) +
+    ggplot2::geom_segment(ggplot2::aes(x = 0, xend = .data$accuracy,
+                                       yend = .data$subtype),
+                          linewidth = 0.6) +
+    ggplot2::geom_point(size = 2) +
+    ggplot2::scale_colour_manual(values = unname(model_colors)) +
+    ggplot2::scale_x_continuous(
+      limits = c(0, 1.05), breaks = c(0, 0.5, 1),
+      labels = if (layout == "one-column") c("0", "0.5", "1")
+               else c("0", "50%", "100%")
+    ) +
+    ggplot2::facet_grid(rows = ggplot2::vars(.data$dataset),
+                        cols = ggplot2::vars(.data$model),
+                        scales = "free_y", space = "free_y") +
+    ggplot2::labs(
+      title = headline(paste(
+        "Large CLIP learning sets win on subtle grain and texture defects,",
+        "and lose on the pipe staple"
+      ), layout),
+      subtitle = subline(
+        layout,
+        paint("JEV", model_colors[["JEV"]]), " and ",
+        paint("Clef-Flash", model_colors[["Clef-Flash"]]),
+        " with two to four references; ",
+        paint("CLIP", model_colors[["CLIP"]]),
+        " with the learning sets of the CLIP paper. Test images in ",
+        "parentheses."
+      ),
+      x = "Correctly classified (test)", y = NULL
+    ) +
+    theme_paper(layout) +
+    ggplot2::theme(
+      strip.text.x = ggtext::element_markdown(),
+      strip.text.y = ggplot2::element_text(angle = 0, hjust = 0),
+      axis.text.y = ggtext::element_markdown(),
+      panel.grid.major.y = ggplot2::element_blank(),
+      panel.spacing.x = ggplot2::unit(8, "pt")
+    )
+}
+save_figure(fig_subtypes, "F4_subtype_accuracy",
+            height = c("one-column" = 6.4, "two-column" = 5.6))
+```
+
+## What the references add
+
+```{r}
+#| label: fig-references-gain
+#| fig-cap: "Test ROC AUC without (open) and with (filled) reference images."
+#| fig-width: 7
+#| fig-height: 3.2
+# Test AUC without and with references for the two decision models.
+gain <- test_metrics |>
+  dplyr::filter(.data$model %in% c("JEV", "Clef-Flash"),
+                .data$condition %in% c("references", "zero-shot")) |>
+  dplyr::select("model", "condition", "dataset", "roc_auc") |>
+  tidyr::pivot_wider(names_from = "condition", values_from = "roc_auc") |>
+  dplyr::mutate(
+    y = as.numeric(label_dataset(.data$dataset)) +
+      ifelse(.data$model == "JEV", -0.15, 0.15),
+    delta = .data$references - .data$`zero-shot`,
+    label = paste0(ifelse(.data$delta < 0, "-", "+"), fmt(abs(.data$delta)))
+  )
+
+# Figure F5: one arrow per model and dataset, from zero-shot to references.
+fig_gain <- function(layout) {
+  ggplot2::ggplot(gain, ggplot2::aes(y = .data$y, colour = .data$model)) +
+    ggplot2::geom_segment(
+      ggplot2::aes(x = .data$`zero-shot`, xend = .data$references,
+                   yend = .data$y),
+      linewidth = 0.6,
+      arrow = ggplot2::arrow(length = ggplot2::unit(0.08, "in"),
+                             type = "closed")
+    ) +
+    ggplot2::geom_point(ggplot2::aes(x = .data$`zero-shot`), shape = 1,
+                        size = 1.7, stroke = 0.7) +
+    ggplot2::geom_text(
+      ggplot2::aes(x = pmax(.data$references, .data$`zero-shot`),
+                   label = .data$label),
+      hjust = -0.25, family = body_font, size = 2.4
+    ) +
+    ggplot2::scale_colour_manual(values = model_colors) +
+    ggplot2::scale_y_continuous(breaks = seq_along(dataset_order),
+                                labels = dataset_labels[dataset_order],
+                                trans = "reverse") +
+    ggplot2::scale_x_continuous(limits = c(0.6, 1.08),
+                                breaks = seq(0.6, 1, 0.1)) +
+    ggplot2::labs(
+      title = headline(
+        "Reference images raise the ranking quality of both decision models",
+        layout
+      ),
+      subtitle = subline(
+        layout,
+        "Test ROC AUC of ", paint("JEV", model_colors[["JEV"]]), " and ",
+        paint("Clef-Flash", model_colors[["Clef-Flash"]]),
+        ", from zero-shot (open circle) to two to four references ",
+        "(arrow head). Labels: AUC gain."
+      ),
+      x = "Test ROC AUC", y = NULL
+    ) +
+    theme_paper(layout) +
+    ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())
+}
+save_figure(fig_gain, "F5_reference_gain",
+            height = c("one-column" = 3.6, "two-column" = 3.2))
+```
+
+## Labeled images per method
+
+```{r}
+#| label: tbl-labels
+#| tbl-cap: "Labeled images used by each method. Test balanced accuracy settled with about 10 to 20 validation images per class; the ECE kept falling with more (@fig-validation-size)."
+# Learning-set size of CLIP in the CLIP paper settings.
+clip_learning <- file.path(results_root, "clip_paper", "summary.csv") |>
+  read_csv_quiet() |>
+  dplyr::filter(.data$setting %in% clip_paper_setting) |>
+  dplyr::transmute(
+    dataset = .data$dataset,
+    clip_paper = .data$n_learning_nominal + .data$n_learning_defective
+  )
+
+# Table T5.
+t5 <- tibble::tibble(dataset = dataset_order) |>
+  dplyr::left_join(dplyr::count(references, .data$dataset, name = "refs"),
+                   by = "dataset") |>
+  dplyr::left_join(dplyr::count(validation, .data$dataset,
+                                name = "validation"),
+                   by = "dataset") |>
+  dplyr::left_join(clip_learning, by = "dataset") |>
+  dplyr::transmute(
+    Dataset = dataset_labels[.data$dataset],
+    `JEV / Clef-Flash references` = .data$refs,
+    `Validation images (refinement and calibration)` = .data$validation,
+    `Total, decision models` = .data$refs + .data$validation,
+    `CLIP, same references` = .data$refs,
+    `CLIP, paper learning sets` = .data$clip_paper
+  )
+save_table(t5, "T5_label_budget", "Labeled images used by each method.",
+           digits = 0)
+```
+
+# Calibration
+
+```{r}
+#| label: calibration-data
+# Validation and test predictions of one frozen configuration. Threshold
+# trials (for example criteria_color_t017) reuse the probabilities of
+# their source trial (criteria_color).
+frozen_predictions <- function(ds, condition) {
+  row <- dplyr::filter(frozen, .data$dataset == .env$ds,
+                       .data$condition == .env$condition)
+  trial_dir <- file.path("results", "optimization", row$tuned_on)
+  source_score <- read_csv_quiet(
+    file.path(trial_dir, paste0(row$source_trial, "_score.csv"))
+  )
+  probability_trial <- if ("source_trial" %in% names(source_score)) {
+    source_score$source_trial
+  } else {
+    row$source_trial
+  }
+  stem <- if (condition == "references") ds else paste0(ds, "_", condition)
+  list(
+    validation = read_csv_quiet(file.path(
+      results_root, "optimization", row$tuned_on,
+      paste0(probability_trial, "_predictions.csv")
+    )),
+    test = read_csv_quiet(file.path(
+      results_root, "final_test", paste0(stem, "_predictions.csv")
+    ))
+  )
+}
+
+# Fit Platt scaling and isotonic regression on validation; apply both to
+# the test probabilities (JEV and Clef-Flash, with references).
+calibrated <- purrr::map_dfr(c("references", "clef_refs"), function(condition) {
+  purrr::map_dfr(dataset_order, function(ds) {
+    p <- frozen_predictions(ds, condition)
+    p_val <- p$validation$prob_defective
+    y_val <- as.integer(p$validation$actual_class == "defective")
+    tibble::tibble(
+      model = if (condition == "references") "JEV" else "Clef-Flash",
+      dataset = ds,
+      y = as.integer(p$test$actual_class == "defective"),
+      raw = p$test$prob_defective,
+      Platt = platt(p_val, y_val)(p$test$prob_defective),
+      isotonic = isotonic(p_val, y_val)(p$test$prob_defective)
+    )
+  })
+})
+calibration_long <- calibrated |>
+  tidyr::pivot_longer(c("raw", "Platt", "isotonic"),
+                      names_to = "method", values_to = "p")
+```
+
+## Test calibration
+
+```{r}
+#| label: tbl-calibration
+#| tbl-cap: "Calibration on the test sets (JEV with references). Platt and isotonic were fitted on validation only. Interval: 95% paired bootstrap interval of the isotonic minus Platt ECE (2,000 resamples); negative means isotonic is better."
+# Calibration metrics per model, dataset and method.
+calibration_summary <- calibration_long |>
+  dplyr::group_by(.data$model, .data$dataset, .data$method) |>
+  dplyr::reframe(calibration_metrics(.data$p, .data$y))
+
+# Paired bootstrap of the isotonic minus Platt ECE (JEV).
+set.seed(202610)
+bootstrap <- calibrated |>
+  dplyr::filter(.data$model == "JEV") |>
+  dplyr::group_by(.data$dataset) |>
+  dplyr::reframe({
+    d <- dplyr::pick(dplyr::everything())
+    draws <- replicate(2000, {
+      b <- d[sample.int(nrow(d), replace = TRUE), ]
+      calibration_metrics(b$isotonic, b$y)$ece -
+        calibration_metrics(b$Platt, b$y)$ece
+    })
+    tibble::tibble(low = stats::quantile(draws, 0.025),
+                   high = stats::quantile(draws, 0.975))
+  })
+
+# Table T6.
+t6 <- calibration_summary |>
+  dplyr::filter(.data$model == "JEV") |>
+  dplyr::select("dataset", "method", "ece", "log_loss", "ba_at_050") |>
+  tidyr::pivot_wider(names_from = "method",
+                     values_from = c("ece", "log_loss", "ba_at_050")) |>
+  dplyr::left_join(bootstrap, by = "dataset") |>
+  dplyr::arrange(match(.data$dataset, dataset_order)) |>
+  dplyr::transmute(
+    Dataset = dataset_labels[.data$dataset],
+    `ECE raw` = .data$ece_raw,
+    `ECE Platt` = .data$ece_Platt,
+    `ECE isotonic` = .data$ece_isotonic,
+    `Log loss raw` = .data$log_loss_raw,
+    `Log loss Platt` = .data$log_loss_Platt,
+    `Log loss isotonic` = .data$log_loss_isotonic,
+    `BA at 0.5, raw` = .data$ba_at_050_raw,
+    `BA at 0.5, isotonic` = .data$ba_at_050_isotonic,
+    `ECE isotonic - Platt (95% interval)` =
+      paste(fmt(.data$low, 3), "to", fmt(.data$high, 3))
+  )
+readr::write_csv(calibration_summary,
+                 file.path("tables", "T6_calibration_long.csv"))
+save_table(t6, "T6_calibration",
+           "Calibration on the test sets (JEV with references).", digits = 3)
+```
+
+```{r}
+#| label: fig-reliability
+#| fig-cap: "Reliability diagrams on the test sets (JEV with references)."
+#| fig-width: 7
+#| fig-height: 3
+# Observed defect rate against the mean probability in 10 equal bins.
+reliability <- calibration_long |>
+  dplyr::filter(.data$model == "JEV") |>
+  dplyr::mutate(bin = cut(.data$p, seq(0, 1, 0.1), include.lowest = TRUE)) |>
+  dplyr::group_by(.data$dataset, .data$method, .data$bin) |>
+  dplyr::summarise(mean_p = mean(.data$p), observed = mean(.data$y),
+                   n = dplyr::n(), .groups = "drop") |>
+  dplyr::mutate(method = factor(.data$method, names(calibration_colors)))
+
+# Strip labels: dataset name and the ECE of each method, in its color.
+ece_labels <- calibration_summary |>
+  dplyr::filter(.data$model == "JEV") |>
+  dplyr::select("dataset", "method", "ece") |>
+  tidyr::pivot_wider(names_from = "method", values_from = "ece") |>
+  dplyr::mutate(strip = sprintf(
+    "**%s**<br>ECE %s %s %s",
+    dataset_labels[.data$dataset],
+    paint(fmt(.data$raw), calibration_colors[["raw"]]),
+    paint(fmt(.data$Platt), calibration_colors[["Platt"]]),
+    paint(fmt(.data$isotonic), calibration_colors[["isotonic"]])
+  )) |>
+  dplyr::arrange(match(.data$dataset, dataset_order)) |>
+  dplyr::mutate(strip = factor(.data$strip, .data$strip))
+reliability <- reliability |>
+  dplyr::left_join(dplyr::select(ece_labels, "dataset", "strip"),
+                   by = "dataset")
+
+# Figure F6.
+fig_reliability <- function(layout) {
+  ggplot2::ggplot(reliability, ggplot2::aes(.data$mean_p, .data$observed,
+                                            colour = .data$method)) +
+    ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey70",
+                         linewidth = 0.3) +
+    ggplot2::geom_line(linewidth = 0.55) +
+    ggplot2::geom_point(size = 0.9) +
+    ggplot2::scale_colour_manual(values = calibration_colors) +
+    ggplot2::scale_x_continuous(limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+    ggplot2::scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+    ggplot2::facet_wrap(ggplot2::vars(.data$strip),
+                        ncol = if (layout == "one-column") 3 else 5) +
+    ggplot2::labs(
+      title = headline(paste(
+        "Raw JEV probabilities are miscalibrated; isotonic regression on",
+        "validation lowers the ECE on all five datasets"
+      ), layout),
+      subtitle = subline(
+        layout,
+        paint("Raw", calibration_colors[["raw"]]), " JEV probabilities, after ",
+        paint("Platt scaling", calibration_colors[["Platt"]]), " and after ",
+        paint("isotonic regression", calibration_colors[["isotonic"]]),
+        ", both fitted on validation. Calibrated curves follow the diagonal; ",
+        "strips give the test ECE of each."
+      ),
+      x = "Mean predicted defect probability (10 bins)",
+      y = "Observed defect rate"
+    ) +
+    theme_paper(layout) +
+    ggplot2::theme(strip.text = ggtext::element_markdown(face = "plain",
+                                                         lineheight = 1.2))
+}
+save_figure(fig_reliability, "F6_reliability",
+            height = c("one-column" = 3.9, "two-column" = 3.0))
+```
+
+## Validation size
+
+```{r}
+#| label: validation-size
+# For each size, 200 random validation subsets per dataset (JEV with
+# references). On each subset: tune the threshold on the raw
+# probabilities, and fit Platt and isotonic; then score the test set.
+set.seed(202610)
+sizes <- c(5L, 10L, 20L, 30L, 50L)
+ba_at <- function(p, y, t) (mean(p[y == 1] >= t) + mean(p[y == 0] < t)) / 2
+validation_draws <- purrr::map_dfr(dataset_order, function(ds) {
+  p <- frozen_predictions(ds, "references")
+  y_val <- as.integer(p$validation$actual_class == "defective")
+  p_test <- p$test$prob_defective
+  y_test <- as.integer(p$test$actual_class == "defective")
+  # Pans have only 8 validation images per class.
+  usable <- unique(pmin(sizes, min(table(y_val))))
+  purrr::map_dfr(usable, function(n) {
+    purrr::map_dfr(seq_len(200), function(b) {
+      pick <- c(sample(which(y_val == 1), n), sample(which(y_val == 0), n))
+      pv <- p$validation$prob_defective[pick]
+      yv <- y_val[pick]
+      p_platt <- platt(pv, yv)(p_test)
+      p_iso <- isotonic(pv, yv)(p_test)
+      tibble::tibble(
+        dataset = ds, n_per_class = n,
+        method = c("raw", "Platt", "isotonic"),
+        ba = c(ba_at(p_test, y_test, tune_threshold(pv, yv)),
+               ba_at(p_platt, y_test, 0.5),
+               ba_at(p_iso, y_test, 0.5)),
+        ece = c(calibration_metrics(p_test, y_test)$ece,
+                calibration_metrics(p_platt, y_test)$ece,
+                calibration_metrics(p_iso, y_test)$ece)
+      )
+    })
+  })
+})
+
+# Mean and 10th to 90th percentile per dataset, size and method.
+validation_size <- validation_draws |>
+  tidyr::pivot_longer(c("ba", "ece"), names_to = "metric") |>
+  dplyr::group_by(.data$dataset, .data$n_per_class, .data$method,
+                  .data$metric) |>
+  dplyr::summarise(mean = mean(.data$value),
+                   low = stats::quantile(.data$value, 0.1),
+                   high = stats::quantile(.data$value, 0.9),
+                   .groups = "drop") |>
+  dplyr::mutate(
+    dataset = label_dataset(.data$dataset),
+    method = factor(.data$method, names(calibration_colors)),
+    metric = factor(.data$metric, c("ba", "ece"),
+                    c("Test balanced accuracy", "Test ECE"))
+  )
+readr::write_csv(validation_size, file.path("tables", "validation_size.csv"))
+```
+
+```{r}
+#| label: fig-validation-size
+#| fig-cap: "Test balanced accuracy and ECE against the number of validation images per class (JEV with references). Mean of 200 random subsets; band: 10th to 90th percentile."
+#| fig-width: 7
+#| fig-height: 3.8
+# Figure F7.
+fig_validation_size <- function(layout) {
+  ggplot2::ggplot(validation_size,
+                  ggplot2::aes(.data$n_per_class, .data$mean,
+                               colour = .data$method, fill = .data$method)) +
+    ggplot2::annotate("rect", xmin = 10, xmax = 20, ymin = -Inf, ymax = Inf,
+                      fill = "grey92") +
+    ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$low, ymax = .data$high),
+                         alpha = 0.15, colour = NA) +
+    ggplot2::geom_line(linewidth = 0.55) +
+    ggplot2::geom_point(size = 0.9) +
+    ggplot2::scale_colour_manual(values = calibration_colors) +
+    ggplot2::scale_fill_manual(values = calibration_colors) +
+    ggplot2::scale_x_continuous(
+      breaks = if (layout == "one-column") c(5, 20, 50) else sizes
+    ) +
+    ggplot2::facet_grid(rows = ggplot2::vars(.data$metric),
+                        cols = ggplot2::vars(.data$dataset),
+                        scales = "free_y") +
+    ggplot2::labs(
+      title = headline(paste(
+        "Balanced accuracy settles by 10 to 20 validation images per class;",
+        "calibration error keeps falling"
+      ), layout),
+      subtitle = subline(
+        layout,
+        "A threshold on the ", paint("raw", calibration_colors[["raw"]]),
+        " probabilities, ",
+        paint("Platt scaling", calibration_colors[["Platt"]]), " and ",
+        paint("isotonic regression", calibration_colors[["isotonic"]]),
+        ", fitted on random validation subsets. Gray band: 10 to 20 images ",
+        "per class. Pans have only 8 per class."
+      ),
+      x = "Validation images per class", y = NULL
+    ) +
+    theme_paper(layout) +
+    ggplot2::theme(strip.text = ggplot2::element_text(
+      size = ggplot2::rel(if (layout == "one-column") 0.75 else 0.9)
+    ))
+}
+save_figure(fig_validation_size, "F7_validation_size",
+            height = c("one-column" = 3.6, "two-column" = 3.8))
+```
+
+# CLIP replication
+
+The CLIP comparison with its own learning sets uses the learning-set size that @megahed2026clip report for each experiment and the decision rule of that paper. For pans and pipe staple, the learning and test images are the same as in that paper.
+
+```{r}
+#| label: tbl-clip-replication
+#| tbl-cap: "CLIP with the learning sets of the CLIP paper: this replication against the published results."
+# Recompute the metrics of each setting from its test predictions; the
+# published values are in the same summary file.
+clip_summary <- read_csv_quiet(file.path(results_root, "clip_paper",
+                                         "summary.csv"))
+clip_paper <- clip_summary |>
+  dplyr::mutate(ours = purrr::map(.data$setting, function(s) {
+    d <- read_csv_quiet(file.path(results_root, "clip_paper",
+                                  paste0(s, "_test_predictions.csv")))
+    binary_metrics(d$prob_defective, d$predicted_class, d$actual_class) |>
+      dplyr::mutate(accuracy = mean(d$predicted_class == d$actual_class))
+  })) |>
+  dplyr::select("setting", "dataset", "n_learning_nominal",
+                "n_learning_defective", dplyr::starts_with("paper_"), "ours") |>
+  tidyr::unnest("ours")
+
+# Table T7.
+t7 <- clip_paper |>
+  dplyr::transmute(
+    Setting = .data$setting,
+    `Learning images` = paste(.data$n_learning_nominal, "+",
+                              .data$n_learning_defective),
+    `Paper reference` = .data$paper_learning,
+    `Accuracy (this study)` = .data$accuracy,
+    `Accuracy (paper)` = .data$paper_accuracy,
+    `Sensitivity (this study)` = .data$sensitivity,
+    `Sensitivity (paper)` = .data$paper_sensitivity,
+    `Specificity (this study)` = .data$specificity,
+    `Specificity (paper)` = .data$paper_specificity,
+    `AUC (this study)` = .data$roc_auc,
+    `AUC (paper)` = .data$paper_auc
+  )
+save_table(t7, "T7_clip_replication",
+           paste("CLIP with the learning sets of the CLIP paper:",
+                 "replication against the published results."),
+           digits = 3)
+```
+
+# Appendix: all trials {#sec-appendix}
+
+```{r}
+#| label: tbl-trials
+#| tbl-cap: "All validation trials (appendix). Decision: baseline, kept, discarded, replicate (repeat run), ablation, or comparison (another model). Use the boxes above the columns to filter."
+# Table A1.
+a1 <- trial_scores |>
+  dplyr::transmute(
+    `#` = .data$order,
+    Dataset = dataset_labels[.data$dataset],
+    Trial = .data$trial_id,
+    Model = .data$model,
+    Change = .data$variable,
+    Decision = .data$decision,
+    Threshold = .data$threshold,
+    BA = .data$balanced_accuracy,
+    Sensitivity = .data$sensitivity,
+    Specificity = .data$specificity,
+    AUC = .data$roc_auc
+  )
+save_table(a1, "A1_all_trials", "All validation trials.", filter = TRUE)
+```
+
+# Re-run steps {#sec-rerun}
+
+These chunks run only when their switch in @sec-switches is `TRUE`. They call the scripts in `scripts/` and write to `results/rerun/`, so the saved results never change. A re-run uses the frozen validation sets and the frozen configurations. Paid JEV calls are logged in `replication_materials/calls/typesafe-calls.csv`. A full JEV re-run needs about 4,400 calls (about USD 0.40), which is more than the calls left under the budget row of the replication record; add a new budget row first.
+
+```{r}
+#| label: rerun-helpers
+#| cache: false
+rerun_root <- file.path("results", "rerun")
+typesafe_url <- "https://api.typesafe.ai/v1/systemone"
+call_log <- "replication_materials/calls/typesafe-calls.csv"
+
+# Run one script with environment variables, then restore the old values.
+run_script <- function(script, vars) {
+  old <- Sys.getenv(names(vars), unset = NA, names = TRUE)
+  do.call(Sys.setenv, as.list(vars))
+  on.exit({
+    restore <- !is.na(old)
+    if (any(restore)) do.call(Sys.setenv, as.list(old[restore]))
+    if (any(!restore)) Sys.unsetenv(names(old)[!restore])
+  }, add = TRUE)
+  status <- system2(file.path(R.home("bin"), "Rscript"), script)
+  if (!identical(status, 0L)) {
+    stop(script, " failed: ",
+         paste(names(vars), vars, sep = "=", collapse = " "))
+  }
+}
+
+# The settings of each logged trial, from its saved score file.
+trial_settings <- trial_log |>
+  dplyr::mutate(score = purrr::map2(.data$dataset, .data$trial_id,
+                                    function(ds, id) {
+    file.path("results", "optimization", ds, paste0(id, "_score.csv")) |>
+      read_csv_quiet() |>
+      dplyr::mutate(dplyr::across(dplyr::everything(), as.character))
+  })) |>
+  tidyr::unnest("score", names_sep = "_")
+value_or <- function(x, default) ifelse(is.na(x) | x == "", default, x)
+
+# Re-run the trials of one model: first the API runs, then the threshold
+# trials, which rescore saved probabilities (no API calls).
+rerun_trials <- function(model_pattern, log_file = "") {
+  todo <- dplyr::filter(trial_settings,
+                        grepl(model_pattern, .data$score_model))
+  runs <- dplyr::filter(todo, is.na(.data$score_source_trial))
+  for (i in seq_len(nrow(runs))) {
+    s <- runs[i, ]
+    run_script("scripts/optimize_jev.R", c(
+      JEV_DATASET = s$dataset,
+      JEV_TRIAL = s$trial_id,
+      JEV_RESULTS_ROOT = rerun_root,
+      JEV_N_VALIDATION = as.character(as.integer(s$score_n_images) / 2L),
+      JEV_USE_REFERENCES = tolower(s$score_use_references),
+      JEV_REFERENCE_FILE = value_or(
+        s$score_reference_file,
+        "results/reference_manifest_seed202610_by_dataset.csv"
+      ),
+      JEV_CRITERIA_FILE = value_or(s$score_criteria_file, ""),
+      JEV_CROP = s$score_crop,
+      JEV_MAX_SIZE = s$score_max_size,
+      JEV_UPSCALE = tolower(s$score_upscale),
+      JEV_MODEL = s$score_model,
+      JEV_THRESHOLD = "0.5",
+      JEV_BASE_URL = value_or(s$score_base_url, typesafe_url),
+      JEV_IMAGE_FORMAT = value_or(s$score_image_format, "assets"),
+      JEV_CALL_LOG = log_file
+    ))
+  }
+  rescores <- dplyr::filter(todo, !is.na(.data$score_source_trial))
+  for (i in seq_len(nrow(rescores))) {
+    s <- rescores[i, ]
+    run_script("scripts/rescore_threshold.R", c(
+      JEV_DATASET = s$dataset,
+      JEV_FROM_TRIAL = s$score_source_trial,
+      JEV_TRIAL = s$trial_id,
+      JEV_THRESHOLD = s$score_threshold,
+      JEV_RESULTS_ROOT = rerun_root
+    ))
+  }
+}
+
+# Re-run the one-time test of the frozen configurations.
+rerun_test <- function(conditions, log_file = "") {
+  for (condition in conditions) {
+    for (ds in dataset_order) {
+      run_script("scripts/evaluate_frozen.R", c(
+        JEV_DATASET = ds,
+        JEV_CONDITION = condition,
+        JEV_RESULTS_ROOT = rerun_root,
+        JEV_CALL_LOG = log_file
+      ))
+    }
+  }
+}
+```
+
+```{r}
+#| label: rerun-jev-trials
+#| cache: false
+#| eval: !expr run_jev_trials
+rerun_trials("^jev-", log_file = call_log)
+```
+
+```{r}
+#| label: rerun-jev-test
+#| cache: false
+#| eval: !expr run_jev_test
+rerun_test(c("references", "zero_shot"), log_file = call_log)
+```
+
+```{r}
+#| label: rerun-clip
+#| cache: false
+#| eval: !expr run_clip
+run_script("scripts/run_clip.R", c(JEV_RESULTS_ROOT = rerun_root))
+run_script("scripts/run_clip_paper.R", c(JEV_RESULTS_ROOT = rerun_root))
+```
+
+```{r}
+#| label: rerun-clef
+#| cache: false
+#| eval: !expr run_clef
+rerun_trials("clef-flash")
+rerun_test(c("clef_refs", "clef_zero"))
+```
+
+# Session information
+
+```{r}
+#| label: session-info
+#| cache: false
+sessionInfo()
+```
+
+# References {.unnumbered}
+
+::: {#refs}
+:::

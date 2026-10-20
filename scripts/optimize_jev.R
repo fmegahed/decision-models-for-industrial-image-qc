@@ -12,6 +12,7 @@ setting <- function(name, default) {
 
 dataset <- setting("JEV_DATASET", "microstructure")
 trial_id <- setting("JEV_TRIAL", "baseline")
+Sys.setenv(JEV_CALL_PURPOSE = paste(dataset, trial_id)) # for the call log (JEV_CALL_LOG)
 seed <- 202610L
 n_validation <- as.integer(setting("JEV_N_VALIDATION", 20)) # per binary class
 crop <- setting("JEV_CROP", "center")
@@ -29,7 +30,8 @@ criteria_file <- setting("JEV_CRITERIA_FILE", "")
 reference_file <- setting("JEV_REFERENCE_FILE", file.path(
   "results", sprintf("reference_manifest_seed%s_by_dataset.csv", seed)
 ))
-output_dir <- file.path("results", "optimization", dataset)
+results_root <- Sys.getenv("JEV_RESULTS_ROOT", unset = "results") # outputs only; inputs stay in results/
+output_dir <- file.path(results_root, "optimization", dataset)
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 if (!grepl("^[A-Za-z0-9_-]+$", trial_id)) stop("Invalid trial ID")
@@ -45,6 +47,11 @@ if (is.na(max_size) || max_size < 280 || max_size > 1568) stop("Invalid max_size
 splits <- readr::read_csv("results/image_split_manifest.csv", show_col_types = FALSE)
 if (!dataset %in% unique(splits$dataset)) stop("Unknown dataset: ", dataset)
 validation_file <- file.path(output_dir, "validation_images.csv")
+# A re-run in another results root uses the frozen validation set, never a new one.
+frozen_validation <- file.path("results", "optimization", dataset, "validation_images.csv")
+if (results_root != "results" && !file.exists(validation_file) && file.exists(frozen_validation)) {
+  file.copy(frozen_validation, validation_file)
+}
 
 if (file.exists(validation_file)) {
   validation <- readr::read_csv(validation_file, show_col_types = FALSE)

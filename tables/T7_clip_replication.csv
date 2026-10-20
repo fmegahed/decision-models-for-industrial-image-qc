@@ -1,0 +1,7 @@
+Setting,Learning images,Paper reference,Accuracy (this study),Accuracy (paper),Sensitivity (this study),Sensitivity (paper),Specificity (this study),Specificity (paper),AUC (this study),AUC (paper)
+pan_10,10 + 10,10 per class (Section 4),0.91,0.91,0.821,0.821,1,1,0.999,0.998
+pipe_staple_50,50 + 50,first 50 per class (Section 7),0.57,0.58,0.56,0.56,0.58,0.6,0.631,0.608
+textiles_50,50 + 50,50 per class: 97% accuracy (Sec. 9.1),0.975,0.97,0.97,NA,0.98,NA,0.998,NA
+extrusion_200,200 + 200,plateau beyond 200 per class (Sec. 5),0.79,NA,0.81,NA,0.77,NA,0.835,NA
+extrusion_350,350 + 350,350 per class: 80% accuracy (Sec. 5),0.82,0.8,0.83,0.78,0.81,0.81,0.87,NA
+microstructure_72,72 + 72,"72 nominal, 8 per defect type (Sec. 8)",0.853,0.898,1,0.987,0.707,0.809,0.994,0.952

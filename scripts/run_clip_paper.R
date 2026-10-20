@@ -71,7 +71,8 @@ learning <- purrr::pmap_dfr(plan, function(setting, dataset, defect_type, n) {
                  actual_class = candidates$actual_class[[1]], image_path = chosen)
 })
 
-output_dir <- file.path("results", "clip_paper")
+results_root <- Sys.getenv("JEV_RESULTS_ROOT", unset = "results") # outputs only; inputs stay in results/
+output_dir <- file.path(results_root, "clip_paper")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 readr::write_csv(learning, file.path(output_dir, "learning_sets.csv"))
 

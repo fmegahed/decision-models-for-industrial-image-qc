@@ -1,0 +1,6 @@
+Dataset,JEV / Clef-Flash references,Validation images (refinement and calibration),"Total, decision models","CLIP, same references","CLIP, paper learning sets"
+Metallic pans,4,16,20,4,20
+Extrusion,3,100,103,3,700
+Textiles,3,100,103,3,100
+Pipe staple,4,100,104,4,100
+Microstructure,4,100,104,4,144

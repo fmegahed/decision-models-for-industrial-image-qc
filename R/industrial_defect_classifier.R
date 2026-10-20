@@ -14,6 +14,48 @@ defect_labels <- function() {
   )
 }
 
+#' Log one API call for the replication record
+#' @param response httr2 response.
+#' @param started Time the request started.
+#' @param model,base_url Model identifier and endpoint of the call.
+#' @param image_path The inspected image.
+#' @return Nothing. Appends one row to the CSV named in `JEV_CALL_LOG`
+#'   (columns of `replication_materials/calls/`); does nothing when it is unset.
+#' @details The cost is input tokens times USD 0.042 per million for the
+#'   TypeSafe endpoint, and empty for a failed call or a local server. The
+#'   purpose comes from `JEV_CALL_PURPOSE` (the runner sets the trial ID).
+log_call <- function(response, started, model, base_url, image_path) {
+  log_file <- Sys.getenv("JEV_CALL_LOG")
+  if (!nzchar(log_file)) return(invisible(NULL))
+  ok <- !httr2::resp_is_error(response)
+  usage <- if (ok) {
+    httr2::resp_body_json(response, simplifyVector = FALSE)$usage
+  }
+  token_count <- function(x) if (is.null(x)) NA_real_ else x
+  input_tokens <- token_count(usage$input_tokens)
+  paid <- ok && grepl("api.typesafe.ai", base_url, fixed = TRUE)
+  seconds <- as.numeric(difftime(Sys.time(), started, units = "secs"))
+  row <- tibble::tibble(
+    time_utc = format(started, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    call_id = paste0(format(started, "%Y%m%dT%H%M%OS3", tz = "UTC"), "-",
+                     basename(image_path)),
+    purpose = Sys.getenv("JEV_CALL_PURPOSE", unset = "unspecified"),
+    model = model,
+    request_id = httr2::resp_header(response, "x-request-id", default = ""),
+    status = httr2::resp_status(response),
+    latency_ms = round(seconds * 1000),
+    input_tokens = input_tokens,
+    output_tokens = token_count(usage$output_tokens),
+    cost_usd = if (paid && !is.na(input_tokens)) {
+      input_tokens * 0.042 / 1e6
+    } else {
+      NA_real_
+    }
+  )
+  readr::write_csv(row, log_file, append = file.exists(log_file), na = "")
+  invisible(NULL)
+}
+
 #' Prepare an image for TypeSafe
 #' @param image_path Path to a JPEG or PNG image.
 #' @param crop Either `"none"` or `"center"` for a centered square crop.
@@ -116,7 +158,8 @@ select_reference_images <- function(train_dir = "pan_images/train",
 #' @param threshold Cutoff for independent multilabel probabilities.
 #' @param crop Whether to preserve the image or center-crop to a square.
 #' @param max_size Maximum dimension in pixels.
-#' @param upscale Passed to [prepare_image()] for the inspected and reference images.
+#' @param upscale Passed to [prepare_image()] for the inspected and reference
+#'   images.
 #' @param api_key TypeSafe API key (defaults to environment variable).
 #' @param model Model identifier.
 #' @param base_url SystemOne endpoint. Change it only for a self-hosted,
@@ -132,7 +175,8 @@ select_reference_images <- function(train_dir = "pan_images/train",
 classify_image <- function(image_path,
                            mode = c("binary", "multiclass", "multilabel"),
                            defects = defect_labels(), reference_images = NULL,
-                           criteria = NULL, threshold = 0.5, crop = c("none", "center"),
+                           criteria = NULL, threshold = 0.5,
+                           crop = c("none", "center"),
                            max_size = 1568L, upscale = FALSE,
                            api_key = Sys.getenv("TYPESAFE_API_KEY"),
                            model = "jev-latest",
@@ -155,7 +199,8 @@ classify_image <- function(image_path,
   }
   
   # Add the test image to the asset map.
-  prepared <- prepare_image(image_path, crop, max_size, upscale, rgb = image_format == "images")
+  rgb <- image_format == "images" # SGLang servers fail on gray JPEGs
+  prepared <- prepare_image(image_path, crop, max_size, upscale, rgb = rgb)
   on.exit(unlink(prepared$path), add = TRUE)
   image_id <- "inspection_image_1"
   assets <- list()
@@ -189,7 +234,7 @@ classify_image <- function(image_path,
       }
       ids <- character()
       for (path in reference_images[[label]]) {
-        ref <- prepare_image(path, crop, max_size, upscale, rgb = image_format == "images")
+        ref <- prepare_image(path, crop, max_size, upscale, rgb = rgb)
         id <- paste0("reference_", length(assets) + 1L)
         assets[[id]] <- list(
           type = "image", format = "jpg",
@@ -246,8 +291,10 @@ classify_image <- function(image_path,
       position <- stats::setNames(seq_along(assets), names(assets))
       for (label in c("normal", "defective")) {
         ids <- unlist(criteria[[label]]$examples)
-        legend <- c(legend, sprintf("Reference images of the %s category: %s.", label,
-                                    paste("image", position[ids], collapse = ", ")))
+        legend <- c(legend, sprintf(
+          "Reference images of the %s category: %s.", label,
+          paste("image", position[ids], collapse = ", ")
+        ))
         criteria[[label]] <- criteria[[label]]$description
       }
       questions$quality$criteria <- criteria
@@ -262,13 +309,15 @@ classify_image <- function(image_path,
     )
   }
   
+  started <- Sys.time()
   response <- httr2::request(base_url) |>
     httr2::req_auth_bearer_token(api_key) |>
     httr2::req_headers("TypeSafe-Danger-Zone-Images" = "true") |>
     httr2::req_body_json(request_body, auto_unbox = TRUE) |>
     httr2::req_error(is_error = function(resp) FALSE) |>
     httr2::req_perform()
-  
+  log_call(response, started, model, base_url, image_path)
+
   if (httr2::resp_is_error(response)) {
     stop("TypeSafe HTTP ", httr2::resp_status(response), ":\n",
          httr2::resp_body_string(response), call. = FALSE)

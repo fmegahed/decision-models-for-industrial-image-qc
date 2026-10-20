@@ -1,7 +1,8 @@
 # Calibration and threshold functions shared by calibration.R and
 # validation_size.R (no API calls). Source from the project root.
 
-clamp <- function(p) pmin(pmax(p, 0.005), 0.995) # scores can be 0 or 1; avoid logit(0)
+# Scores can be 0 or 1; clamp them to avoid logit(0).
+clamp <- function(p) pmin(pmax(p, 0.005), 0.995)
 
 #' Measure calibration of defect probabilities
 #' @param p Defect probabilities.
@@ -10,7 +11,8 @@ clamp <- function(p) pmin(pmax(p, 0.005), 0.995) # scores can be 0 or 1; avoid l
 #'   `mean_p_minus_rate`, and `ba_at_050`.
 calibration_metrics <- function(p, y) {
   bins <- cut(p, seq(0, 1, 0.1), include.lowest = TRUE)
-  gaps <- tapply(seq_along(p), bins, function(i) length(i) * abs(mean(p[i]) - mean(y[i])))
+  gaps <- tapply(seq_along(p), bins,
+                 function(i) length(i) * abs(mean(p[i]) - mean(y[i])))
   tibble::tibble(
     brier = mean((p - y)^2),
     ece = sum(gaps, na.rm = TRUE) / length(p),
@@ -26,10 +28,15 @@ calibration_metrics <- function(p, y) {
 #'   scores are perfectly separated.
 #' @return A function that maps new probabilities to calibrated ones.
 platt <- function(p, y) {
-  target <- dplyr::if_else(y == 1, (sum(y) + 1) / (sum(y) + 2), 1 / (sum(1 - y) + 2))
+  target <- dplyr::if_else(y == 1, (sum(y) + 1) / (sum(y) + 2),
+                           1 / (sum(1 - y) + 2))
   fit <- stats::glm(target ~ x, family = stats::quasibinomial(),
-                    data = data.frame(target = target, x = stats::qlogis(clamp(p))))
-  function(new_p) unname(stats::predict(fit, data.frame(x = stats::qlogis(clamp(new_p))), type = "response"))
+                    data = data.frame(target = target,
+                                      x = stats::qlogis(clamp(p))))
+  function(new_p) {
+    new_x <- data.frame(x = stats::qlogis(clamp(new_p)))
+    unname(stats::predict(fit, new_x, type = "response"))
+  }
 }
 
 #' Fit isotonic regression
@@ -40,9 +47,15 @@ isotonic <- function(p, y) {
   o <- order(p)
   fit <- stats::isoreg(p[o], y[o])
   # One fitted value per distinct score (tied scores share the pooled value).
-  knots <- stats::aggregate(fitted ~ score, data = data.frame(score = p[o], fitted = fit$yf), FUN = mean)
-  if (nrow(knots) == 1L) return(function(new_p) rep(knots$fitted, length(new_p)))
-  function(new_p) stats::approx(knots$score, knots$fitted, xout = new_p, rule = 2, ties = mean)$y
+  knots <- stats::aggregate(fitted ~ score, FUN = mean,
+                            data = data.frame(score = p[o], fitted = fit$yf))
+  if (nrow(knots) == 1L) {
+    return(function(new_p) rep(knots$fitted, length(new_p)))
+  }
+  function(new_p) {
+    stats::approx(knots$score, knots$fitted, xout = new_p, rule = 2,
+                  ties = mean)$y
+  }
 }
 
 #' Tune a decision threshold (the rule of the experiment)
@@ -51,7 +64,8 @@ isotonic <- function(p, y) {
 #' @return The threshold.
 tune_threshold <- function(p, y) {
   t <- round(seq(0.01, 0.99, 0.01), 2) # exact grid: seq() alone drifts
-  ba <- vapply(t, function(x) (mean(p[y == 1] >= x) + mean(p[y == 0] < x)) / 2, numeric(1))
+  ba <- vapply(t, function(x) (mean(p[y == 1] >= x) + mean(p[y == 0] < x)) / 2,
+               numeric(1))
   runs <- rle(abs(ba - max(ba)) < 1e-9)
   ends <- cumsum(runs$lengths)
   starts <- ends - runs$lengths + 1

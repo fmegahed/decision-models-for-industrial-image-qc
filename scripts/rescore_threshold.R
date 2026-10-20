@@ -13,7 +13,8 @@ threshold <- as.numeric(Sys.getenv("JEV_THRESHOLD"))
 
 if (!grepl("^[A-Za-z0-9_-]+$", trial_id)) stop("Invalid trial ID")
 if (!is.finite(threshold) || threshold < 0 || threshold > 1) stop("Invalid threshold")
-output_dir <- file.path("results", "optimization", dataset)
+results_root <- Sys.getenv("JEV_RESULTS_ROOT", unset = "results") # outputs only; inputs stay in results/
+output_dir <- file.path(results_root, "optimization", dataset)
 source_predictions <- file.path(output_dir, paste0(from_trial, "_predictions.csv"))
 source_score <- file.path(output_dir, paste0(from_trial, "_score.csv"))
 result_file <- file.path(output_dir, paste0(trial_id, "_predictions.csv"))

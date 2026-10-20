@@ -64,7 +64,8 @@ splits <- readr::read_csv("results/image_split_manifest.csv", show_col_types = F
 references <- readr::read_csv("results/reference_manifest_seed202610_by_dataset.csv", show_col_types = FALSE)
 frozen <- readr::read_csv("results/optimization/frozen_configs.csv", show_col_types = FALSE) |>
   dplyr::filter(.data$condition == "references")
-output_dir <- file.path("results", "clip")
+results_root <- Sys.getenv("JEV_RESULTS_ROOT", unset = "results") # outputs only; inputs stay in results/
+output_dir <- file.path(results_root, "clip")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 summary <- list()
