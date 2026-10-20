@@ -14,3 +14,4 @@
 | 2026-10-20T18:12Z | inputs | Fadel M. Megahed | Set up the replication record. | project/ | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | 2026-10-20T19:11Z | paper | Claude Code (Opus 5.5) | Built the replication document beyond_clip_analysis.qmd: tables T1 to T7 and A1, figures F1 to F7 in two sizes and three formats, from saved results. | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | 2026-10-20T20:51Z | paper | Claude Code (Opus 5.5) | Updated the skill files to replication-materials 1.1.0 and published the rendered replication document on the record website (Analysis page). | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| 2026-10-20T21:03Z | evaluate | Claude Code (Opus 5.5) | Tuned the threshold of CLIP with the paper learning sets by leave-one-out (local GPU, no API calls); added it to T4 and F3, with glyphs against the best CLIP result; wrote renv.lock. | - | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
