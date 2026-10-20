@@ -4,7 +4,7 @@ This record belongs to a study that asks whether structured decision models (JEV
 
 People: Fadel M. Megahed (Owner) and Ying-Ju (Tessa) Chen (Co-author). The full list is in `project/roadmap.md`.
 
-## What each folder holds
+## Folders
 
 | Folder | What it holds |
 |---|---|
@@ -15,7 +15,7 @@ People: Fadel M. Megahed (Owner) and Ying-Ju (Tessa) Chen (Co-author). The full 
 | `project/` | The roadmap, the decisions and the process events. |
 | `environment/` | Session information, lock files and software versions. |
 
-## Build the site on your computer
+## Local build
 
 1. Install Node 22.
 2. Open a terminal in the root folder of the repository.
