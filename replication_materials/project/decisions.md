@@ -58,6 +58,8 @@
 | D52 | 2026-10-20 | Round reported numbers half up (0.725 to 0.73), as in the submitted abstract, because floating point makes round() and sprintf() give 0.72. | claude | claude | measurement | results/final_test/summary.csv, extrusion references test_ba 0.725 | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D53 | 2026-10-20 | Show all tables of the replication document as interactive DT tables; keep the CSV and LaTeX files for the paper. | fmm | fmm | chat | "Further improve the readability of the results; use DT for all tables" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D54 | 2026-10-20 | In figures F3 and F4, give each method its own row or column, with larger points and no vertical nudging. | fmm | fmm | chat | "make the shapes bigger and do not nudge them on the y-axis (or at least not that much) since they are hard to deciper" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D55 | 2026-10-20 | Publish figure F1 with its image sources on the figure; its AutoVI (pipe staple) tiles stay under CC BY-NC-SA 4.0. | fmm | fmm | chat | "publish F1 with attribution" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D56 | 2026-10-20 | Keep beyond_clip_analysis.html in the repository and show it on the record website as an extra page (replication-materials 1.1.0). | fmm | fmm | chat | "do not git ignore the beyond_clip_analysis.html since it should be part of the replication materials" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 
 ## Corrections
 
