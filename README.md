@@ -50,7 +50,7 @@ The images are not in this repository. Copy the folders of [fmegahed/qe_genai/da
 
 - `results/image_split_manifest.csv` lists exactly the images used and their split. The scripts stop if an image is missing.
 - Two cleanups differ from a fresh copy: duplicate pan test images were removed (the `qe_genai` test folder already matches), and 3 extrusion frames that were byte-identical copies of test frames were removed from the non-test pool. Extra files in `imgs/` are not used.
-- The pipe staple images are from the Automotive Visual Inspection Dataset (AutoVI), Renault Group, CC BY-NC-SA 4.0, [doi:10.5281/zenodo.10459003](https://doi.org/10.5281/zenodo.10459003). For the other datasets, see Megahed et al. (2026), below.
+- The pipe staple images are from the Automotive Visual Inspection Dataset (AutoVI; Carvalho et al., 2024), CC BY-NC-SA 4.0. For the other datasets, see Megahed et al. (2026).
 
 ## Reproduce
 
@@ -64,10 +64,13 @@ Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr
 - CLIP (local GPU): a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (versions in `results/clip/python_environment.txt`), then `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/run_clip.R` and `scripts/run_clip_paper.R`. Stop the Clef-Flash server first: two CUDA processes on one GPU made the CLIP run crash.
 - Clef-Flash (local GPU, about 25 GB): `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`, then run the scripts with `JEV_BASE_URL=http://localhost:30000/v1/systemone JEV_MODEL=Cloudflare/clef-flash JEV_IMAGE_FORMAT=images`. Its server ignores the TypeSafe `assets` field, so images go as an ordered list (`image_format = "images"`).
 
-## Related work
+## References
 
-- Megahed, Fadel Mounir, et al. "Adapting OpenAI's CLIP model for few-shot image inspection in manufacturing quality control: An expository case study with multiple application examples." *Journal of Quality Technology* (2026): 1-27. Open access: [doi:10.1080/00224065.2026.2640171](https://www.tandfonline.com/doi/pdf/10.1080/00224065.2026.2640171) (preprint: [arXiv:2501.12596](https://arxiv.org/abs/2501.12596)).
-- The notebook of that study: [image_inspection_with_clip.ipynb](https://github.com/fmegahed/qe_genai/blob/main/notebook/image_inspection_with_clip.ipynb).
+Carvalho, P., Lafou, M., Durupt, A., Leblanc, A., & Grandvalet, Y. (2024). *The Automotive Visual Inspection Dataset (AutoVI): A genuine industrial production dataset for unsupervised anomaly detection* [Data set]. Zenodo. https://doi.org/10.5281/zenodo.10459003
+
+Megahed, F. M., Chen, Y.-J., Colosimo, B. M., Grasso, M., Jones-Farmer, L. A., Knoth, S., Sun, H., & Zwetsloot, I. M. (2026). Adapting OpenAI's CLIP model for few-shot image inspection in manufacturing quality control: An expository case study with multiple application examples. *Journal of Quality Technology, 58*(4), 415–441. https://doi.org/10.1080/00224065.2026.2640171 (Open access, CC BY 4.0. Preprint: https://arxiv.org/abs/2501.12596.)
+
+The notebook of Megahed et al. (2026): [image_inspection_with_clip.ipynb](https://github.com/fmegahed/qe_genai/blob/main/notebook/image_inspection_with_clip.ipynb).
 
 ## License
 

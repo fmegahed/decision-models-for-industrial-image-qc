@@ -1,5 +1,5 @@
-# Replicate the few-shot CLIP protocol of Megahed et al. (2026), Journal of Quality
-# Technology, doi:10.1080/00224065.2026.2640171 (preprint arXiv:2501.12596)
+# Replicate the few-shot CLIP protocol of Megahed et al. (2026,
+# https://doi.org/10.1080/00224065.2026.2640171; preprint arXiv:2501.12596)
 # on our test partition, with the learning-set size the paper reports for each
 # experiment (local model, no API calls).
 # Decision rule as in the paper: the class with the higher maximum cosine

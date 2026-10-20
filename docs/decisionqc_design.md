@@ -226,7 +226,7 @@ plot_reliability <- function(prob, truth, calibrators = NULL) { ... }
 ## 3. Paper outline
 
 1. Introduction: few-shot image inspection; why calibrated probabilities matter in quality control.
-2. Background: JEV and the SystemOne API; the CLIP baseline (Megahed et al., 2026, Journal of Quality Technology, doi:10.1080/00224065.2026.2640171).
+2. Background: JEV and the SystemOne API; the CLIP baseline (Megahed et al., 2026).
 3. Methods
    1. Data: five datasets; test partitions matched to the CLIP paper.
    2. Data audit: exact and near duplicates; the pan cleanup.
@@ -238,3 +238,7 @@ plot_reliability <- function(prob, truth, calibrators = NULL) { ... }
 5. Discussion: text criteria give the largest gains; references improve ranking; calibration replaces threshold tuning; limits of transfer (real textiles, dropped).
 6. Limitations: 50 validation images per class; model versions; class balance (the probabilities are calibrated at 50% defects); simulated data.
 7. Reproducibility: the replication record and the package.
+
+## References
+
+Megahed, F. M., Chen, Y.-J., Colosimo, B. M., Grasso, M., Jones-Farmer, L. A., Knoth, S., Sun, H., & Zwetsloot, I. M. (2026). Adapting OpenAI's CLIP model for few-shot image inspection in manufacturing quality control: An expository case study with multiple application examples. *Journal of Quality Technology, 58*(4), 415–441. https://doi.org/10.1080/00224065.2026.2640171
