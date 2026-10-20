@@ -842,21 +842,40 @@ paper_sets <- purrr::map_dfr(dataset_order, function(ds) {
                     paste0(clip_paper_setting[[ds]], "_test_predictions.csv"))
   read_test(path, "predicted_class", "CLIP", "paper learning sets")
 })
+# The CLIP baseline: 50 learning images per class, the low end of the 50 to
+# 100 per class in the abstract of the CLIP paper (pans: 10 per class, all
+# they have). Defect images are split evenly over the defect types.
+clip_baseline_setting <- c(
+  pan_images = "pan_10", extrusion = "extrusion_50",
+  textiles = "textiles_50", pipe_staple = "pipe_staple_50",
+  microstructure = "microstructure_50"
+)
+baseline <- purrr::map_dfr(dataset_order, function(ds) {
+  path <- file.path(results_root, "clip_paper",
+                    paste0(clip_baseline_setting[[ds]], "_test_predictions.csv"))
+  read_test(path, "predicted_class", "CLIP", "baseline")
+})
+
 # The same learning sets with a threshold tuned like ours. Our validation
 # images are mostly inside these learning sets, so the threshold comes from
 # leave-one-out scores of the learning set (scripts/run_clip_paper_threshold.R).
 tuned_clip <- read_csv_quiet(file.path(results_root, "clip_paper",
                                        "tuned_thresholds.csv"))
-paper_tuned <- purrr::map_dfr(dataset_order, function(ds) {
-  setting <- clip_paper_setting[[ds]]
-  threshold <- tuned_clip$threshold[tuned_clip$setting == setting]
-  path <- file.path(results_root, "clip_paper",
-                    paste0(setting, "_test_predictions.csv"))
-  read_test(path, "predicted_class", "CLIP", "paper learning sets, tuned") |>
-    dplyr::mutate(predicted = ifelse(.data$prob >= .env$threshold,
-                                     "defective", "nominal"))
-})
-test_predictions <- dplyr::bind_rows(same_partition, paper_sets, paper_tuned)
+read_tuned <- function(settings, condition) {
+  purrr::map_dfr(dataset_order, function(ds) {
+    setting <- settings[[ds]]
+    threshold <- tuned_clip$threshold[tuned_clip$setting == setting]
+    path <- file.path(results_root, "clip_paper",
+                      paste0(setting, "_test_predictions.csv"))
+    read_test(path, "predicted_class", "CLIP", condition) |>
+      dplyr::mutate(predicted = ifelse(.data$prob >= .env$threshold,
+                                       "defective", "nominal"))
+  })
+}
+baseline_tuned <- read_tuned(clip_baseline_setting, "baseline, tuned")
+paper_tuned <- read_tuned(clip_paper_setting, "paper learning sets, tuned")
+test_predictions <- dplyr::bind_rows(same_partition, baseline, baseline_tuned,
+                                     paper_sets, paper_tuned)
 
 # Test metrics per method and dataset.
 test_metrics <- test_predictions |>
@@ -869,14 +888,16 @@ test_metrics <- test_predictions |>
 
 ```{r}
 #| label: tbl-test-results
-#| tbl-cap: "Test balanced accuracy (ROC AUC in parentheses). Every method uses a threshold chosen on validation, except CLIP with the learning sets of the CLIP paper: it is shown with the rule of that paper (the class with the higher maximum similarity) and with a threshold tuned by leave-one-out on its learning set, because our validation images are mostly in those learning sets. Glyphs (this page only) compare the balanced accuracy of JEV and Clef-Flash with the best CLIP result on the same dataset (★): ▲ at least 0.02 higher, ● within 0.02, ▼ at least 0.02 lower. Point at a glyph for the differences."
-# The eight methods, in the order of the table and of figure F3.
+#| tbl-cap: "Test balanced accuracy (ROC AUC in parentheses). JEV, Clef-Flash and CLIP with the same references or zero-shot use a threshold chosen on validation. The CLIP baseline learns from 50 images per class (10 for pans), the low end of the abstract of the CLIP paper; CLIP with the learning sets of the CLIP paper uses the size that paper reports for each dataset. Both are shown with the rule of that paper (the class with the higher maximum similarity) and with a threshold tuned by leave-one-out on the learning set, because our validation images are mostly in those learning sets. On this page: the chart shows the balanced accuracy of every method (dashed line: the CLIP baseline), and glyphs compare each method with the CLIP baseline (★): ▲ at least 0.02 higher, ● within 0.02, ▼ at least 0.02 lower. Point at a glyph or a dot for the values."
+# The ten methods, in the order of the table and of figure F3.
 method_order <- c(
   "JEV, references", "JEV, zero-shot",
   "Clef-Flash, references", "Clef-Flash, zero-shot",
-  "CLIP, references", "CLIP, zero-shot", "CLIP, paper learning sets",
-  "CLIP, paper learning sets, tuned"
+  "CLIP, references", "CLIP, zero-shot",
+  "CLIP, baseline", "CLIP, baseline, tuned",
+  "CLIP, paper learning sets", "CLIP, paper learning sets, tuned"
 )
+benchmark <- "CLIP, baseline"
 
 # Table T4: one "BA (AUC)" cell per dataset and method.
 t4 <- test_metrics |>
@@ -893,51 +914,108 @@ t4 <- test_metrics |>
   dplyr::rename(Dataset = "dataset")
 readr::write_csv(test_metrics, file.path("tables", "T4_test_results_long.csv"))
 
-# Interactive view: each JEV and Clef-Flash result against the best CLIP
-# result on the same dataset (balanced accuracy as shown, margin 0.02).
+# Interactive view, part 1: glyphs. Each method against the CLIP baseline
+# on the same dataset (balanced accuracy as shown, margin 0.02).
 signed <- function(d) paste0(ifelse(d < 0, "-", "+"), fmt(abs(d)))
-clip_best <- test_metrics |>
-  dplyr::filter(.data$model == "CLIP") |>
-  dplyr::mutate(ba = round_half_up(.data$balanced_accuracy),
-                method = paste0(.data$model, ", ", .data$condition)) |>
+glyph <- function(diff, tip) {
+  up <- diff >= 0.02 - 1e-9
+  down <- diff <= -0.02 + 1e-9
+  sprintf("<span style='color:%s' title='%s'>%s</span>",
+          ifelse(up, "#1B7837", ifelse(down, "#B2182B", "#555555")), tip,
+          ifelse(up, "&#9650;", ifelse(down, "&#9660;", "&#9679;")))
+}
+display_metrics <- test_metrics |>
+  dplyr::mutate(method = paste0(.data$model, ", ", .data$condition),
+                ba = round_half_up(.data$balanced_accuracy)) |>
   dplyr::group_by(.data$dataset) |>
-  dplyr::slice_max(.data$ba, n = 1, with_ties = FALSE) |>
-  dplyr::ungroup() |>
-  dplyr::select("dataset", best_ba = "ba", best_method = "method")
-clip_same <- test_metrics |>
-  dplyr::filter(.data$model == "CLIP", .data$condition == "references") |>
-  dplyr::transmute(.data$dataset, same_ba = round_half_up(.data$balanced_accuracy))
-t4_display <- test_metrics |>
-  dplyr::left_join(clip_best, by = "dataset") |>
-  dplyr::left_join(clip_same, by = "dataset") |>
+  dplyr::mutate(base_ba = .data$ba[.data$method == benchmark],
+                same_ba = .data$ba[.data$method == "CLIP, references"]) |>
+  dplyr::ungroup()
+cells <- display_metrics |>
   dplyr::mutate(
-    method = paste0(.data$model, ", ", .data$condition),
-    ba = round_half_up(.data$balanced_accuracy),
     value = sprintf("%s (%s)", fmt(.data$balanced_accuracy), fmt(.data$roc_auc)),
-    diff = .data$ba - .data$best_ba,
-    tip = paste0(signed(.data$diff), " BA against the best CLIP result (",
-                 .data$best_method, "); ", signed(.data$ba - .data$same_ba),
-                 " against CLIP with the same references"),
-    mark = dplyr::case_when(
-      .data$diff >= 0.02 - 1e-9 ~ "<span style='color:#1B7837' title='%s'>&#9650;</span>",
-      .data$diff <= -0.02 + 1e-9 ~ "<span style='color:#B2182B' title='%s'>&#9660;</span>",
-      TRUE ~ "<span style='color:#555555' title='%s'>&#9679;</span>"
-    ),
-    cell = dplyr::case_when(
-      .data$method == .data$best_method ~ paste(
-        "<span title='Best CLIP result: the benchmark'>&#9733;</span>",
-        sprintf("<b>%s</b>", .data$value)),
-      .data$model == "CLIP" ~ .data$value,
-      TRUE ~ paste(sprintf(.data$mark, .data$tip), .data$value)
-    ),
-    method = factor(.data$method, method_order),
-    dataset = label_dataset(.data$dataset)
-  ) |>
+    tip = paste0(signed(.data$ba - .data$base_ba), " BA against the CLIP baseline",
+                 ifelse(.data$method == "CLIP, references", "",
+                        paste0("; ", signed(.data$ba - .data$same_ba),
+                               " against CLIP with the same references"))),
+    cell = ifelse(
+      .data$method == benchmark,
+      paste("<span title='The CLIP baseline: the benchmark'>&#9733;</span>",
+            sprintf("<b>%s</b>", .data$value)),
+      paste(glyph(.data$ba - .data$base_ba, .data$tip), .data$value)
+    )
+  )
+
+# Interactive view, part 2: a dot chart per dataset. One row per method, in
+# the order of the columns; balanced accuracy on a common axis; dashed line
+# at the CLIP baseline. Inline SVG: no script, so it works offline.
+chart_labels <- c(
+  "JEV refs", "JEV zero-shot", "Clef-Flash refs", "Clef-Flash zero-shot",
+  "CLIP refs", "CLIP zero-shot", "CLIP baseline", "CLIP baseline, tuned",
+  "CLIP paper sets", "CLIP paper sets, tuned"
+)
+svg_mark <- function(condition, cx, cy, color) {
+  if (grepl("tuned", condition)) { # diamond
+    sprintf("<path d='M%.1f,%.1f l5.5,5.5 l-5.5,5.5 l-5.5,-5.5 z' fill='%s'/>",
+            cx, cy - 5.5, color)
+  } else if (condition %in% c("baseline", "paper learning sets")) { # triangle
+    sprintf("<path d='M%.1f,%.1f l5.5,9.5 l-11,0 z' fill='%s'/>", cx, cy - 5.5, color)
+  } else if (condition == "zero-shot") { # open circle
+    sprintf("<circle cx='%.1f' cy='%.1f' r='4.3' fill='white' stroke='%s' stroke-width='1.8'/>",
+            cx, cy, color)
+  } else { # filled circle
+    sprintf("<circle cx='%.1f' cy='%.1f' r='4.8' fill='%s'/>", cx, cy, color)
+  }
+}
+dot_chart <- function(d) {
+  d <- d[match(method_order, d$method), ]
+  width <- 440
+  left <- 162
+  right <- 14
+  row_h <- 15
+  top <- 6
+  axis_y <- top + nrow(d) * row_h
+  x <- function(v) left + (pmin(pmax(v, 0.4), 1) - 0.4) / 0.6 * (width - left - right)
+  y <- top + (seq_len(nrow(d)) - 0.5) * row_h
+  ticks <- c(0.4, 0.6, 0.8, 1)
+  grid <- sprintf("<line x1='%.1f' x2='%.1f' y1='%d' y2='%d' stroke='#E5E5E5'/>",
+                  x(ticks), x(ticks), top, axis_y)
+  tick_text <- sprintf("<text x='%.1f' y='%d' text-anchor='middle' fill='#555555'>%s</text>",
+                       x(ticks), axis_y + 14, format(ticks))
+  base <- d$balanced_accuracy[d$method == benchmark]
+  base_line <- sprintf(paste0("<line x1='%.1f' x2='%.1f' y1='%d' y2='%d' stroke='%s' ",
+                              "stroke-dasharray='3,2'/>"),
+                       x(base), x(base), top, axis_y, model_colors[["CLIP"]])
+  labels <- sprintf(paste0("<text x='%d' y='%.1f' text-anchor='end' ",
+                           "dominant-baseline='middle' fill='#333333'>%s</text>"),
+                    left - 6, y, chart_labels)
+  marks <- vapply(seq_len(nrow(d)), function(i) {
+    sprintf("<g><title>%s: BA %s (AUC %s)</title>%s</g>", d$method[i],
+            fmt(d$balanced_accuracy[i]), fmt(d$roc_auc[i]),
+            svg_mark(d$condition[i], x(d$balanced_accuracy[i]), y[i],
+                     model_colors[[d$model[i]]]))
+  }, character(1))
+  sprintf(paste0("<svg xmlns='http://www.w3.org/2000/svg' width='%d' height='%d' ",
+                 "role='img' aria-label='Balanced accuracy of each method' ",
+                 "style='font: 12px sans-serif'>%s</svg>"),
+          width, axis_y + 18,
+          paste(c(grid, base_line, labels, tick_text, marks), collapse = ""))
+}
+charts <- display_metrics |>
+  dplyr::group_by(.data$dataset) |>
+  dplyr::group_modify(\(d, key) tibble::tibble(chart = dot_chart(d))) |>
+  dplyr::ungroup()
+
+# Table T4 (CSV and LaTeX: values only; this page: chart and glyphs).
+t4_display <- cells |>
+  dplyr::mutate(method = factor(.data$method, method_order)) |>
   dplyr::select("dataset", "method", "cell") |>
   tidyr::pivot_wider(names_from = "method", values_from = "cell") |>
-  dplyr::arrange(.data$dataset) |>
-  dplyr::select("dataset", dplyr::any_of(method_order)) |>
-  dplyr::rename(Dataset = "dataset")
+  dplyr::left_join(charts, by = "dataset") |>
+  dplyr::arrange(match(.data$dataset, dataset_order)) |>
+  dplyr::mutate(Dataset = dataset_labels[.data$dataset]) |>
+  dplyr::select("Dataset", `Balanced accuracy by method` = "chart",
+                dplyr::any_of(method_order))
 save_table(t4, "T4_test_results",
            "Test balanced accuracy (ROC AUC in parentheses).",
            display = t4_display)
@@ -947,18 +1025,22 @@ save_table(t4, "T4_test_results",
 #| label: fig-test-results
 #| fig-cap: "Test balanced accuracy and ROC AUC of each method. Each row is one method; the number next to each point is its value."
 #| fig-width: 7
-#| fig-height: 4.5
+#| fig-height: 5.4
 # Axis labels of the methods, in the color of their model.
 method_names <- c(
   "JEV + references", "JEV zero-shot",
   "Clef-Flash + references", "Clef-Flash zero-shot",
-  "CLIP + same references", "CLIP zero-shot", "CLIP, paper learning sets",
-  "CLIP, paper sets, tuned"
+  "CLIP + same references", "CLIP zero-shot",
+  "CLIP baseline", "CLIP baseline, tuned",
+  "CLIP, paper learning sets", "CLIP, paper sets, tuned"
 )
 method_axis <- paint(method_names, model_colors[sub(",.*", "", method_order)])
+# Triangle: a CLIP learning set with the rule of the CLIP paper; filled
+# diamond: the same learning set with a tuned threshold.
 condition_shapes <- c("references" = 16, "zero-shot" = 1,
+                      "baseline" = 17, "baseline, tuned" = 23,
                       "paper learning sets" = 17,
-                      "paper learning sets, tuned" = 23) # filled diamond
+                      "paper learning sets, tuned" = 23)
 
 # One row per method, dataset and metric. Value labels go left of the
 # point, or right of it when the value is below 0.5.
@@ -989,10 +1071,16 @@ fig_test <- function(layout) {
     facets <- ggplot2::facet_grid(rows = ggplot2::vars(.data$metric),
                                   cols = ggplot2::vars(.data$dataset))
   }
+  # Dashed line: the CLIP baseline of each panel.
+  baseline_lines <- dplyr::filter(d, .data$method == benchmark)
   ggplot2::ggplot(d, ggplot2::aes(.data$value, .data$method,
                                   colour = .data$model, fill = .data$model,
                                   shape = .data$condition)) +
     ggplot2::geom_vline(xintercept = 0.5, colour = "grey70", linewidth = 0.3) +
+    ggplot2::geom_vline(data = baseline_lines,
+                        ggplot2::aes(xintercept = .data$value),
+                        colour = model_colors[["CLIP"]], linetype = "dashed",
+                        linewidth = 0.4) +
     ggplot2::geom_point(size = 2.4, stroke = 0.9) +
     ggplot2::geom_text(
       ggplot2::aes(x = .data$label_x, label = fmt(.data$value),
@@ -1018,9 +1106,10 @@ fig_test <- function(layout) {
       subtitle = subline(
         layout,
         "Filled circle: with two to four references; open circle: ",
-        "zero-shot; triangle: CLIP with the learning sets of the CLIP paper ",
-        "(20 to 700 labeled images) and its rule; diamond: the same, with a ",
-        "threshold tuned by leave-one-out on the learning set."
+        "zero-shot; triangle: CLIP with a learning set and the rule of the ",
+        "CLIP paper (baseline: 50 images per class, 10 for pans; paper sets: ",
+        "20 to 700 images); diamond: the same, with a threshold tuned by ",
+        "leave-one-out. Dashed line: the CLIP baseline."
       ),
       x = NULL, y = NULL
     ) +
@@ -1031,7 +1120,7 @@ fig_test <- function(layout) {
                    ))
 }
 save_figure(fig_test, "F3_test_results",
-            height = c("one-column" = 7.4, "two-column" = 4.5))
+            height = c("one-column" = 8.8, "two-column" = 5.4))
 ```
 
 ## Defect subtypes
@@ -1193,15 +1282,18 @@ save_figure(fig_gain, "F5_reference_gain",
 
 ```{r}
 #| label: tbl-labels
-#| tbl-cap: "Labeled images used by each method. Test balanced accuracy settled with about 10 to 20 validation images per class; the ECE kept falling with more (@fig-validation-size)."
+#| tbl-cap: "Labeled images used by each method. CLIP with the same references also tunes its threshold on the same validation images. The CLIP learning sets need no validation images; their tuned thresholds use leave-one-out on the learning set. Test balanced accuracy settled with about 10 to 20 validation images per class; the ECE kept falling with more (@fig-validation-size)."
 # Learning-set size of CLIP in the CLIP paper settings.
-clip_learning <- file.path(results_root, "clip_paper", "summary.csv") |>
+clip_summary_all <- file.path(results_root, "clip_paper", "summary.csv") |>
   read_csv_quiet() |>
-  dplyr::filter(.data$setting %in% clip_paper_setting) |>
-  dplyr::transmute(
-    dataset = .data$dataset,
-    clip_paper = .data$n_learning_nominal + .data$n_learning_defective
-  )
+  dplyr::mutate(n = .data$n_learning_nominal + .data$n_learning_defective)
+clip_learning <- tibble::tibble(
+  dataset = dataset_order,
+  clip_baseline = clip_summary_all$n[match(clip_baseline_setting[dataset_order],
+                                           clip_summary_all$setting)],
+  clip_paper = clip_summary_all$n[match(clip_paper_setting[dataset_order],
+                                        clip_summary_all$setting)]
+)
 
 # Table T5.
 t5 <- tibble::tibble(dataset = dataset_order) |>
@@ -1216,7 +1308,9 @@ t5 <- tibble::tibble(dataset = dataset_order) |>
     `JEV / Clef-Flash references` = .data$refs,
     `Validation images (refinement and calibration)` = .data$validation,
     `Total, decision models` = .data$refs + .data$validation,
-    `CLIP, same references` = .data$refs,
+    # Its threshold is tuned on the same validation images.
+    `CLIP, same references` = .data$refs + .data$validation,
+    `CLIP baseline` = .data$clip_baseline,
     `CLIP, paper learning sets` = .data$clip_paper
   )
 save_table(t5, "T5_label_budget", "Labeled images used by each method.",
@@ -1509,7 +1603,7 @@ The CLIP comparison with its own learning sets uses the learning-set size that @
 
 ```{r}
 #| label: tbl-clip-replication
-#| tbl-cap: "CLIP with the learning sets of the CLIP paper: this replication against the published results."
+#| tbl-cap: "CLIP with the learning sets of the CLIP paper: this replication against the published results. The 50-per-class baseline settings for extrusion and microstructure have no published value."
 # Recompute the metrics of each setting from its test predictions; the
 # published values are in the same summary file.
 clip_summary <- read_csv_quiet(file.path(results_root, "clip_paper",

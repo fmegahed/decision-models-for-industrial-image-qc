@@ -9,7 +9,14 @@
 # counts from our non-test pool with seed 202610 (the paper sampled with Python's
 # random.seed(2024), so the images differ but the sizes match).
 #
+# The baseline settings use 50 images per class, the low end of the 50 to 100
+# per class in the abstract of the paper (pan: 10 per class, all it has).
+# pan_10, pipe_staple_50 and textiles_50 already have that size; extrusion_50
+# and microstructure_50 add it for the other two datasets.
+#
 # RETICULATE_PYTHON=<env>/python.exe Rscript scripts/run_clip_paper.R
+# JEV_CLIP_SETTINGS=extrusion_50,microstructure_50 runs only those settings and
+# keeps the other rows of summary.csv.
 
 reticulate::source_python("python/clip_functions.py") # the qmd's CLIP functions
 seed <- 202610L
@@ -38,6 +45,21 @@ plan <- tibble::tribble(
     defect_type = paste0(rep(c("Band", "Bimodal", "SingleCrystal"), each = 3), "_",
                          c("high", "low", "medium")),
     n = 8
+  )) |>
+  # Baseline: 50 per class. Microstructure: 50 defective images over 9 types,
+  # 6 each for the first five types in alphabetical order and 5 for the others.
+  dplyr::bind_rows(tibble::tribble(
+    ~setting,          ~dataset,         ~defect_type,           ~n,
+    "extrusion_50",    "extrusion",      "normal",               50,
+    "extrusion_50",    "extrusion",      "over",                 25,
+    "extrusion_50",    "extrusion",      "under",                25,
+    "microstructure_50", "microstructure", "Uniform",            50
+  )) |>
+  dplyr::bind_rows(tibble::tibble(
+    setting = "microstructure_50", dataset = "microstructure",
+    defect_type = paste0(rep(c("Band", "Bimodal", "SingleCrystal"), each = 3), "_",
+                         c("high", "low", "medium")),
+    n = c(6, 6, 6, 6, 6, 5, 5, 5, 5)
   ))
 
 paper <- tibble::tribble(
@@ -47,7 +69,9 @@ paper <- tibble::tribble(
   "textiles_50",       "50 per class: 97% accuracy (Sec. 9.1)",  0.97,            NA,                 NA,                 NA,
   "extrusion_200",     "plateau beyond 200 per class (Sec. 5)", NA,              NA,                 NA,                 NA,
   "extrusion_350",     "350 per class: 80% accuracy (Sec. 5)",  0.80,            0.78,               0.81,               NA,
-  "microstructure_72", "72 nominal, 8 per defect type (Sec. 8)", 0.898,          0.987,              0.809,              0.952
+  "microstructure_72", "72 nominal, 8 per defect type (Sec. 8)", 0.898,          0.987,              0.809,              0.952,
+  "extrusion_50",      "50 per class (abstract: 50 to 100)",    NA,              NA,                 NA,                 NA,
+  "microstructure_50", "50 per class (abstract: 50 to 100)",    NA,              NA,                 NA,                 NA
 )
 
 splits <- readr::read_csv("results/image_split_manifest.csv", show_col_types = FALSE) |>
@@ -80,7 +104,12 @@ auc <- function(p, y) mean(outer(p[y == 1], p[y == 0], ">") + 0.5 * outer(p[y ==
 # as.list(): a length-1 character vector would reach Python as a string, not a list.
 encode <- function(paths) clip_encode_images(as.list(paths))
 
-summary <- purrr::map_dfr(unique(plan$setting), function(setting) {
+# All settings, or only those in JEV_CLIP_SETTINGS (comma-separated).
+only <- strsplit(Sys.getenv("JEV_CLIP_SETTINGS"), ",", fixed = TRUE)[[1]]
+settings <- if (length(only)) only else unique(plan$setting)
+stopifnot(all(settings %in% plan$setting))
+
+summary <- purrr::map_dfr(settings, function(setting) {
   learn <- dplyr::filter(learning, .data$setting == .env$setting)
   dataset <- learn$dataset[[1]]
   test <- dplyr::filter(splits, .data$dataset == .env$dataset, .data$split == "test")
@@ -109,5 +138,12 @@ summary <- purrr::map_dfr(unique(plan$setting), function(setting) {
 }) |>
   dplyr::left_join(paper, by = "setting")
 
-readr::write_csv(summary, file.path(output_dir, "summary.csv"))
+# A partial run keeps the saved rows of the other settings.
+summary_file <- file.path(output_dir, "summary.csv")
+if (length(only) && file.exists(summary_file)) {
+  saved <- readr::read_csv(summary_file, show_col_types = FALSE)
+  summary <- dplyr::bind_rows(dplyr::filter(saved, !.data$setting %in% settings), summary) |>
+    dplyr::arrange(match(.data$setting, unique(plan$setting)))
+}
+readr::write_csv(summary, summary_file)
 print(as.data.frame(summary), digits = 3)

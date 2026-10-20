@@ -5,3 +5,5 @@ textiles_50,textiles,50,50,200,0.975,0.975,0.97,0.98,0.9975,50 per class: 97% ac
 extrusion_200,extrusion,200,200,200,0.79,0.79,0.81,0.77,0.8348,plateau beyond 200 per class (Sec. 5),NA,NA,NA,NA
 extrusion_350,extrusion,350,350,200,0.82,0.8200000000000001,0.83,0.81,0.8696,350 per class: 80% accuracy (Sec. 5),0.8,0.78,0.81,NA
 microstructure_72,microstructure,72,72,450,0.8533333333333334,0.8533333333333333,1,0.7066666666666667,0.9943506172839506,"72 nominal, 8 per defect type (Sec. 8)",0.898,0.987,0.809,0.952
+extrusion_50,extrusion,50,50,200,0.695,0.6950000000000001,0.67,0.72,0.7745,50 per class (abstract: 50 to 100),NA,NA,NA,NA
+microstructure_50,microstructure,50,50,450,0.8355555555555556,0.8355555555555556,1,0.6711111111111111,0.9900444444444444,50 per class (abstract: 50 to 100),NA,NA,NA,NA

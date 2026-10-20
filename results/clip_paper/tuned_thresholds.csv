@@ -5,3 +5,5 @@ textiles_50,textiles,100,0.4997237358854062,leave-one-out on the learning set,0.
 extrusion_200,extrusion,400,0.4999453726998044,leave-one-out on the learning set,0.812925,0.77,0.8,0.79
 extrusion_350,extrusion,700,0.49959980404818255,leave-one-out on the learning set,0.8412,0.7914285714285714,0.825,0.8200000000000001
 microstructure_72,microstructure,144,0.5005243160629635,leave-one-out on the learning set,0.9834104938271605,0.9375,0.96,0.8533333333333333
+extrusion_50,extrusion,100,0.49846715641773476,leave-one-out on the learning set,0.7408,0.69,0.73,0.6950000000000001
+microstructure_50,microstructure,100,0.5002756782210835,leave-one-out on the learning set,0.9868,0.95,0.9222222222222223,0.8355555555555556

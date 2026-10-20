@@ -22,15 +22,15 @@ The study uses a five-stage framework:
 
 Balanced accuracy at a threshold chosen on validation. JEV is the hosted TypeSafe model (`jev-1.13.0`); Clef-Flash is an open-weight 9B model run locally. CLIP is ViT-L/14.
 
-| Dataset | Test images | JEV, 2 to 4 references | JEV, no references | Clef-Flash, same references | Clef-Flash, no references | CLIP, same references | CLIP, learning sets of the CLIP paper: paper rule / tuned threshold |
-|---|---|---|---|---|---|---|---|
-| Microstructure | 450 | 0.92 | 0.88 | 0.81 | 0.84 | 0.92 | 0.85 / 0.96 (72 + 72) |
-| Textiles (simulated) | 200 | 0.86 | 0.73 | 0.85 | 0.71 | 0.81 | 0.98 / 0.98 (50 + 50) |
-| Extrusion | 200 | 0.73 | 0.69 | 0.68 | 0.61 | 0.50 | 0.82 / 0.83 (350 + 350) |
-| Pipe staple (AutoVI) | 100 | 0.98 | 0.96 | 0.99 | 0.90 | 0.61 | 0.57 / 0.57 (50 + 50) |
-| Metallic pans | 78 | 1.00 | 0.96 | 0.92 | 0.72 | 0.94 | 0.91 / 0.64 (10 + 10) |
+| Dataset | Test images | JEV, 2 to 4 references | JEV, no references | Clef-Flash, same references | Clef-Flash, no references | CLIP, same references | CLIP baseline: paper rule / tuned threshold | CLIP, learning sets of the CLIP paper: paper rule / tuned threshold |
+|---|---|---|---|---|---|---|---|---|
+| Microstructure | 450 | 0.92 | 0.88 | 0.81 | 0.84 | 0.92 | 0.84 / 0.92 (50 + 50) | 0.85 / 0.96 (72 + 72) |
+| Textiles (simulated) | 200 | 0.86 | 0.73 | 0.85 | 0.71 | 0.81 | 0.98 / 0.98 (50 + 50) | 0.98 / 0.98 (50 + 50) |
+| Extrusion | 200 | 0.73 | 0.69 | 0.68 | 0.61 | 0.50 | 0.70 / 0.73 (50 + 50) | 0.82 / 0.83 (350 + 350) |
+| Pipe staple (AutoVI) | 100 | 0.98 | 0.96 | 0.99 | 0.90 | 0.61 | 0.57 / 0.57 (50 + 50) | 0.57 / 0.57 (50 + 50) |
+| Metallic pans | 78 | 1.00 | 0.96 | 0.92 | 0.72 | 0.94 | 0.91 / 0.64 (10 + 10) | 0.91 / 0.64 (10 + 10) |
 
-The tuned CLIP threshold comes from leave-one-out scores of the learning set, because those learning sets hold most of our validation images (`scripts/run_clip_paper_threshold.R`). For pans, near-identical learning photos make the leave-one-out scores too optimistic, so the tuned threshold is worse than the rule of the paper.
+The CLIP baseline learns from 50 images per class (10 for pans), the low end of the 50 to 100 per class in the abstract of the CLIP paper; the defect images are split evenly over the defect types. It needs about as many labeled images as JEV with references plus validation (about 100). The tuned CLIP threshold comes from leave-one-out scores of the learning set, because the CLIP learning sets hold most of our validation images (`scripts/run_clip_paper_threshold.R`). For pans, near-identical learning photos make the leave-one-out scores too optimistic, so the tuned threshold is worse than the rule of the paper.
 
 Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.23). Isotonic regression fitted on validation reduces it to 0.01 to 0.04 on four of the five datasets. Test balanced accuracy settled with about 10 to 20 validation images per class; the calibration error kept falling with more. Details: `experiment_log.md` and the analysis page.
 

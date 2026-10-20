@@ -184,6 +184,17 @@ pan and pipe_staple use the same test and learning images as the paper and repro
 | extrusion, 350 per class | 0.49960 | 0.841 | 0.820 | 0.825 |
 | microstructure, 72 + 72 | 0.50052 | 0.983 | 0.853 | 0.960 |
 
+#### Baseline: 50 per class (2026-10-20)
+
+Decision of the user: the benchmark is CLIP with 50 learning images per class (pan: 10 per class, all it has), the low end of "50 to 100 per class" in the abstract of the CLIP paper. Classes are binary, so the 50 defect images are split evenly over the defect types: extrusion 25 over + 25 under; microstructure 6 each for the first five types (alphabetical) and 5 for the other four. pan_10, pipe_staple_50 and textiles_50 already had this size; `run_clip_paper.R` added extrusion_50 and microstructure_50 (`JEV_CLIP_SETTINGS=extrusion_50,microstructure_50`; the saved settings did not change). Thresholds: `run_clip_paper_threshold.R` (the six saved thresholds came out the same).
+
+| Setting | Test BA, paper rule | Test BA, tuned (threshold) | AUC |
+|---|---|---|---|
+| extrusion, 50 per class | 0.695 | 0.730 (0.49850) | 0.774 |
+| microstructure, 50 per class | 0.836 | 0.922 (0.50030) | 0.990 |
+
+Against this baseline (paper rule), JEV with references is higher on four of five datasets (pan +0.09, extrusion +0.03, pipe_staple +0.41, microstructure +0.08) and lower on textiles (-0.12), with about the same number of labeled images (about 100 for both; pan 20). Against the tuned baseline, JEV is level on extrusion and microstructure.
+
 The tuned threshold helps microstructure (+0.11; now above JEV's 0.92) and changes little elsewhere. It hurts pan: the 10 defective learning photos are near-copies of each other, so their leave-one-out scores (about 0.51) are higher than those of the test defects (about 0.50), and the threshold misses most test defects. With either rule, JEV is better on pan and pipe_staple, and CLIP is better on textiles and extrusion.
 
 ### Clef-Flash
