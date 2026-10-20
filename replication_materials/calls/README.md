@@ -21,6 +21,11 @@ The record started after the experiments (D7). The paid calls before it were app
 - Estimated cost: about USD 0.52 (12.3 million input tokens at USD 0.042 per million). The estimate multiplies the calls of each batch by the input tokens measured for that kind of request. These calls count against the USD 5 budget above, so about USD 4.48 remains.
 - Clef-Flash (D34) and CLIP ran on a local GPU. They had no API cost.
 
+## Paid calls after the budget row
+
+- 2026-10-20, about 18:40 UTC: 100 JEV calls, made by mistake. A test of a new guard in `scripts/optimize_jev.R` was meant to stop before any call, but Rscript reloaded the key from `.Renviron`. The run used the default microstructure settings, so it repeated the baseline (BA 0.54, AUC 0.789, against 0.55 and 0.803). Estimated cost: about USD 0.011. There is no per-call log (open item O2).
+- Totals: 4,654 JEV calls, about USD 0.53. Left under the budget row: 2,346 calls and about USD 4.47.
+
 ## Rule
 
 Do not put a key, a token or an authorization header in any file in this folder.

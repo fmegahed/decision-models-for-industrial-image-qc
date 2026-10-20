@@ -19,7 +19,7 @@
 
 | ID | Item | Blocks | Owner |
 |---|---|---|---|
-| O1 | Test the refinement step (criteria and references) with smaller validation sets; the calibration step needed only 10 to 20 images per class. | M2 | fmm |
-| O2 | Log each paid call (time, request ID, tokens, cost) in calls/; the past 4,554 JEV calls have no per-call log. | M3 | fmm |
+| O1 | Test the refinement step (criteria and references) with smaller validation sets; test balanced accuracy settled at 10 to 20 validation images per class, but the ECE kept falling up to 50 (figure F7). | M2 | fmm |
+| O2 | The client now logs each paid call (time, request ID, tokens, cost) when JEV_CALL_LOG is set; the past 4,654 JEV calls have no per-call log. | M3 | fmm |
 | O3 | Extrusion frames come from video: consider a time-based split, because near-identical frames help methods with large learning sets. | M2 | fmm |
-| O4 | Report the labeled images of each method (references plus validation images, against CLIP learning sets) in the full paper. | M2 | fmm |
+| O4 | Report the labeled images of each method (references plus validation images, against CLIP learning sets) in the full paper; table T5 of beyond_clip_analysis.qmd has the counts. | M2 | fmm |

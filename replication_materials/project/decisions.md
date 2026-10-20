@@ -50,6 +50,12 @@
 | D44 | 2026-10-20 | Set the JEV budget to about USD 5, the free credit for a new user. | fmm | fmm | chat | "For JEV set the budget to ~$5, which is what they provide for free for any new user." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D45 | 2026-10-20 | Use APA 7 style for citations, with the published metadata of each work. | fmm | fmm | chat | "I like APA style citations" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D46 | 2026-10-20 | Use short, direct section headers in all documents. | fmm | fmm | chat | "I like straight to the point headers" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D47 | 2026-10-20 | Make one Quarto document that reproduces all paper figures and tables; it reads saved predictions by default and has switches to re-run the paid and GPU steps. | claude | fmm | question | "Read saved, switch to re-run (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D48 | 2026-10-20 | Produce tables T1 to T7, figures F1 to F7 and the appendix table of all trials. | claude | fmm | question | "Yes, use this set (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D49 | 2026-10-20 | Use theme_bw with Dark2, annotations and a polished font; save each figure as PNG, PDF and SVG in one-column and two-column sizes. | claude | fmm | question | "theme_bw + Dark2 (Recommended) + annotations + choose a nice font so the figures look polished." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D50 | 2026-10-20 | Use Outfit for figure titles and Cabin for all other figure text. | fmm | fmm | chat | "I like the look of the fonts in https://r-graph-gallery.com/web-waffle-for-time-evolution.html" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D51 | 2026-10-20 | Name groups in their chart color in the subtitle (ggtext) in place of a legend. | fmm | fmm | chat | "I like to use colors in subtitles to match the colors in the chart instead of having a legend." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D52 | 2026-10-20 | Round reported numbers half up (0.725 to 0.73), as in the submitted abstract, because floating point makes round() and sprintf() give 0.72. | claude | claude | measurement | results/final_test/summary.csv, extrusion references test_ba 0.725 | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 
 ## Corrections
 
