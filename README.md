@@ -50,7 +50,7 @@ The images are not in this repository. Copy the folders of [fmegahed/qe_genai/da
 
 - `results/image_split_manifest.csv` lists exactly the images used and their split. The scripts stop if an image is missing.
 - Two cleanups differ from a fresh copy: duplicate pan test images were removed (the `qe_genai` test folder already matches), and 3 extrusion frames that were byte-identical copies of test frames were removed from the non-test pool. Extra files in `imgs/` are not used.
-- The pipe staple images are from the Automotive Visual Inspection Dataset (AutoVI), Renault Group, CC BY-NC-SA 4.0, [doi:10.5281/zenodo.10459003](https://doi.org/10.5281/zenodo.10459003). For the other datasets, see Megahed et al. (2025), below.
+- The pipe staple images are from the Automotive Visual Inspection Dataset (AutoVI), Renault Group, CC BY-NC-SA 4.0, [doi:10.5281/zenodo.10459003](https://doi.org/10.5281/zenodo.10459003). For the other datasets, see Megahed et al. (2026), below.
 
 ## Reproduce
 
@@ -66,7 +66,7 @@ Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr
 
 ## Related work
 
-- Megahed, F. M., Chen, Y.-J., Colosimo, B. M., Grasso, M. L. G., Jones-Farmer, L. A., Knoth, S., Sun, H., and Zwetsloot, I. (2025). Adapting OpenAI's CLIP model for few-shot image inspection in manufacturing quality control: An expository case study with multiple application examples. [arXiv:2501.12596](https://arxiv.org/abs/2501.12596).
+- Megahed, Fadel Mounir, et al. "Adapting OpenAI's CLIP model for few-shot image inspection in manufacturing quality control: An expository case study with multiple application examples." *Journal of Quality Technology* (2026): 1-27. Open access: [doi:10.1080/00224065.2026.2640171](https://www.tandfonline.com/doi/pdf/10.1080/00224065.2026.2640171) (preprint: [arXiv:2501.12596](https://arxiv.org/abs/2501.12596)).
 - The notebook of that study: [image_inspection_with_clip.ipynb](https://github.com/fmegahed/qe_genai/blob/main/notebook/image_inspection_with_clip.ipynb).
 
 ## License

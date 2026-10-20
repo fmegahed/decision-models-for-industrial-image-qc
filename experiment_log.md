@@ -155,7 +155,7 @@ Isotonic has a clearly lower ECE for microstructure, textiles and pan (Platt wit
 
 ### CLIP with the learning sets of the CLIP paper (2026-10-20)
 
-`run_clip_paper.R`, no API calls. Learning-set sizes from Megahed et al. (2025, arXiv:2501.12596): pan 10 per class (all train images, as in the paper), pipe_staple the first 50 sorted per class (as in the paper), textiles 50 per class ("97% accuracy with 50 examples per class"), extrusion 200 per class (the plateau) and 350 per class (the best reported), microstructure 72 nominal and 8 per defect type. Decision rule as in the paper: the class with the higher maximum similarity. Learning images come from the non-test pool without copies of test images. Learning sets: `results/clip_paper/learning_sets.csv`.
+`run_clip_paper.R`, no API calls. Learning-set sizes from Megahed et al. (2025, arXiv:2501.12596; published 2026 in the Journal of Quality Technology, doi:10.1080/00224065.2026.2640171): pan 10 per class (all train images, as in the paper), pipe_staple the first 50 sorted per class (as in the paper), textiles 50 per class ("97% accuracy with 50 examples per class"), extrusion 200 per class (the plateau) and 350 per class (the best reported), microstructure 72 nominal and 8 per defect type. Decision rule as in the paper: the class with the higher maximum similarity. Learning images come from the non-test pool without copies of test images. Learning sets: `results/clip_paper/learning_sets.csv`.
 
 | Setting | Learning images (nominal + defective) | Accuracy (Sens / Spec) | AUC | Paper accuracy (Sens / Spec), AUC | JEV with references: test BA (AUC) |
 |---|---|---|---|---|---|

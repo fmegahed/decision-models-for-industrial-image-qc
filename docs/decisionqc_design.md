@@ -226,7 +226,7 @@ plot_reliability <- function(prob, truth, calibrators = NULL) { ... }
 ## 3. Paper outline
 
 1. Introduction: few-shot image inspection; why calibrated probabilities matter in quality control.
-2. Background: JEV and the SystemOne API; the CLIP baseline (Megahed et al., 2025).
+2. Background: JEV and the SystemOne API; the CLIP baseline (Megahed et al., 2026, Journal of Quality Technology, doi:10.1080/00224065.2026.2640171).
 3. Methods
    1. Data: five datasets; test partitions matched to the CLIP paper.
    2. Data audit: exact and near duplicates; the pan cleanup.
