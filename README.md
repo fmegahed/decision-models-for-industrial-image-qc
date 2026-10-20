@@ -1,4 +1,4 @@
-# Beyond CLIP: Calibrated Few-Shot Defect Detection With Structured Decision Models
+# Beyond CLIP: Calibrated (Few-Shot) Defect Detection With Structured Decision Models
 
 Fadel M. Megahed ([fmegahed](https://github.com/fmegahed)) and Ying-Ju (Tessa) Chen ([ying-ju](https://github.com/ying-ju))
 
@@ -22,13 +22,15 @@ The study uses a five-stage framework:
 
 Balanced accuracy at a threshold chosen on validation. JEV is the hosted TypeSafe model (`jev-1.13.0`); Clef-Flash is an open-weight 9B model run locally. CLIP is ViT-L/14.
 
-| Dataset | Test images | JEV, 2 to 4 references | JEV, no references | Clef-Flash, same references | CLIP, same references | CLIP, learning sets of the CLIP paper |
-|---|---|---|---|---|---|---|
-| Microstructure | 450 | 0.92 | 0.88 | 0.81 | 0.92 | 0.85 (72 + 72) |
-| Textiles (simulated) | 200 | 0.86 | 0.73 | 0.85 | 0.81 | 0.98 (50 + 50) |
-| Extrusion | 200 | 0.73 | 0.69 | 0.68 | 0.50 | 0.82 (350 + 350) |
-| Pipe staple (AutoVI) | 100 | 0.98 | 0.96 | 0.99 | 0.61 | 0.57 (50 + 50) |
-| Metallic pans | 78 | 1.00 | 0.96 | 0.92 | 0.94 | 0.91 (10 + 10) |
+| Dataset | Test images | JEV, 2 to 4 references | JEV, no references | Clef-Flash, same references | Clef-Flash, no references | CLIP, same references | CLIP, learning sets of the CLIP paper: paper rule / tuned threshold |
+|---|---|---|---|---|---|---|---|
+| Microstructure | 450 | 0.92 | 0.88 | 0.81 | 0.84 | 0.92 | 0.85 / 0.96 (72 + 72) |
+| Textiles (simulated) | 200 | 0.86 | 0.73 | 0.85 | 0.71 | 0.81 | 0.98 / 0.98 (50 + 50) |
+| Extrusion | 200 | 0.73 | 0.69 | 0.68 | 0.61 | 0.50 | 0.82 / 0.83 (350 + 350) |
+| Pipe staple (AutoVI) | 100 | 0.98 | 0.96 | 0.99 | 0.90 | 0.61 | 0.57 / 0.57 (50 + 50) |
+| Metallic pans | 78 | 1.00 | 0.96 | 0.92 | 0.72 | 0.94 | 0.91 / 0.64 (10 + 10) |
+
+The tuned CLIP threshold comes from leave-one-out scores of the learning set, because those learning sets hold most of our validation images (`scripts/run_clip_paper_threshold.R`). For pans, near-identical learning photos make the leave-one-out scores too optimistic, so the tuned threshold is worse than the rule of the paper.
 
 Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.23). Isotonic regression fitted on validation reduces it to 0.01 to 0.04 on four of the five datasets. Test balanced accuracy settled with about 10 to 20 validation images per class; the calibration error kept falling with more. Details: `experiment_log.md` and the analysis page.
 
@@ -64,6 +66,8 @@ The images are not in this repository. Copy the folders of [fmegahed/qe_genai/da
 
 Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr, readr, yardstick and ggplot2. Run every script from the repository root.
 
+- Exact R package versions: `renv.lock` (renv 1.2.3; 103 CRAN packages with their dependencies). To install them in a project library: `install.packages("renv")`, then `renv::restore()` and choose to activate the project. The lockfile records the versions only: this repository does not activate renv. The Python versions for CLIP are in `results/clip/python_environment.txt`.
+
 - All tables and figures of the paper: `quarto render beyond_clip_analysis.qmd` (Quarto 1.9; the first chunk installs the missing R packages). It reads the saved results in `results/`, needs `imgs/`, makes no API call, and takes a few minutes. Its switches (`run_jev_trials`, `run_jev_test`, `run_clip`, `run_clef`) re-run the paid and GPU steps into `results/rerun/`.
 
 - JEV (paid API): put `TYPESAFE_API_KEY=...` in a `.Renviron` file at the root. Never commit it.
@@ -71,7 +75,7 @@ Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr
 - Threshold trial, no API calls: `scripts/rescore_threshold.R`. Progress chart: `scripts/plot_progress.R`.
 - One-time test of a frozen configuration: `JEV_DATASET=<dataset> Rscript scripts/evaluate_frozen.R` (`JEV_CHECK_ONLY=true` runs the checks only).
 - Summaries, no API calls: `scripts/summarize_final.R`, `scripts/calibration.R`, `scripts/validation_size.R`, `scripts/compare_methods.R`.
-- CLIP (local GPU): a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (versions in `results/clip/python_environment.txt`), then `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/run_clip.R` and `scripts/run_clip_paper.R`. Stop the Clef-Flash server first: two CUDA processes on one GPU made the CLIP run crash.
+- CLIP (local GPU): a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (versions in `results/clip/python_environment.txt`), then `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/run_clip.R`, `scripts/run_clip_paper.R` and `scripts/run_clip_paper_threshold.R`. Stop the Clef-Flash server first: two CUDA processes on one GPU made the CLIP run crash.
 - Clef-Flash (local GPU, about 25 GB): `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`, then run the scripts with `JEV_BASE_URL=http://localhost:30000/v1/systemone JEV_MODEL=Cloudflare/clef-flash JEV_IMAGE_FORMAT=images`. Its server ignores the TypeSafe `assets` field, so images go as an ordered list (`image_format = "images"`).
 
 ## References

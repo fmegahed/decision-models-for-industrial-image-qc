@@ -171,6 +171,21 @@ Isotonic has a clearly lower ECE for microstructure, textiles and pan (Platt wit
 
 pan and pipe_staple use the same test and learning images as the paper and reproduce it to within one or two images. With these larger learning sets, CLIP is better than JEV on textiles and extrusion; JEV is better on pipe_staple, pan and microstructure BA. Label budget: JEV used 2 to 4 references plus 100 labeled validation images per dataset; CLIP used 20 to 700 labeled learning images. Extrusion is from video, so CLIP's many learning frames include near-copies of test frames.
 
+#### Tuned threshold (2026-10-20)
+
+`run_clip_paper_threshold.R`, local GPU, no API calls (request of the user: CLIP also at a threshold tuned like ours). The learning sets hold most of our validation images (pan all 16; extrusion_350 82 of 100; microstructure 59 of 100), so the threshold comes from leave-one-out scores of the learning set: each learning image against the other learning images, with identical frames (same MD5) left out together. Same rule as `run_clip.R` (midpoint of the widest run of cut points at the maximum BA). The saved test scores are not computed again. Output: `results/clip_paper/tuned_thresholds.csv`.
+
+| Setting | Threshold | Leave-one-out AUC | Test BA, paper rule | Test BA, tuned |
+|---|---|---|---|---|
+| pan, 10 per class | 0.50499 | 0.900 | 0.910 | 0.641 |
+| pipe_staple, 50 per class | 0.50000 | 0.881 | 0.570 | 0.570 |
+| textiles, 50 per class | 0.49972 | 0.998 | 0.975 | 0.980 |
+| extrusion, 200 per class | 0.49995 | 0.813 | 0.790 | 0.800 |
+| extrusion, 350 per class | 0.49960 | 0.841 | 0.820 | 0.825 |
+| microstructure, 72 + 72 | 0.50052 | 0.983 | 0.853 | 0.960 |
+
+The tuned threshold helps microstructure (+0.11; now above JEV's 0.92) and changes little elsewhere. It hurts pan: the 10 defective learning photos are near-copies of each other, so their leave-one-out scores (about 0.51) are higher than those of the test defects (about 0.50), and the threshold misses most test defects. With either rule, JEV is better on pan and pipe_staple, and CLIP is better on textiles and extrusion.
+
 ### Clef-Flash
 
 Cloudflare Clef-Flash (9B open weights), served locally with SGLang (`lmsysorg/sglang:dev-clef`) on the RTX 5000 Ada. No paid API calls: 916 validation and 2,056 test calls on the local server. Each dataset used its frozen JEV configuration (criteria, references, 768 px, center crop), with references sent as an ordered image list (`image_format = "images"`), and its own validation threshold from the same plateau rule (trials 41 to 60). One test pass per condition.
