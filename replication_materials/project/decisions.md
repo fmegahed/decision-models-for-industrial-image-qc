@@ -67,6 +67,8 @@
 | D61 | 2026-10-20 | Record the R packages in an renv lockfile (renv.lock) without activating renv in the project, because the project folder is in Dropbox. | fmm | claude | chat | "should we use renv to ensure that people can replicate the packages as we have them now?" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D62 | 2026-10-20 | The benchmark is a CLIP baseline with 50 learning images per class (pans: 10), the low end of the abstract of the CLIP paper, with the defect images split evenly over the defect types; it replaces the best CLIP result as the reference of the glyphs, and the other columns stay. | fmm | fmm | chat | "the baseline comparison should be with a 50-image per defect CLIP (or 10 in the pan case since we did not have enough images)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D63 | 2026-10-20 | Add a dot-chart column to the interactive T4: one row per method, balanced accuracy on a common axis, dashed line at the CLIP baseline (inline SVG, no script). | fmm | fmm | chat | "I was thinking of a column that contains a dot chart of the different methods?" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D64 | 2026-10-20 | Tag commit 33ffd59 as v0.0.1 (pre-alpha) before any change to the code for the redesign. | fmm | fmm | chat | "Before you make any changes to the code, tag the current version as v0.0.1 (pre-alpha release)." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D65 | 2026-10-20 | Do the redesign of the experiment and of its presentation on a separate branch (fair-comparison), not on main. | fmm | fmm | chat | "So I need you in a different branch to rethink how we do and present this" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 
 ## Corrections
 
