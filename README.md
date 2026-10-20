@@ -4,7 +4,7 @@ Fadel M. Megahed ([fmegahed](https://github.com/fmegahed)) and Ying-Ju (Tessa) C
 
 Status: ongoing work. An abstract is submitted to MSEC 2027 (`paper/msec2027_submitted.md`). An R package, `decisionqc`, is in design (`docs/decisionqc_design.md`).
 
-## What this study asks
+## Objective
 
 Can structured decision models, which return a probability for each allowed answer to a question about an image, (a) detect manufacturing defects as well as few-shot CLIP with fewer labeled examples, and (b) give calibrated class probabilities?
 
@@ -16,7 +16,7 @@ The study uses a five-stage framework:
 4. Calibrate the probabilities on the validation set (Platt scaling or isotonic regression).
 5. Freeze the configuration and evaluate it once on held-out test images.
 
-## Main results (test sets)
+## Results
 
 Balanced accuracy at a threshold chosen on validation. JEV is the hosted TypeSafe model (`jev-1.13.0`); Clef-Flash is an open-weight 9B model run locally. CLIP is ViT-L/14.
 
@@ -30,7 +30,7 @@ Balanced accuracy at a threshold chosen on validation. JEV is the hosted TypeSaf
 
 Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.23). Isotonic regression fitted on validation reduces it to 0.01 to 0.04 on four of the five datasets. About 10 to 20 validation images per class were enough for the calibration step. Details: `experiment_log.md`.
 
-## Repository layout
+## Structure
 
 | Path | Contents |
 |---|---|
@@ -52,7 +52,7 @@ The images are not in this repository. Copy the folders of [fmegahed/qe_genai/da
 - Two cleanups differ from a fresh copy: duplicate pan test images were removed (the `qe_genai` test folder already matches), and 3 extrusion frames that were byte-identical copies of test frames were removed from the non-test pool. Extra files in `imgs/` are not used.
 - The pipe staple images are from the Automotive Visual Inspection Dataset (AutoVI; Carvalho et al., 2024), CC BY-NC-SA 4.0. For the other datasets, see Megahed et al. (2026).
 
-## Reproduce
+## Reproduction
 
 Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr, readr, yardstick and ggplot2. Run every script from the repository root.
 

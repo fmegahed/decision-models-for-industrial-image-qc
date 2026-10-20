@@ -1,4 +1,4 @@
-# MSEC 2027: submitted title and abstract
+# MSEC 2027 submission
 
 | Item | Value |
 |---|---|
@@ -18,7 +18,7 @@ To support this analysis, we propose a five-stage framework for few-shot defect 
 
 Using only two to four reference images, a hosted decision model (JEV) achieves test balanced accuracies ranging from 0.73 to 1.00 and matches or outperforms CLIP on all five datasets when both use the same references. Compared with CLIP using its recommended 20–700 labeled images, JEV performs better on three datasets, including automotive assembly (0.98 versus 0.57). On the remaining two datasets, CLIP performs slightly better despite using substantially more labeled images. We also find that explicitly describing defect characteristics provides the largest performance improvements. While raw probability estimates are poorly calibrated (ECE of 0.11–0.23), isotonic regression reduces ECE to 0.01–0.04 on four datasets. We also examine whether the proposed framework can be used with a self-hosted, open-weight decision model rather than relying on a hosted inference API. Using CLEF-Flash (9B model) with the same frozen configurations, we obtain the resulting balanced accuracies ranged from 0.68 to 0.99 on the five datasets. Overall, our results show that structured decision models can achieve competitive defect-detection performance with very few labeled examples and improved class probability estimates.
 
-## Claims to carry into the full paper
+## Claims and sources
 
 | Claim in the abstract | Value in the results | Source |
 |---|---|---|

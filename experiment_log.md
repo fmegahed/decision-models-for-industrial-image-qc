@@ -2,7 +2,9 @@
 
 Objective: maximize validation balanced accuracy per dataset. Test images stay untouched until the final frozen evaluation.
 
-## Setup notes (not trials)
+Date of all entries: 2026-10-20.
+
+## Setup notes
 
 - 2026-10-20. The two manifests in `results/` came from `Y:/My Drive/Miami/Code/GitHub/imagejev/`. All paths were changed to relative `imgs/...` paths. All 4,525 split paths and 18 reference paths exist here, and each file has the same size as its `Y:` original.
 - 2026-10-20. Bug fix in `optimize_jev.R`. In `dplyr::filter(.data$dataset == dataset)`, the bare `dataset` is the data column, not the R variable, so the filter kept all datasets. The validation pool and the references mixed datasets. The fix is `.env$dataset` (3 lines). The reference guard stopped the first smoke run before any API call.
@@ -87,7 +89,7 @@ The `#`, `Dataset`, `Trial`, `Change` and `Decision` columns feed `plot_progress
 | 59 | pan_images | clef_zero | model (Clef-Flash) | Clef-Flash (local SGLang, image_format=images) with the frozen JEV configuration, without references | comparison | 0.88 / 0.75 / 1.00 / 0.992 | Comparison model; not part of the JEV tuning. |
 | 60 | pan_images | clef_zero_t026 | threshold (Clef-Flash) | t=0.50 to 0.26 on the clef_zero predictions (no API calls) | comparison | 0.94 / 0.88 / 1.00 / 0.992 | Threshold from the same plateau rule (exact 2-decimal grid). |
 
-## Final test (one time, 2026-10-20)
+## Final test
 
 Run with `evaluate_frozen.R` after all configurations were frozen in `results/optimization/frozen_configs.csv`. Settings came only from that file. Each frozen row was checked against its source trial. No reference image is in a test set, checked by path and by MD5. 1,128 calls; 3,010 of the 5,000-call cap used in total. These are evaluation numbers, not selection numbers. Nothing was tuned after this run.
 
@@ -106,7 +108,7 @@ Notes:
 - textiles_real: the threshold tuned on simulated fabric (0.14) does not transfer: real nominal images score 0.40 on average, so all 94 were called defective. The ranking does transfer (AUC 0.97). A threshold set on a few real nominal images would be needed; such images were not available outside this test set.
 - The CLIP comparison on the same partition (GOAL step 6) is still to do with the CLIP qmd. The prior-study numbers above are a reference only.
 
-### Zero-shot ablation on test (2026-10-20)
+### Zero-shot ablation
 
 Same frozen configurations without reference images, each with its own validation threshold (trials 31 to 40). 1,128 test calls; 4,554 of the 7,000-call cap used in total. Gain = with references minus zero-shot.
 
@@ -121,7 +123,7 @@ Same frozen configurations without reference images, each with its own validatio
 
 References raise AUC on every test set, most for textiles (+0.29). The one BA loss (textiles_real) is a threshold-transfer effect: its zero-shot threshold (0.29) happens to sit closer to the real-fabric scores than the reference threshold (0.14).
 
-### CLIP on the same partition (2026-10-20)
+### CLIP, same references
 
 `run_clip.R` (no API calls): CLIP ViT-L/14 with the method and prompts of `clip_image_inspection.qmd` (unchanged), on the same test images and the same reference images as JEV. Every method uses a threshold chosen on the same validation images; AUC needs no threshold. Environment: conda env `~/.conda-envs/imagejev-clip`, Python 3.12, torch 2.8.0+cu128, OpenAI CLIP commit d05afc4, GPU RTX 5000 Ada; full list in `results/clip/python_environment.txt`. One bug was fixed before the results: a length-1 R vector reached Python as a string (`as.list()` added).
 
@@ -139,7 +141,7 @@ Notes:
 - An AUC below 0.5 means the CLIP ranking is inverted (CLIP zero-shot on microstructure and textiles, CLIP references on textiles_real).
 - CLIP uses the same 2 to 4 references as JEV here. The prior CLIP study used larger learning sets (10 to 350 images), so these CLIP numbers are not a replication of that study.
 
-### Calibration: Platt scaling against isotonic regression (2026-10-20)
+### Calibration
 
 `calibration.R`, no API calls. Both calibrators were fitted on the validation predictions of the source trial and applied unchanged to the test predictions. ECE = expected calibration error (10 bins). Interval = 95% paired bootstrap interval of (isotonic - Platt) over test images, 2,000 resamples; negative means isotonic is better.
 
@@ -153,7 +155,7 @@ Notes:
 
 Isotonic has a clearly lower ECE for microstructure, textiles and pan (Platt with only 16 pan validation images pulls scores toward 0.1 and 0.9). Platt has a clearly lower log loss for extrusion. pipe_staple has no clear winner. Both calibrators give the same BA at the 0.5 cutoff, close to the BA of the tuned thresholds. Full table, including zero-shot: `results/final_test/calibration.csv` and `calibration_bootstrap.csv`.
 
-### CLIP with the learning sets of the CLIP paper (2026-10-20)
+### CLIP, paper learning sets
 
 `run_clip_paper.R`, no API calls. Learning-set sizes from Megahed et al. (2026; read in the preprint, arXiv:2501.12596): pan 10 per class (all train images, as in the paper), pipe_staple the first 50 sorted per class (as in the paper), textiles 50 per class ("97% accuracy with 50 examples per class"), extrusion 200 per class (the plateau) and 350 per class (the best reported), microstructure 72 nominal and 8 per defect type. Decision rule as in the paper: the class with the higher maximum similarity. Learning images come from the non-test pool without copies of test images. Learning sets: `results/clip_paper/learning_sets.csv`.
 
@@ -168,7 +170,7 @@ Isotonic has a clearly lower ECE for microstructure, textiles and pan (Platt wit
 
 pan and pipe_staple use the same test and learning images as the paper and reproduce it to within one or two images. With these larger learning sets, CLIP is better than JEV on textiles and extrusion; JEV is better on pipe_staple, pan and microstructure BA. Label budget: JEV used 2 to 4 references plus 100 labeled validation images per dataset; CLIP used 20 to 700 labeled learning images. Extrusion is from video, so CLIP's many learning frames include near-copies of test frames.
 
-### Clef-Flash on the same partition (2026-10-20)
+### Clef-Flash
 
 Cloudflare Clef-Flash (9B open weights), served locally with SGLang (`lmsysorg/sglang:dev-clef`) on the RTX 5000 Ada. No paid API calls: 916 validation and 2,056 test calls on the local server. Each dataset used its frozen JEV configuration (criteria, references, 768 px, center crop), with references sent as an ordered image list (`image_format = "images"`), and its own validation threshold from the same plateau rule (trials 41 to 60). One test pass per condition.
 
@@ -186,7 +188,7 @@ Notes:
 - Raw Clef-Flash probabilities are less calibrated than raw JEV probabilities (ECE 0.09 to 0.36, against 0.11 to 0.23). Isotonic regression fitted on validation reduces the Clef-Flash ECE to 0.02 to 0.10.
 - Practical differences: Clef-Flash runs locally at about 0.3 s per call with no API fees, needs a 24 GB-class GPU, and needs two adaptations: the ordered image list and three-channel images (its server fails on one-channel gray JPEGs).
 
-### Validation size for the calibration step (2026-10-20)
+### Validation size
 
 `validation_size.R`, no API calls. For each frozen JEV configuration, 200 random validation subsets with 5, 10, 20, 30 or 50 images per class (pan: 5 or 8); on each subset a threshold, a Platt fit and an isotonic fit; each scored on the full test set. Caveat: the criteria and references were chosen on the full validation set, so this measures the threshold and calibration step only. Full table: `results/final_test/validation_size.csv`; chart: `validation_size.png`.
 

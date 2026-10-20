@@ -1,10 +1,10 @@
-# decisionqc: from the experiment to an R package and a paper
+# decisionqc design
 
 Status: DRAFT for discussion, 2026-10-20. Nothing is built yet.
 
 This document maps each step of the JEV image-inspection experiment to a function of the package and to a section of the paper. The roxygen2 blocks follow the style of `industrial_defect_classifier.R`: a title line, `@param` lines with backticks for values, `@return`, `@details` when needed, `@export`. The code uses `pkg::fun()`, the native pipe and httr2.
 
-## 1. The experimental approach in eight steps
+## 1. Workflow
 
 | Step | What we did | Package function | Paper section |
 |---|---|---|---|
@@ -22,7 +22,7 @@ Two research goals of the package need functions that the experiment did not hav
 - Sample size (goal b): `validation_size()` gives the images per class for a target standard error of AUC or BA. The few-shot question (how many references) is a set of `run_trial()` calls with nested reference sets from `select_references()`.
 - Simulated data (goal c): the simulated textiles come from the R textile package. A wrapper, `simulate_textiles()`, can make a new dataset with known defect types.
 
-## 2. Proposed API with roxygen2 blocks
+## 2. API
 
 ### Data and partitions
 
@@ -121,7 +121,7 @@ classify_image <- function(image_path, criteria = NULL, reference_images = NULL,
 classify_images <- function(images, ...) { ... }
 ```
 
-### Trials and the decision rule
+### Trials and decisions
 
 ```r
 #' Run one validation trial
@@ -169,12 +169,12 @@ tune_threshold <- function(prob, truth, digits = 2L) { ... }
 #'   `"isotonic"` (pool-adjacent-violators).
 #' @return A `jev_calibrator` object; use [predict()] on new probabilities.
 #' @details In our test sets, isotonic had a lower calibration error for 3 of 5
-#'   datasets and Platt a lower log loss for extrusion. With fewer than about
-#'   50 images per class, prefer `"platt"`. After calibration, a 0.5 cutoff
+#'   datasets and needed fewer validation images (about 10 per class); Platt
+#'   had a lower log loss for extrusion. After calibration, a 0.5 cutoff
 #'   matched the tuned thresholds. Calibration does not transfer to a new
 #'   image domain.
 #' @export
-calibrate <- function(prob, truth, method = c("platt", "isotonic")) { ... }
+calibrate <- function(prob, truth, method = c("isotonic", "platt")) { ... }
 
 #' Measure calibration
 #' @return Tibble with Brier score, expected calibration error (10 bins), log
@@ -183,7 +183,7 @@ calibrate <- function(prob, truth, method = c("platt", "isotonic")) { ... }
 calibration_metrics <- function(prob, truth, bins = 10L) { ... }
 ```
 
-### Test evaluation, sample size and plots
+### Evaluation, sample size and plots
 
 ```r
 #' Freeze a configuration for the test run
