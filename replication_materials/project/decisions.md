@@ -56,6 +56,8 @@
 | D50 | 2026-10-20 | Use Outfit for figure titles and Cabin for all other figure text. | fmm | fmm | chat | "I like the look of the fonts in https://r-graph-gallery.com/web-waffle-for-time-evolution.html" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D51 | 2026-10-20 | Name groups in their chart color in the subtitle (ggtext) in place of a legend. | fmm | fmm | chat | "I like to use colors in subtitles to match the colors in the chart instead of having a legend." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D52 | 2026-10-20 | Round reported numbers half up (0.725 to 0.73), as in the submitted abstract, because floating point makes round() and sprintf() give 0.72. | claude | claude | measurement | results/final_test/summary.csv, extrusion references test_ba 0.725 | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D53 | 2026-10-20 | Show all tables of the replication document as interactive DT tables; keep the CSV and LaTeX files for the paper. | fmm | fmm | chat | "Further improve the readability of the results; use DT for all tables" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D54 | 2026-10-20 | In figures F3 and F4, give each method its own row or column, with larger points and no vertical nudging. | fmm | fmm | chat | "make the shapes bigger and do not nudge them on the y-axis (or at least not that much) since they are hard to deciper" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 
 ## Corrections
 
