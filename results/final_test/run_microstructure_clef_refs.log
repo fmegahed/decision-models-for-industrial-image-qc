@@ -1,0 +1,9 @@
+microstructure clef_refs : frozen clef_refs_t011 | test images 450 | references 4 | checks passed
+# A tibble: 1 × 20
+  dataset     condition tuned_on source_trial model use_references criteria_file
+  <chr>       <chr>     <chr>    <chr>        <chr> <lgl>          <chr>        
+1 microstruc… clef_refs microst… clef_refs_t… Clou… TRUE           experiments/…
+# ℹ 13 more variables: reference_file <chr>, crop <chr>, max_size <dbl>,
+#   upscale <lgl>, threshold <dbl>, base_url <chr>, image_format <chr>,
+#   split <chr>, n_images <int>, balanced_accuracy <dbl>, sensitivity <dbl>,
+#   specificity <dbl>, roc_auc <dbl>

@@ -1,0 +1,17 @@
+actual_class,dataset,image_name,image_path,defect_type,split
+defective,pan_images,IMG_1576.JPG,imgs/pan_images/train/defective/IMG_1576.JPG,defective,train
+defective,pan_images,IMG_1582.JPG,imgs/pan_images/train/defective/IMG_1582.JPG,defective,train
+defective,pan_images,IMG_1747.JPG,imgs/pan_images/train/defective/IMG_1747.JPG,defective,train
+defective,pan_images,IMG_1573.JPG,imgs/pan_images/train/defective/IMG_1573.JPG,defective,train
+defective,pan_images,IMG_1581.JPG,imgs/pan_images/train/defective/IMG_1581.JPG,defective,train
+defective,pan_images,IMG_1572.JPG,imgs/pan_images/train/defective/IMG_1572.JPG,defective,train
+defective,pan_images,IMG_1585.JPG,imgs/pan_images/train/defective/IMG_1585.JPG,defective,train
+defective,pan_images,IMG_1574.JPG,imgs/pan_images/train/defective/IMG_1574.JPG,defective,train
+nominal,pan_images,IMG_1463.JPG,imgs/pan_images/train/nominal/IMG_1463.JPG,nominal,train
+nominal,pan_images,6.JPG,imgs/pan_images/train/nominal/6.JPG,nominal,train
+nominal,pan_images,11.JPG,imgs/pan_images/train/nominal/11.JPG,nominal,train
+nominal,pan_images,IMG_1451.JPG,imgs/pan_images/train/nominal/IMG_1451.JPG,nominal,train
+nominal,pan_images,IMG_1456.JPG,imgs/pan_images/train/nominal/IMG_1456.JPG,nominal,train
+nominal,pan_images,IMG_1441.JPG,imgs/pan_images/train/nominal/IMG_1441.JPG,nominal,train
+nominal,pan_images,1.JPG,imgs/pan_images/train/nominal/1.JPG,nominal,train
+nominal,pan_images,IMG_1468.JPG,imgs/pan_images/train/nominal/IMG_1468.JPG,nominal,train

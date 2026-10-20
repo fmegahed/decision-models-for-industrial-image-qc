@@ -1,0 +1,9 @@
+textiles zero_shot : frozen zero_shot_t029 | test images 200 | references 0 | checks passed
+# A tibble: 1 × 18
+  dataset  condition tuned_on source_trial   model  use_references criteria_file
+  <chr>    <chr>     <chr>    <chr>          <chr>  <lgl>          <chr>        
+1 textiles zero_shot textiles zero_shot_t029 jev-1… FALSE          <NA>         
+# ℹ 11 more variables: reference_file <chr>, crop <chr>, max_size <dbl>,
+#   upscale <lgl>, threshold <dbl>, split <chr>, n_images <int>,
+#   balanced_accuracy <dbl>, sensitivity <dbl>, specificity <dbl>,
+#   roc_auc <dbl>

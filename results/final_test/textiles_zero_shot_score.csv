@@ -1,0 +1,2 @@
+dataset,condition,tuned_on,source_trial,model,use_references,criteria_file,reference_file,crop,max_size,upscale,threshold,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+textiles,zero_shot,textiles,zero_shot_t029,jev-1.13.0,FALSE,NA,NA,center,768,FALSE,0.29,test,200,0.73,0.49,0.97,0.6556

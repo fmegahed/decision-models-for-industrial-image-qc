@@ -1,0 +1,2 @@
+dataset,condition,tuned_on,source_trial,model,use_references,criteria_file,reference_file,crop,max_size,upscale,threshold,base_url,image_format,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+microstructure,clef_zero,microstructure,clef_zero_t006,Cloudflare/clef-flash,FALSE,experiments/microstructure_criteria_color.csv,NA,center,768,FALSE,0.06,http://localhost:30000/v1/systemone,images,test,450,0.8377777777777777,0.68,0.9955555555555555,0.9014716049382716

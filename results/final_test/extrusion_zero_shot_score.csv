@@ -1,0 +1,2 @@
+dataset,condition,tuned_on,source_trial,model,use_references,criteria_file,reference_file,crop,max_size,upscale,threshold,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+extrusion,zero_shot,extrusion,zero_shot_t072,jev-1.13.0,FALSE,experiments/extrusion_criteria_over_under.csv,NA,center,768,FALSE,0.72,test,200,0.685,0.67,0.7,0.7676499999999999

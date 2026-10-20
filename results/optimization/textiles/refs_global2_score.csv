@@ -1,0 +1,2 @@
+trial_id,dataset,seed,n_images,use_references,reference_file,criteria_file,crop,max_size,upscale,model,threshold,balanced_accuracy,sensitivity,specificity,roc_auc
+refs_global2,textiles,202610,100,TRUE,experiments/textiles_refs_global2.csv,NA,center,768,FALSE,jev-1.13.0,0.5,0.8400000000000001,0.68,1,0.9484

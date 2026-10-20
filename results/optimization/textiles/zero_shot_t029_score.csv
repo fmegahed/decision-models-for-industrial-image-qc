@@ -1,0 +1,2 @@
+trial_id,dataset,seed,n_images,use_references,reference_file,criteria_file,crop,max_size,upscale,model,threshold,balanced_accuracy,sensitivity,specificity,roc_auc,source_trial
+zero_shot_t029,textiles,202610,100,FALSE,NA,NA,center,768,FALSE,jev-1.13.0,0.29,0.8,0.62,0.98,0.7284,zero_shot

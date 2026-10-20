@@ -1,0 +1,2 @@
+dataset,condition,tuned_on,source_trial,model,use_references,criteria_file,reference_file,crop,max_size,upscale,threshold,base_url,image_format,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+pipe_staple,clef_zero,pipe_staple,clef_zero_t049,Cloudflare/clef-flash,FALSE,experiments/pipe_staple_criteria_staple.csv,NA,center,768,FALSE,0.49,http://localhost:30000/v1/systemone,images,test,100,0.9,0.92,0.88,0.9736

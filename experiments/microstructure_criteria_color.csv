@@ -1,0 +1,2 @@
+normal,defective
+"A uniform grain structure. Grain colors are mixed at random across the whole image. No single color or pair of colors dominates, and grains of similar color do not cluster into a region or band.","A non-uniform grain structure. Many grains share similar colors: one color (for example red) dominates the image, or two colors (for example cyan and red) dominate, or grains of similar color form a band or region."

@@ -1,0 +1,2 @@
+dataset,condition,tuned_on,source_trial,model,use_references,criteria_file,reference_file,crop,max_size,upscale,threshold,base_url,image_format,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+extrusion,clef_zero,extrusion,clef_zero_t056,Cloudflare/clef-flash,FALSE,experiments/extrusion_criteria_over_under.csv,NA,center,768,FALSE,0.56,http://localhost:30000/v1/systemone,images,test,200,0.605,0.43,0.78,0.7286

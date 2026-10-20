@@ -1,0 +1,2 @@
+trial_id,dataset,seed,n_images,use_references,reference_file,criteria_file,crop,max_size,upscale,model,threshold,balanced_accuracy,sensitivity,specificity,roc_auc,source_trial
+criteria_over_under_t076,extrusion,202610,100,TRUE,results/reference_manifest_seed202610_by_dataset.csv,experiments/extrusion_criteria_over_under.csv,center,768,FALSE,jev-1.13.0,0.76,0.83,0.82,0.84,0.8812,criteria_over_under

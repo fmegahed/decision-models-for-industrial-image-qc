@@ -1,0 +1,2 @@
+trial_id,dataset,seed,n_images,use_references,reference_file,criteria_file,crop,max_size,upscale,model,base_url,image_format,threshold,balanced_accuracy,sensitivity,specificity,roc_auc,source_trial
+clef_zero_t026,pan_images,202610,16,FALSE,NA,NA,center,768,FALSE,Cloudflare/clef-flash,http://localhost:30000/v1/systemone,images,0.26,0.9375,0.875,1,0.9921875,clef_zero

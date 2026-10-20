@@ -1,0 +1,9 @@
+extrusion clef_zero : frozen clef_zero_t056 | test images 200 | references 0 | checks passed
+# A tibble: 1 × 20
+  dataset   condition tuned_on  source_trial  model use_references criteria_file
+  <chr>     <chr>     <chr>     <chr>         <chr> <lgl>          <chr>        
+1 extrusion clef_zero extrusion clef_zero_t0… Clou… FALSE          experiments/…
+# ℹ 13 more variables: reference_file <chr>, crop <chr>, max_size <dbl>,
+#   upscale <lgl>, threshold <dbl>, base_url <chr>, image_format <chr>,
+#   split <chr>, n_images <int>, balanced_accuracy <dbl>, sensitivity <dbl>,
+#   specificity <dbl>, roc_auc <dbl>

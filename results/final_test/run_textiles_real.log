@@ -1,0 +1,8 @@
+textiles_real : frozen baseline_t014 | test images 100 | references 3 | checks passed
+# A tibble: 1 × 16
+  dataset       tuned_on source_trial  model  criteria_file reference_file crop 
+  <chr>         <chr>    <chr>         <chr>  <chr>         <chr>          <chr>
+1 textiles_real textiles baseline_t014 jev-1… <NA>          results/refer… cent…
+# ℹ 9 more variables: max_size <dbl>, upscale <lgl>, threshold <dbl>,
+#   split <chr>, n_images <int>, balanced_accuracy <dbl>, sensitivity <dbl>,
+#   specificity <dbl>, roc_auc <dbl>

@@ -1,0 +1,2 @@
+trial_id,dataset,seed,n_images,use_references,reference_file,criteria_file,crop,max_size,upscale,model,threshold,balanced_accuracy,sensitivity,specificity,roc_auc
+zero_shot,microstructure,202610,100,FALSE,NA,experiments/microstructure_criteria_color.csv,center,768,FALSE,jev-1.13.0,0.5,0.7,0.4,1,0.9424

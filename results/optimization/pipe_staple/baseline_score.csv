@@ -1,0 +1,2 @@
+trial_id,dataset,seed,n_images,use_references,reference_file,criteria_file,crop,max_size,upscale,model,threshold,balanced_accuracy,sensitivity,specificity,roc_auc
+baseline,pipe_staple,202610,100,TRUE,results/reference_manifest_seed202610_by_dataset.csv,NA,center,768,FALSE,jev-1.13.0,0.5,0.9199999999999999,0.84,1,0.997

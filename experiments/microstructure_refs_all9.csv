@@ -1,0 +1,11 @@
+dataset,reference_class,reference_rank,image_path
+microstructure,normal,1,imgs/microstructure/Uniform/microstructure_139.png
+microstructure,defective,1,imgs/microstructure/Band_low/microstructure_008.png
+microstructure,defective,2,imgs/microstructure/Band_medium/microstructure_017.png
+microstructure,defective,3,imgs/microstructure/Band_high/microstructure_009.png
+microstructure,defective,4,imgs/microstructure/Bimodal_low/microstructure_011.png
+microstructure,defective,5,imgs/microstructure/Bimodal_medium/microstructure_012.png
+microstructure,defective,6,imgs/microstructure/Bimodal_high/microstructure_012.png
+microstructure,defective,7,imgs/microstructure/SingleCrystal_low/microstructure_009.png
+microstructure,defective,8,imgs/microstructure/SingleCrystal_medium/microstructure_006.png
+microstructure,defective,9,imgs/microstructure/SingleCrystal_high/microstructure_005.png

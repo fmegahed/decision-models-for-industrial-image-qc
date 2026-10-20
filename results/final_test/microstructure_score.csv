@@ -1,0 +1,2 @@
+dataset,tuned_on,source_trial,model,criteria_file,reference_file,crop,max_size,upscale,threshold,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+microstructure,microstructure,criteria_color_t017,jev-1.13.0,experiments/microstructure_criteria_color.csv,results/reference_manifest_seed202610_by_dataset.csv,center,768,FALSE,0.17,test,450,0.9199999999999999,0.84,1,0.9610469135802469

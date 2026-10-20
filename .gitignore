@@ -1,0 +1,13 @@
+# Secrets: never commit API keys
+.env
+.Renviron
+
+# R session files
+.Rhistory
+.Rproj.user/
+
+# Images are not redistributed here (see README, Data)
+imgs/
+
+# The prior-study notebook is public in fmegahed/qe_genai (see README)
+prior_study/

@@ -1,0 +1,8 @@
+extrusion : frozen criteria_over_under_t076 | test images 200 | references 3 | checks passed
+# A tibble: 1 × 16
+  dataset   tuned_on  source_trial      model criteria_file reference_file crop 
+  <chr>     <chr>     <chr>             <chr> <chr>         <chr>          <chr>
+1 extrusion extrusion criteria_over_un… jev-… experiments/… results/refer… cent…
+# ℹ 9 more variables: max_size <dbl>, upscale <lgl>, threshold <dbl>,
+#   split <chr>, n_images <int>, balanced_accuracy <dbl>, sensitivity <dbl>,
+#   specificity <dbl>, roc_auc <dbl>

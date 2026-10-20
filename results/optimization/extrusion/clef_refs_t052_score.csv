@@ -1,0 +1,2 @@
+trial_id,dataset,seed,n_images,use_references,reference_file,criteria_file,crop,max_size,upscale,model,base_url,image_format,threshold,balanced_accuracy,sensitivity,specificity,roc_auc,source_trial
+clef_refs_t052,extrusion,202610,100,TRUE,results/reference_manifest_seed202610_by_dataset.csv,experiments/extrusion_criteria_over_under.csv,center,768,FALSE,Cloudflare/clef-flash,http://localhost:30000/v1/systemone,images,0.52,0.74,0.7,0.78,0.8114,clef_refs

@@ -1,0 +1,2 @@
+trial_id,dataset,seed,n_images,use_references,reference_file,criteria_file,crop,max_size,upscale,model,threshold,balanced_accuracy,sensitivity,specificity,roc_auc
+zero_shot,pipe_staple,202610,100,FALSE,NA,experiments/pipe_staple_criteria_staple.csv,center,768,FALSE,jev-1.13.0,0.5,0.76,0.54,0.98,0.9672

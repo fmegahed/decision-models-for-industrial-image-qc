@@ -1,0 +1,2 @@
+dataset,condition,tuned_on,source_trial,model,use_references,criteria_file,reference_file,crop,max_size,upscale,threshold,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+pan_images,zero_shot,pan_images,zero_shot_t053,jev-1.13.0,FALSE,NA,NA,center,768,FALSE,0.53,test,78,0.9615384615384616,1,0.9230769230769231,0.9990138067061144

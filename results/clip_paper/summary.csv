@@ -1,0 +1,7 @@
+setting,dataset,n_learning_nominal,n_learning_defective,n_test,accuracy,balanced_accuracy,sensitivity,specificity,roc_auc,paper_learning,paper_accuracy,paper_sensitivity,paper_specificity,paper_auc
+pan_10,pan_images,10,10,78,0.9102564102564102,0.9102564102564102,0.8205128205128205,1,0.9986850756081526,10 per class (Section 4),0.91,0.821,1,0.998
+pipe_staple_50,pipe_staple,50,50,100,0.57,0.5700000000000001,0.56,0.58,0.6308,first 50 per class (Section 7),0.58,0.56,0.6,0.608
+textiles_50,textiles,50,50,200,0.975,0.975,0.97,0.98,0.9975,50 per class: 97% accuracy (Sec. 9.1),0.97,NA,NA,NA
+extrusion_200,extrusion,200,200,200,0.79,0.79,0.81,0.77,0.8348,plateau beyond 200 per class (Sec. 5),NA,NA,NA,NA
+extrusion_350,extrusion,350,350,200,0.82,0.8200000000000001,0.83,0.81,0.8696,350 per class: 80% accuracy (Sec. 5),0.8,0.78,0.81,NA
+microstructure_72,microstructure,72,72,450,0.8533333333333334,0.8533333333333333,1,0.7066666666666667,0.9943506172839506,"72 nominal, 8 per defect type (Sec. 8)",0.898,0.987,0.809,0.952

@@ -1,0 +1,2 @@
+dataset,tuned_on,source_trial,model,criteria_file,reference_file,crop,max_size,upscale,threshold,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+textiles,textiles,baseline_t014,jev-1.13.0,NA,results/reference_manifest_seed202610_by_dataset.csv,center,768,FALSE,0.14,test,200,0.855,0.88,0.83,0.9471499999999999

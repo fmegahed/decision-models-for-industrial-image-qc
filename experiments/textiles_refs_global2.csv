@@ -1,0 +1,6 @@
+dataset,reference_class,reference_rank,image_path
+textiles,normal,1,imgs/textile_images/simulated/nominal/textile_0891.jpg
+textiles,defective,1,imgs/textile_images/simulated/local/textile_0319.jpg
+textiles,defective,2,imgs/textile_images/simulated/global/textile_0324.jpg
+textiles,normal,2,imgs/textile_images/simulated/nominal/textile_0948.jpg
+textiles,defective,3,imgs/textile_images/simulated/global/textile_0339.jpg

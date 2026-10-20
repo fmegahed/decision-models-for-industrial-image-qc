@@ -1,0 +1,2 @@
+dataset,tuned_on,source_trial,model,criteria_file,reference_file,crop,max_size,upscale,threshold,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+pipe_staple,pipe_staple,criteria_staple_t080,jev-1.13.0,experiments/pipe_staple_criteria_staple.csv,results/reference_manifest_seed202610_by_dataset.csv,center,768,FALSE,0.8,test,100,0.98,0.96,1,1

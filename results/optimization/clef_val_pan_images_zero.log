@@ -1,0 +1,8 @@
+# A tibble: 1 × 18
+  trial_id  dataset    seed n_images use_references reference_file criteria_file
+  <chr>     <chr>     <int>    <int> <lgl>          <chr>          <chr>        
+1 clef_zero pan_ima… 202610       16 FALSE          <NA>           <NA>         
+# ℹ 11 more variables: crop <chr>, max_size <int>, upscale <lgl>, model <chr>,
+#   base_url <chr>, image_format <chr>, threshold <dbl>,
+#   balanced_accuracy <dbl>, sensitivity <dbl>, specificity <dbl>,
+#   roc_auc <dbl>

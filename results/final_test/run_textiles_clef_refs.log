@@ -1,0 +1,9 @@
+textiles clef_refs : frozen clef_refs_t008 | test images 200 | references 3 | checks passed
+# A tibble: 1 × 20
+  dataset  condition tuned_on source_trial   model  use_references criteria_file
+  <chr>    <chr>     <chr>    <chr>          <chr>  <lgl>          <chr>        
+1 textiles clef_refs textiles clef_refs_t008 Cloud… TRUE           <NA>         
+# ℹ 13 more variables: reference_file <chr>, crop <chr>, max_size <dbl>,
+#   upscale <lgl>, threshold <dbl>, base_url <chr>, image_format <chr>,
+#   split <chr>, n_images <int>, balanced_accuracy <dbl>, sensitivity <dbl>,
+#   specificity <dbl>, roc_auc <dbl>

@@ -1,0 +1,2 @@
+dataset,condition,tuned_on,source_trial,model,use_references,criteria_file,reference_file,crop,max_size,upscale,threshold,base_url,image_format,split,n_images,balanced_accuracy,sensitivity,specificity,roc_auc
+textiles,clef_refs,textiles,clef_refs_t008,Cloudflare/clef-flash,TRUE,NA,results/reference_manifest_seed202610_by_dataset.csv,center,768,FALSE,0.08,http://localhost:30000/v1/systemone,images,test,200,0.8500000000000001,0.89,0.81,0.92455
