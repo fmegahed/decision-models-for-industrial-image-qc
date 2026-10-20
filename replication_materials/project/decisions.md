@@ -46,6 +46,8 @@
 | D40 | 2026-10-20 | Organize the repository before the first push. | fmm | fmm | chat | "before pushing things into GitHub, ensure that the repo is organized." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D41 | 2026-10-20 | Make the research repository public, so the record website works on the free plan. | claude | fmm | question | "Yes, public (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D42 | 2026-10-20 | License the repository under MIT. | claude | fmm | question | "MIT (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D43 | 2026-10-20 | Cite the CLIP study as the 2026 Journal of Quality Technology article, which is open access. | fmm | fmm | chat | "For the CLIP reference, put Megahed, Fadel Mounir, et al." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D44 | 2026-10-20 | Set the JEV budget to about USD 5, the free credit for a new user. | fmm | fmm | chat | "For JEV set the budget to ~$5, which is what they provide for free for any new user." (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 
 ## Corrections
 
