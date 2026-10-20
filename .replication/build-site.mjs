@@ -1,12 +1,11 @@
-// replication-materials 1.0.0
+// replication-materials 1.1.0
 // Builds the static site from the markdown record: node build-site.mjs --root . --out _site
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadProject } from "./lib/project.mjs";
 import { renderSite } from "./lib/pages.mjs";
-import { VERSION } from "./lib/html.mjs";
 
 function parseArgs(argv) {
   const opts = { root: ".", out: "_site" };
@@ -35,8 +34,9 @@ function gitSha(root) {
 function outIsUsable(out) {
   if (!existsSync(out) || readdirSync(out).length === 0) return true;
   const index = join(out, "index.html");
+  // A site of any version of the skill can be replaced (an update changes the version).
   return existsSync(index)
-    && readFileSync(index, "utf8").includes(`<meta name="generator" content="replication-materials ${VERSION}">`);
+    && /<meta name="generator" content="replication-materials \d+\.\d+\.\d+">/.test(readFileSync(index, "utf8"));
 }
 
 export async function main(argv) {
@@ -57,7 +57,15 @@ export async function main(argv) {
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, html);
     }
-    process.stdout.write(`Wrote ${site.size} pages to ${args.out}.\n`);
+    // Extra pages are copied as they are, byte for byte.
+    const extra = model.config.pages;
+    for (const page of extra) {
+      const target = join(out, page.path);
+      mkdirSync(dirname(target), { recursive: true });
+      copyFileSync(join(root, page.file), target);
+    }
+    const copied = extra.length ? ` and ${extra.length} extra page${extra.length === 1 ? "" : "s"}` : "";
+    process.stdout.write(`Wrote ${site.size} pages${copied} to ${args.out}.\n`);
     return 0;
   } catch (e) {
     process.stderr.write(`replication-materials: ${e.message}\n`);

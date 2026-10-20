@@ -1,9 +1,10 @@
-# replication-materials 1.0.0
+# replication-materials 1.1.0
 name: Replication site
+# Each push to main: the extra pages of site.config.json can be anywhere in
+# the project, so no path filter.
 on:
   push:
     branches: [main]
-    paths: ["replication_materials/**", ".replication/**", ".github/workflows/replication-site.yml"]
   workflow_dispatch:
 # No permission at the top level: each job names only what it needs.
 permissions: {}

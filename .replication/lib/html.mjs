@@ -1,7 +1,7 @@
 // Miami theme, HTML escaping and the shared page shell.
 import { posix } from "node:path";
 
-export const VERSION = "1.0.0";
+export const VERSION = "1.1.0";
 
 export const DEFAULT_TOKENS = {
   bg: "#FAF9F7",
@@ -130,9 +130,11 @@ export function pageShell({ path, title, body, model, head = "", scripts = "" })
   const project = model.config.project;
   const repo = model.config.repository;
   const tokens = { ...DEFAULT_TOKENS, ...(model.config.theme || {}) };
-  const items = NAV.map(([label, target]) => {
+  // The extra pages of site.config.json follow the record pages.
+  const extra = (model.config.pages ?? []).map((p) => [p.title, p.path]);
+  const items = [...NAV, ...extra].map(([label, target]) => {
     const current = target === path ? ' aria-current="page"' : "";
-    return `<li><a href="${escapeHtml(rel(path, target))}"${current}>${label}</a></li>`;
+    return `<li><a href="${escapeHtml(rel(path, target))}"${current}>${escapeHtml(label)}</a></li>`;
   });
   items.push(`<li><a href="${escapeHtml(repo)}">Repository</a></li>`);
   return `<!doctype html>

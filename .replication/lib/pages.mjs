@@ -89,6 +89,7 @@ export function renderHome(model) {
     ? `<ul>\n${model.counts.byDecider.map((c) => `<li>${escapeHtml(c.name)}: ${c.count}</li>`).join("\n")}\n</ul>`
     : "<p>No decisions yet.</p>";
   const link = (target, label) => `<li><a href="${escapeHtml(rel(path, target))}">${label}</a></li>`;
+  const extra = (model.config.pages ?? []).map((p) => `${link(p.path, escapeHtml(p.title))}\n`).join("");
   const body = `<h1>${escapeHtml(model.config.project)}</h1>
 ${lead ? `<p class="lead">${inline(lead)}</p>` : ""}
 <h2>Status</h2>
@@ -103,7 +104,7 @@ ${link("records/index.html", "Records")}
 ${link("decisions/index.html", "Decisions")}
 ${link("progress/index.html", "Progress")}
 ${link("process/index.html", "Process")}
-<li><a href="${escapeHtml(model.config.repository)}">Repository</a></li>
+${extra}<li><a href="${escapeHtml(model.config.repository)}">Repository</a></li>
 </ul>`;
   return shell(model, path, "Home", body);
 }

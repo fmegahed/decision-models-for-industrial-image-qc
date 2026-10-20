@@ -1,6 +1,6 @@
 // Assembles the markdown record of a project into one SiteModel.
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { parseTables, findTable, readMeta, RecordFormatError } from "./tables.mjs";
@@ -80,6 +80,37 @@ function number(value, name, file, line) {
   return n;
 }
 
+// Extra pages: project files (for example a rendered analysis) that the site
+// publishes as they are, at pages/<file name>. Each file must be inside the
+// project; the build copies it byte for byte.
+function readPages(root, raw, bad) {
+  if (raw.pages === undefined) return [];
+  if (!Array.isArray(raw.pages)) {
+    throw bad('pages must be a list, for example [{ "file": "analysis.html", "title": "Analysis" }].');
+  }
+  const names = new Map();
+  return raw.pages.map((page, k) => {
+    if (page === null || typeof page !== "object" || Array.isArray(page)) {
+      throw bad(`pages[${k}] must be an object with file and title.`);
+    }
+    if (typeof page.title !== "string" || page.title.trim() === "") {
+      throw bad(`pages[${k}].title must be a non-empty string.`);
+    }
+    const { file } = page;
+    const parts = typeof file === "string" ? file.split("/") : [];
+    if (typeof file !== "string" || /[\\:]/.test(file)
+      || parts.some((part) => part === "" || part === "." || part === "..")) {
+      throw bad(`pages[${k}].file "${file}" must be a relative path inside the project, with "/" between folders.`);
+    }
+    const path = join(root, file);
+    if (!existsSync(path) || !statSync(path).isFile()) throw bad(`pages[${k}].file "${file}" is not a file.`);
+    const name = parts[parts.length - 1];
+    if (names.has(name)) throw bad(`pages[${k}].file has the same file name as pages[${names.get(name)}].file.`);
+    names.set(name, k);
+    return { file, title: page.title, path: `pages/${name}` };
+  });
+}
+
 function loadConfig(root) {
   const path = join(root, CONFIG_FILE);
   if (!existsSync(path)) throw new RecordFormatError(CONFIG_FILE, 1, "file not found");
@@ -114,7 +145,8 @@ function loadConfig(root) {
       throw bad(`theme value ${key} "${value}" must look like #RRGGBB.`);
     }
   }
-  return { project: raw.project, repository: raw.repository, format_version: raw.format_version, theme };
+  const pages = readPages(root, raw, bad);
+  return { project: raw.project, repository: raw.repository, format_version: raw.format_version, theme, pages };
 }
 
 function countTasks(base, rel, pattern, file, line, what) {
