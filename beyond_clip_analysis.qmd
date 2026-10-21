@@ -145,13 +145,16 @@ paint_html <- function(text, color) {
 round_half_up <- function(x, digits = 2) {
   sign(x) * floor(abs(x) * 10^digits + 0.5 + 1e-9) / 10^digits
 }
-# Fixed decimals; "+ 0" turns a rounded -0 into 0, so no "-0.00".
+# Fixed decimals and a comma every three digits (1,212); "+ 0" turns a
+# rounded -0 into 0, so no "-0.00".
 fmt <- function(x, digits = 2) {
-  formatC(round_half_up(x, digits) + 0, format = "f", digits = digits)
+  formatC(round_half_up(x, digits) + 0, format = "f", digits = digits, big.mark = ",")
 }
+# A sign before each difference that is not 0 after rounding.
 signed <- function(x, digits = 2) {
   shown <- round_half_up(x, digits) + 0
-  stringr::str_c(dplyr::if_else(shown < 0, "-", "+"), fmt(abs(shown), digits))
+  sign_text <- dplyr::case_when(shown < 0 ~ "-", shown > 0 ~ "+", .default = "")
+  stringr::str_c(sign_text, fmt(abs(shown), digits))
 }
 capitalize <- function(s) {
   stringr::str_c(stringr::str_to_upper(stringr::str_sub(s, 1, 1)),
@@ -877,34 +880,42 @@ For each dataset and model, the loop log keeps every candidate: its texts, its d
 
 ```{r}
 #| label: loop-numbers
-#| eval: !expr has_loop
-# AUC on C of the generic and final descriptions at k = 2 (raw scores, which
-# are not in sample). Platt keeps the order only when its slope is positive;
-# metrics.csv reports the slope (platt_slope).
-auc_on_c <- metrics |>
-  dplyr::filter(model %in% c("jev", "clef"), split == "calibration",
-                calibration == "raw", metric == "roc_auc", k == k_main) |>
-  dplyr::summarise(
-    c_generic = value[description == "generic"][1],
-    c_final = value[description == "final"][1],
-    .by = c(model, dataset)
-  )
+# One row per model and dataset. With no closed loop, the table is empty but
+# has the same columns, so the text below shows no number and stops nothing.
+loop_summary <- tibble::tibble(
+  model = character(), dataset = character(), candidates = integer(),
+  final = integer(), design_generic = double(), design_final = double(),
+  c_generic = double(), c_final = double(), flagged = integer()
+)
+if (has_loop) {
+  # AUC on C of the generic and final descriptions at k = 2 (raw scores,
+  # which are not in sample). Platt keeps the order only when its slope is
+  # positive; metrics.csv reports the slope (platt_slope).
+  auc_on_c <- metrics |>
+    dplyr::filter(model %in% c("jev", "clef"), split == "calibration",
+                  calibration == "raw", metric == "roc_auc", k == k_main) |>
+    dplyr::summarise(
+      c_generic = value[description == "generic"][1],
+      c_final = value[description == "final"][1],
+      .by = c(model, dataset)
+    )
 
-# Audit result of each loop: the number of flagged tool calls.
-audit_summary <- audits |>
-  dplyr::summarise(flagged = sum(tool != "none"), .by = c(model, dataset))
+  # Audit result of each loop: the number of flagged tool calls.
+  audit_summary <- audits |>
+    dplyr::summarise(flagged = sum(tool != "none"), .by = c(model, dataset))
 
-# One row per model and dataset. The final description is the last kept one.
-loop_summary <- loops |>
-  dplyr::summarise(
-    candidates = dplyr::n(),
-    final = max(candidate[kept]),
-    design_generic = auc[candidate == 1],
-    design_final = auc[candidate == max(candidate[kept])],
-    .by = c(model, dataset)
-  ) |>
-  dplyr::left_join(auc_on_c, by = c("model", "dataset")) |>
-  dplyr::left_join(audit_summary, by = c("model", "dataset"))
+  # The final description is the last kept one.
+  loop_summary <- loops |>
+    dplyr::summarise(
+      candidates = dplyr::n(),
+      final = max(candidate[kept]),
+      design_generic = auc[candidate == 1],
+      design_final = auc[candidate == max(candidate[kept])],
+      .by = c(model, dataset)
+    ) |>
+    dplyr::left_join(auc_on_c, by = c("model", "dataset")) |>
+    dplyr::left_join(audit_summary, by = c("model", "dataset"))
+}
 
 # Numbers for the text below: the loops that kept a new description, with
 # the change from the generic to the final description.
@@ -1291,9 +1302,9 @@ save_figure(
 
 ## P2: final against generic description
 
-The final description raises JEV on extrusion by `r diff_text("P2", "jev", "extrusion")`, on textiles by `r diff_text("P2", "jev", "textiles")` and on microstructure by `r diff_text("P2", "jev", "microstructure")`. It raises Clef-Flash on pipe staple by `r diff_text("P2", "clef", "pipe_staple")` and on microstructure by `r diff_text("P2", "clef", "microstructure")`. These five gains survive the Holm adjustment (largest Holm p-value: `r max_holm("P2", c("jev", "jev", "jev", "clef", "clef"), c("extrusion", "textiles", "microstructure", "pipe_staple", "microstructure"))`). For Clef-Flash on textiles, the gain is `r diff_text("P2", "clef", "textiles")`: its interval excludes 0, but the gain does not survive the Holm adjustment (`r holm_text("P2", "clef", "textiles")`). On extrusion, the Clef-Flash interval includes 0.
+The final description raises JEV on extrusion by `r diff_text("P2", "jev", "extrusion")`, on textiles by `r diff_text("P2", "jev", "textiles")` and on microstructure by `r diff_text("P2", "jev", "microstructure")`. It raises Clef-Flash on pipe staple by `r diff_text("P2", "clef", "pipe_staple")` and on microstructure by `r diff_text("P2", "clef", "microstructure")`. These five gains survive the Holm adjustment (largest Holm p-value: `r max_holm("P2", c("jev", "jev", "jev", "clef", "clef"), c("extrusion", "textiles", "microstructure", "pipe_staple", "microstructure"))`). For Clef-Flash on textiles, the gain is `r diff_text("P2", "clef", "textiles")`: its interval excludes 0, but the gain does not survive the Holm adjustment (`r holm_text("P2", "clef", "textiles")`). On extrusion, the Clef-Flash interval includes 0. On pipe staple, the generic side of Clef-Flash has a negative Platt slope (`r fmt(slope_of("clef", "generic", 2, "pipe_staple"))`; † in @tbl-paired), so Platt reverses its raw scores.
 
-For JEV on pipe staple, the final description is the generic text (decision D85), so P2 compares two runs of the same prompts. This row thus measures the run-to-run variation of JEV (decision D88): `r diff_text("P2", "jev", "pipe_staple")`. The two runs gave slightly different probabilities. On the test set, the final run has a sensitivity of `r fmt(metric_value("jev", "final", 2, "pipe_staple", "sens"))` and a specificity of `r fmt(metric_value("jev", "final", 2, "pipe_staple", "spec"))`, and the generic run `r fmt(metric_value("jev", "generic", 2, "pipe_staple", "sens"))` and `r fmt(metric_value("jev", "generic", 2, "pipe_staple", "spec"))`.
+For JEV on pipe staple, the final description is the generic text (decision D85), so P2 compares two runs of the same prompts. This row thus measures the run-to-run variation of JEV (decision D88): `r diff_text("P2", "jev", "pipe_staple")`. The two runs gave slightly different probabilities. On the test set, the final run has a sensitivity of `r fmt(metric_value("jev", "final", 2, "pipe_staple", "sens"), 3)` and a specificity of `r fmt(metric_value("jev", "final", 2, "pipe_staple", "spec"), 3)`, and the generic run `r fmt(metric_value("jev", "generic", 2, "pipe_staple", "sens"), 3)` and `r fmt(metric_value("jev", "generic", 2, "pipe_staple", "spec"), 3)`.
 
 ```{r}
 #| label: fig-paired-p2
@@ -1312,7 +1323,7 @@ save_figure(
 
 ## P3: two references against none
 
-Two references per class raise the balanced accuracy of JEV on four datasets: extrusion by `r diff_text("P3", "jev", "extrusion")`, textiles by `r diff_text("P3", "jev", "textiles")`, pipe staple by `r diff_text("P3", "jev", "pipe_staple")` and pans by `r diff_text("P3", "jev", "pan_images")`. All four gains survive the Holm adjustment (largest Holm p-value: `r max_holm("P3", "jev", c("extrusion", "textiles", "pipe_staple", "pan_images"))`). Clef-Flash gains on textiles (`r holm_text("P3", "clef", "textiles")`) and on pans (`r holm_text("P3", "clef", "pan_images")`). Its gain on extrusion, `r diff_text("P3", "clef", "extrusion")`, has an interval that excludes 0, but it does not survive the Holm adjustment (`r holm_text("P3", "clef", "extrusion")`). Microstructure gains little: `r diff_text("P3", "jev", "microstructure")` for JEV and `r diff_text("P3", "clef", "microstructure")` for Clef-Flash, with intervals that include 0.
+Two references per class raise the balanced accuracy of JEV on four datasets: extrusion by `r diff_text("P3", "jev", "extrusion")`, textiles by `r diff_text("P3", "jev", "textiles")`, pipe staple by `r diff_text("P3", "jev", "pipe_staple")` and pans by `r diff_text("P3", "jev", "pan_images")`. All four gains survive the Holm adjustment (largest Holm p-value: `r max_holm("P3", "jev", c("extrusion", "textiles", "pipe_staple", "pan_images"))`). Clef-Flash gains on textiles (`r holm_text("P3", "clef", "textiles")`) and on pans (`r holm_text("P3", "clef", "pan_images")`). Its gain on extrusion, `r diff_text("P3", "clef", "extrusion")`, has an interval that excludes 0, but it does not survive the Holm adjustment (`r holm_text("P3", "clef", "extrusion")`); its gain on pipe staple, `r diff_text("P3", "clef", "pipe_staple")`, has an interval that reaches 0. Microstructure gains little: `r diff_text("P3", "jev", "microstructure")` for JEV and `r diff_text("P3", "clef", "microstructure")` for Clef-Flash, with intervals that include 0.
 
 The k = 0 side of JEV on pipe staple has a negative Platt slope (`r fmt(slope_of("jev", "final", 0, "pipe_staple"))`; decision D82). Its raw scores run backwards (raw test AUC `r fmt(metric_value("jev", "final", 0, "pipe_staple", "roc_auc", "raw"), 3)`), and Platt reverses them. Its calibrated result thus comes from the calibration labels, not from the raw ranking. On pans and pipe staple, the size of P3 depends on the calibration method (@sec-isotonic).
 
@@ -1689,6 +1700,16 @@ if (no_cost > 0) {
   cost_note <- stringr::str_c(" The call log has no cost for ", no_cost,
                               " configurations; the total does not include them.")
 }
+# The cost sentence of the section JEV cost, only when the log has a cost.
+cost_text <- ""
+if (has_cost) {
+  cost_text <- stringr::str_c(
+    "The ", fmt(sum(jev_test_calls$n_calls), 0), " JEV calls of the test runs cost about USD ",
+    fmt(sum(jev_test_calls$cost_usd, na.rm = TRUE)), ". All ", fmt(sum(jev_calls$n_calls), 0),
+    " JEV calls of the description loops, the calibration runs and the test runs cost ",
+    "about USD ", fmt(sum(jev_calls$cost_usd, na.rm = TRUE)), " (@tbl-cost)."
+  )
+}
 
 # One sentence that names the hardware of each method.
 hardware_text <- hardware |>
@@ -1775,7 +1796,7 @@ save_table(t9, "T9_total_time", "Total time of each step (seconds).",
 
 The cost of JEV is an estimate: the input tokens of each call times USD 0.042 per million, the price in `R/industrial_defect_classifier.R`. The client logs the tokens of each call in the TypeSafe call log, with the purpose of the call, which names the step and the configuration. The estimate does not include the output tokens. The researchers can compare the logged total with the usage that the TypeSafe account shows.
 
-The `r fmt(sum(jev_test_calls$n_calls), 0)` JEV calls of the test runs cost about USD `r fmt(sum(jev_test_calls$cost_usd, na.rm = TRUE))`. All `r fmt(sum(jev_calls$n_calls), 0)` JEV calls of the description loops, the calibration runs and the test runs cost about USD `r fmt(sum(jev_calls$cost_usd, na.rm = TRUE))` (@tbl-cost).
+`r cost_text`
 
 ```{r}
 #| label: cost-note
@@ -1869,19 +1890,32 @@ iso_diff <- function(id, m, ds, cal) {
                                 iso_diffs$dataset == ds & iso_diffs$calibration == cal], 3)
 }
 
+# One calibration score file; with no file, an empty table with the same
+# columns, so the text below shows no number and stops nothing.
+read_scores_if <- function(name) {
+  file <- file.path(scores_dir, name)
+  if (!file.exists(file)) {
+    return(tibble::tibble(actual_class = character(), prob_defective = double()))
+  }
+  read_csv_quiet(file)
+}
+
 # JEV with the generic description at k = 0 on pans: the scores of its
 # calibration images (the 10 + 10 images of L), and the cut of each fit (the
 # score where the calibrated probability reaches 0.5).
-pan_k0 <- read_csv_quiet(file.path(scores_dir, "jev_generic_k0_pan_images_calibration.csv"))
+pan_k0 <- read_scores_if("jev_generic_k0_pan_images_calibration.csv")
 pan_k0_y <- as.integer(pan_k0$actual_class == "defective")
-pan_k0_cut <- purrr::map_dbl(list(platt = fair$platt, isotonic = fair$isotonic), \(fit) {
-  calibrate <- fit(pan_k0$prob_defective, pan_k0_y)
-  stats::uniroot(\(p) calibrate(p) - 0.5, c(0.01, 0.99), tol = 1e-9)$root
-})
+pan_k0_cut <- c(platt = NA_real_, isotonic = NA_real_)
+if (dplyr::n_distinct(pan_k0_y) == 2) {
+  pan_k0_cut <- purrr::map_dbl(list(platt = fair$platt, isotonic = fair$isotonic), \(fit) {
+    calibrate <- fit(pan_k0$prob_defective, pan_k0_y)
+    stats::uniroot(\(p) calibrate(p) - 0.5, c(0.01, 0.99), tol = 1e-9)$root
+  })
+}
 pan_k0_defective <- sort(pan_k0$prob_defective[pan_k0_y == 1])
 
 # CLIP zero-shot with the final descriptions on textiles: its scores on C.
-zero_final_c <- read_csv_quiet(file.path(scores_dir, "clip_zero_final_k0_textiles_calibration.csv"))
+zero_final_c <- read_scores_if("clip_zero_final_k0_textiles_calibration.csv")
 
 # The configurations with a negative Platt slope, and those of them whose
 # isotonic fit gives 0.5 to every test image (one pooled block).
@@ -1895,7 +1929,7 @@ one_block <- calibrated |>
 reversed <- dplyr::left_join(reversed, one_block, by = config_keys)
 ```
 
-- **P1** keeps its direction for both models on every dataset. The JEV gap on microstructure grows from `r iso_diff("P1", "jev", "microstructure", "platt")` with Platt to `r iso_diff("P1", "jev", "microstructure", "isotonic")` with isotonic. On extrusion, the Clef-Flash difference stays near 0 (`r iso_diff("P1", "clef", "extrusion", "platt")` with Platt, `r iso_diff("P1", "clef", "extrusion", "isotonic")` with isotonic).
+- **P1** keeps its direction for both models on every dataset, except Clef-Flash on extrusion, where `r iso_diff("P1", "clef", "extrusion", "platt")` with Platt becomes `r iso_diff("P1", "clef", "extrusion", "isotonic")` with isotonic. The JEV gap on microstructure grows from `r iso_diff("P1", "jev", "microstructure", "platt")` with Platt to `r iso_diff("P1", "jev", "microstructure", "isotonic")` with isotonic.
 - **P2** mostly holds. The JEV gain on extrusion shrinks from `r iso_diff("P2", "jev", "extrusion", "platt")` to `r iso_diff("P2", "jev", "extrusion", "isotonic")`, and the small Clef-Flash gain on extrusion changes sign (`r iso_diff("P2", "clef", "extrusion", "platt")` to `r iso_diff("P2", "clef", "extrusion", "isotonic")`).
 - **P3** depends on the calibration method on two datasets. *Pipe staple:* the k = 0 side of JEV has a negative Platt slope. Platt reverses its scores (balanced accuracy `r fmt(metric_value("jev", "final", 0, "pipe_staple", "bal_accuracy"), 3)`). Isotonic regression cannot, because it fits a non-decreasing function: all its probabilities pool to 0.5, so every image is called defective (`r fmt(metric_value("jev", "final", 0, "pipe_staple", "bal_accuracy", "isotonic"), 3)`). The JEV gain thus looks about twice as large: `r iso_diff("P3", "jev", "pipe_staple", "isotonic")` with isotonic against `r iso_diff("P3", "jev", "pipe_staple", "platt")` with Platt. *Pans:* the calibration images are the 10 + 10 images of L. For JEV with the generic description at k = 0, the two classes do not overlap on them: the nominal images score `r fmt(max(pan_k0$prob_defective[pan_k0_y == 0]))` or less, the defective images `r fmt(min(pan_k0_defective))` or more. Isotonic regression puts the cut inside this gap (`r fmt(pan_k0_cut[["isotonic"]])`). Platt puts it higher (`r fmt(pan_k0_cut[["platt"]])`), because `r sum(pan_k0_defective >= pan_k0_defective[2])` of the `r length(pan_k0_defective)` defective images score `r fmt(pan_k0_defective[2])` or more. On the test set, Platt thus misses many defective images (sensitivity `r fmt(metric_value("jev", "generic", 0, "pan_images", "sens"), 3)`, against `r fmt(metric_value("jev", "generic", 0, "pan_images", "sens", "isotonic"), 3)` with isotonic), and the pans gain of JEV is `r iso_diff("P3", "jev", "pan_images", "platt")` with Platt but `r iso_diff("P3", "jev", "pan_images", "isotonic")` with isotonic. Clef-Flash shows the same pattern on pans (`r iso_diff("P3", "clef", "pan_images", "platt")` against `r iso_diff("P3", "clef", "pan_images", "isotonic")`). On microstructure, the small JEV gain changes sign (`r iso_diff("P3", "jev", "microstructure", "platt")` to `r iso_diff("P3", "jev", "microstructure", "isotonic")`).
 - **CLIP zero-shot with the final descriptions on textiles** (decision D89): isotonic regression works on the raw scores with no clamp. It thus separates the `r nrow(zero_final_c)` scores of C, all between `r fmt(min(zero_final_c$prob_defective), 3)` and `r fmt(max(zero_final_c$prob_defective), 3)`, and gives a balanced accuracy of `r fmt(metric_value("clip", "zero_final", 0, "textiles", "bal_accuracy", "isotonic"), 3)`. Platt gives 0.5 to every image (`r fmt(metric_value("clip", "zero_final", 0, "textiles", "bal_accuracy"), 3)`).
@@ -2037,7 +2071,7 @@ The CLIP text encoder takes at most 77 tokens. It cut `r sum(truncation$truncate
 
 ```{r}
 #| label: tbl-clip-truncation
-#| tbl-cap: "Texts of the final JEV descriptions (nominal and defective) that the CLIP text encoder had to cut at 77 tokens, for the zero-shot variant with the final descriptions."
+#| tbl-cap: !expr 'stringr::str_c("Truncation check at 77 tokens of the ", nrow(truncation), " texts of the final JEV descriptions (nominal and defective), for CLIP zero-shot with the final descriptions. TRUE: the CLIP text encoder cut the text.")'
 #| eval: !expr has_truncation
 #| include: !expr has_truncation
 knitr::kable(truncation)

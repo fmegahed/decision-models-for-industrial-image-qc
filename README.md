@@ -20,7 +20,7 @@ The fair comparison (branch `fair-comparison`, design in `replication_materials/
 
 ## Results (fair comparison)
 
-Test balanced accuracy after Platt scaling on the calibration set C, with the decision at 0.5. JEV and Clef-Flash use the final description of their loop and 2 reference images per class (pans: the generic description). The CLIP baseline learns from 50 images per class (pans: 10).
+Test balanced accuracy after Platt scaling on the calibration set C, with the decision at 0.5. Pans have no C: the decision models calibrate on the images of L that are not references, and the CLIP baseline on leave-one-out scores in L. JEV and Clef-Flash use the final description of their loop and 2 reference images per class (pans: the generic description). The CLIP baseline learns from 50 images per class (pans: 10).
 
 | Dataset | Test images | JEV, k = 2 | Clef-Flash, k = 2 | CLIP baseline |
 |---|---|---|---|---|
