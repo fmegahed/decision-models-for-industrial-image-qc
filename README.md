@@ -10,15 +10,17 @@ Analysis: [all paper tables and figures, with their code](https://fmegahed.githu
 
 Can structured decision models, which return a probability for each allowed answer to a question about an image, (a) detect manufacturing defects as well as few-shot CLIP with fewer labeled examples, and (b) give calibrated class probabilities?
 
-The study uses a five-stage framework:
+The fair comparison (branch `fair-comparison`, design in `replication_materials/plans/2026-10-20-fair-comparison-design.md`) gives every method the same labeled images:
 
 1. Audit the images for duplicates across data splits.
-2. Specify the task with explicit defect criteria and a few reference images.
-3. Refine the criteria and references on a fixed validation set, one change at a time, by ROC AUC.
-4. Calibrate the probabilities on the validation set (Platt scaling or isotonic regression).
-5. Freeze the configuration and evaluate it once on held-out test images.
+2. Draw the sets: a learning set L (the CLIP baseline set, 50 images per class; pans 10), k reference images per class from L, and a calibration set C (25 images per class) that excludes near-copies of L and test images.
+3. Find a better defect description with a blind loop: a fresh Claude Code agent changes only the two description texts and keeps a change when the ROC AUC on the images of L that are not references rises by at least 0.02.
+4. Calibrate every method (JEV, Clef-Flash and CLIP) with Platt scaling on C, and decide at 0.5.
+5. Score each configuration once on the test images, and compare the methods with paired tests on the same images.
 
-## Results
+## Results (v0.0.1)
+
+The table below gives the results of the first version, tag [`v0.0.1`](https://github.com/fmegahed/decision-models-for-industrial-image-qc/tree/v0.0.1). The fair comparison replaces them: its results appear in the analysis document after the decision-model runs. Section "v0.0.1" of the analysis document lists the five weak points of v0.0.1 and what changed.
 
 Balanced accuracy at a threshold chosen on validation. JEV is the hosted TypeSafe model (`jev-1.13.0`); Clef-Flash is an open-weight 9B model run locally. CLIP is ViT-L/14.
 
@@ -38,19 +40,21 @@ Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.2
 
 | Path | Contents |
 |---|---|
-| `beyond_clip_analysis.qmd` | The replication document: makes every table and figure of the paper from the saved results; switches re-run the paid and GPU steps |
+| `beyond_clip_analysis.qmd` | The replication document of the fair comparison: data, methods, description loop, main results, paired comparisons, reference curve, calibration, a short v0.0.1 section, appendix and re-run steps. It makes every table and figure of the paper from the saved results; switches re-run the paid and GPU steps |
 | `beyond_clip_analysis.html` | The rendered document (self-contained), for readers who do not run it; also on the record website |
-| `figs/`, `tables/` | Outputs of the document: figures F1 to F7 (PNG, PDF and SVG, in one-column and two-column sizes) and tables T1 to T7 and A1 (CSV and LaTeX) |
+| `figs/` | Figures of the document: F1 reference images (k = 2), F2 description loop, F3 to F5 paired comparisons P1 to P3, F6 reference curve, F7 reliability diagrams. Each as PNG, PDF and SVG, in one-column and two-column sizes. F2 to F5 appear after the decision-model runs |
+| `tables/` | Tables of the document (CSV and LaTeX): T1 sets, T2 label budget, T3 calibration draw, T4 description loop, T5 main results, T6 paired comparisons, T7 calibration; appendix A1 isotonic calibration, A2 loop candidates, A3 CLIP variants. T4, T6 and A2 appear after the decision-model runs. `T4_test_results_long.csv` and `validation_size.csv` are v0.0.1 outputs: they stay because the replication record (results H6 to H8) names them as sources |
 | `fonts/` | Outfit and Cabin (SIL Open Font License), used by the figures |
 | `references.bib`, `apa.csl` | References of the document, in APA style |
-| `replication_materials/` | The replication record: decisions, process, roadmap and paid-call budget (website above) |
-| `experiment_log.md` | The lab notebook: setup notes, every trial (60), decisions and rule changes, and the final-test sections |
-| `R/` | Shared R functions: the JEV/SystemOne client (`industrial_defect_classifier.R`) and calibration functions |
-| `scripts/` | Runnable steps (run from the repository root; see below) |
+| `replication_materials/` | The replication record: decisions, process, plans, releases, results and paid-call budget (website above) |
+| `experiment_log.md` | The lab notebook: setup notes, every v0.0.1 trial (60), decisions and rule changes, and the final-test sections |
+| `R/` | Shared R functions: the JEV/SystemOne client (`industrial_defect_classifier.R`), calibration (`calibration_functions.R`), metrics and paired tests (`evaluation.R`), and the fair comparison: sets (`fair_sets.R`, `image_hash.R`), scoring runner and guards (`fair_runner.R`), blind loop (`fair_loop.R`), CLIP leave-one-out (`fair_clip.R`) and evaluation (`fair_evaluate.R`) |
+| `scripts/` | Runnable steps (run from the repository root; see below). `fair_*.R` make the fair comparison; the other scripts reproduce tag `v0.0.1` |
+| `tests/testthat/` | Tests of the R functions and of the guards of the fair comparison (no paid call) |
 | `python/` | CLIP functions (from the CLIP qmd of the prior study) |
-| `experiments/` | Inputs chosen during tuning (criteria and reference sets) and one-time data scripts (leakage check, duplicate removal) |
-| `results/` | Split and reference manifests, all trial outputs (`optimization/`), the frozen configurations, test results (`final_test/`), and CLIP results (`clip/`, `clip_paper/`) |
-| `paper/` | MSEC 2027 abstract: draft and submitted versions, with the source of each number |
+| `experiments/` | Inputs chosen during the v0.0.1 tuning (criteria and reference sets) and one-time data scripts (leakage check, duplicate removal) |
+| `results/` | Split manifest; `fair/`: the sets, score files, loop logs, frozen descriptions and summaries of the fair comparison; v0.0.1: reference manifests, trial outputs (`optimization/`), frozen configurations, test results (`final_test/`) and CLIP results (`clip/`, `clip_paper/`) |
+| `paper/` | MSEC 2027 abstract (v0.0.1 results): draft and submitted versions, with the source of each number |
 | `docs/` | The original task (`GOAL.md`) and the draft design of the `decisionqc` package |
 | `archive/` | The first analysis script, kept for the record |
 
@@ -64,19 +68,31 @@ The images are not in this repository. Copy the folders of [fmegahed/qe_genai/da
 
 ## Reproduction
 
-Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr, readr, yardstick and ggplot2. Run every script from the repository root.
+Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr, readr, stringr, withr, yardstick, ggplot2 and testthat. Run every script from the repository root.
 
 - Exact R package versions: `renv.lock` (renv 1.2.3; 103 CRAN packages with their dependencies). To install them in a project library: `install.packages("renv")`, then `renv::restore()` and choose to activate the project. The lockfile records the versions only: this repository does not activate renv. The Python versions for CLIP are in `results/clip/python_environment.txt`.
+- All tables and figures of the paper: `quarto render beyond_clip_analysis.qmd` (Quarto 1.9; the first chunk installs the missing R packages). It reads the saved results in `results/fair/`, needs `imgs/`, makes no API call, and takes a few minutes. Its switches (`run_evaluate`, `run_clip`, `run_clef`, `run_jev`) re-run steps into `results/rerun/fair/`; section "Re-run steps" of the document lists all steps.
+- Tests, no paid call: `Rscript -e "testthat::test_dir('tests/testthat')"`.
 
-- All tables and figures of the paper: `quarto render beyond_clip_analysis.qmd` (Quarto 1.9; the first chunk installs the missing R packages). It reads the saved results in `results/`, needs `imgs/`, makes no API call, and takes a few minutes. Its switches (`run_jev_trials`, `run_jev_test`, `run_clip`, `run_clef`) re-run the paid and GPU steps into `results/rerun/`.
+Fair comparison (scripts `scripts/fair_*.R`, in this order):
 
-- JEV (paid API): put `TYPESAFE_API_KEY=...` in a `.Renviron` file at the root. Never commit it.
+1. Sets, no cost: `Rscript scripts/fair_draw_sets.R`. It draws L, C, the references and the design images into `results/fair/sets/` (seeds 202610 and 202611), with the near-copy rule of each dataset.
+2. CLIP variants (local GPU): `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip.R`. It needs a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (versions in `results/clip/python_environment.txt`). After the loops, `FAIR_CLIP_TEXT=final` adds CLIP zero-shot with the final descriptions. Stop the Clef-Flash server first: two CUDA processes on one GPU made a CLIP run crash.
+3. Description loops: `Rscript scripts/fair_make_sandbox.R <model> <dataset>` makes the sandbox, a fresh Claude Code agent runs the loop in it (instructions: `scripts/fair_loop_instructions.md`), and `Rscript scripts/fair_close_loop.R <model> <dataset> <transcript>` audits the transcript and freezes the description. **Paid** for JEV (up to 576 calls per dataset); local GPU for Clef-Flash.
+4. Calibration and test runs: `FAIR_MODEL=<jev or clef> FAIR_DATASET=<dataset> FAIR_DESCRIPTION=<final or generic> FAIR_K=<0, 1, 2 or 4> FAIR_SPLIT=calibration Rscript scripts/fair_score.R`, then the same with `FAIR_SPLIT=test`. Each run is one-time. `JEV_CHECK_ONLY=true` runs the checks only. **Paid** for JEV; local GPU for Clef-Flash.
+5. Evaluation, no cost: `Rscript scripts/fair_evaluate.R` writes `metrics.csv`, `paired.csv` and `k_curve.csv` to `results/fair/summary/`.
+
+- JEV (paid API): put `TYPESAFE_API_KEY=...` in a `.Renviron` file at the root. Never commit it. A paid run needs a budget row in `replication_materials/calls/README.md`; each call goes to `replication_materials/calls/typesafe-calls.csv`.
+- Clef-Flash (local GPU, about 25 GB): `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`. Its server ignores the TypeSafe `assets` field, so images go as an ordered list (`image_format = "images"`).
+
+v0.0.1: the other scripts reproduce tag [`v0.0.1`](https://github.com/fmegahed/decision-models-for-industrial-image-qc/tree/v0.0.1); the analysis document of that tag calls them.
+
 - Validation trial: `JEV_DATASET=microstructure JEV_TRIAL=<name> Rscript scripts/optimize_jev.R` (settings in the script header).
 - Threshold trial, no API calls: `scripts/rescore_threshold.R`. Progress chart: `scripts/plot_progress.R`.
 - One-time test of a frozen configuration: `JEV_DATASET=<dataset> Rscript scripts/evaluate_frozen.R` (`JEV_CHECK_ONLY=true` runs the checks only).
 - Summaries, no API calls: `scripts/summarize_final.R`, `scripts/calibration.R`, `scripts/validation_size.R`, `scripts/compare_methods.R`.
-- CLIP (local GPU): a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (versions in `results/clip/python_environment.txt`), then `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/run_clip.R`, `scripts/run_clip_paper.R` and `scripts/run_clip_paper_threshold.R`. Stop the Clef-Flash server first: two CUDA processes on one GPU made the CLIP run crash.
-- Clef-Flash (local GPU, about 25 GB): `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`, then run the scripts with `JEV_BASE_URL=http://localhost:30000/v1/systemone JEV_MODEL=Cloudflare/clef-flash JEV_IMAGE_FORMAT=images`. Its server ignores the TypeSafe `assets` field, so images go as an ordered list (`image_format = "images"`).
+- CLIP (local GPU): `scripts/run_clip.R`, `scripts/run_clip_paper.R` and `scripts/run_clip_paper_threshold.R`.
+- Clef-Flash: run the scripts with `JEV_BASE_URL=http://localhost:30000/v1/systemone JEV_MODEL=Cloudflare/clef-flash JEV_IMAGE_FORMAT=images`.
 
 ## References
 

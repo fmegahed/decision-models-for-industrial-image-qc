@@ -1,0 +1,16 @@
+Dataset,Method,ECE raw,ECE Platt,Brier raw,Brier Platt,Log loss raw,Log loss Platt
+Metallic pans,CLIP baseline,0.407,0.29,0.247,0.183,0.687,0.53
+Metallic pans,"CLIP, same references, k = 2",0.131,0.255,0.245,0.146,0.682,0.443
+Metallic pans,"CLIP, zero-shot",0.182,0.24,0.25,0.27,0.698,0.816
+Extrusion,CLIP baseline,0.191,0.18,0.248,0.232,0.689,0.658
+Extrusion,"CLIP, same references, k = 2",0.12,0.09,0.246,0.216,0.686,0.621
+Extrusion,"CLIP, zero-shot",0.085,0.069,0.227,0.223,0.646,0.638
+Textiles,CLIP baseline,0.473,0.08,0.248,0.029,0.688,0.132
+Textiles,"CLIP, same references, k = 2",0.188,0.066,0.249,0.196,0.691,0.572
+Textiles,"CLIP, zero-shot",0.423,0.059,0.443,0.214,1.468,0.617
+Pipe staple,CLIP baseline,0.069,0.118,0.25,0.249,0.693,0.695
+Pipe staple,"CLIP, same references, k = 2",0.169,0.085,0.25,0.227,0.693,0.651
+Pipe staple,"CLIP, zero-shot",0.407,0.087,0.405,0.228,1.195,0.649
+Microstructure,CLIP baseline,0.334,0.119,0.248,0.061,0.689,0.222
+Microstructure,"CLIP, same references, k = 2",0.223,0.057,0.248,0.106,0.689,0.33
+Microstructure,"CLIP, zero-shot",0.181,0.101,0.273,0.235,0.74,0.683
