@@ -13,18 +13,21 @@ loop_columns <- c("candidate", "time_utc", "normal", "defective", "auc",
 
 # log has candidate and auc, in order. Candidate 1 is always kept. A later
 # candidate is kept when its AUC is at least 0.02 above the current best.
+# best is the candidate number and best_row the row of the last kept candidate.
 apply_keep_rule <- function(log, gain = keep_gain) {
   kept <- logical(nrow(log))
   best_auc <- NA_real_
   best <- NA_integer_
+  best_row <- NA_integer_
   for (i in seq_len(nrow(log))) {
     if (i == 1L || round(log$auc[[i]] - best_auc, 10) >= gain) {
       kept[[i]] <- TRUE
       best_auc <- log$auc[[i]]
       best <- as.integer(log$candidate[[i]])
+      best_row <- i
     }
   }
-  list(kept = kept, best = best, best_auc = best_auc)
+  list(kept = kept, best = best, best_row = best_row, best_auc = best_auc)
 }
 
 # --- candidate and log files ---------------------------------------------------
@@ -112,6 +115,8 @@ check_candidate_slot <- function(sandbox, n, mirror) {
 
 # Writes the scores file (neutral image names), appends the log row, and
 # recomputes the kept column over all rows. scores has the original paths.
+# It checks the slot again just before it writes: another run of the same
+# slot can finish first. Then this run stops and logs nothing.
 finish_candidate <- function(sandbox, n, scores, map, text, mirror) {
   scores <- dplyr::left_join(scores, map, by = "image_path")
   stopifnot(!anyNA(scores$image))
@@ -122,7 +127,12 @@ finish_candidate <- function(sandbox, n, scores, map, text, mirror) {
     dplyr::mutate(text = paste0(.data$defect_type, "=", round(.data$mean, 3)))
   type_text <- paste(by_type$text, collapse = "; ")
   log_file <- file.path(sandbox, "loop_log.csv")
-  log <- read_record(sandbox, mirror) |>
+  record <- read_record(sandbox, mirror)
+  if (n > max_candidates || n != nrow(record) + 1L) {
+    stop("Candidate ", n, " is not the next row of the record (it has ", nrow(record),
+         " rows). Another run of this slot finished first. This run is not logged.")
+  }
+  log <- record |>
     dplyr::bind_rows(tibble::tibble(
       candidate = as.integer(n),
       time_utc = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
@@ -305,11 +315,13 @@ allowed_tools <- c("Read", "Write", "Edit", "Glob", "Grep", "Bash", "TodoWrite")
 
 home_token <- "^(\\$\\{?(HOME|USERPROFILE|OLDPWD|HOMEPATH)|\\$env:|~|%(USERPROFILE|HOMEPATH|HOMEDRIVE)%)"
 
-# Words that change the folder or compute a path. A command with one is flagged.
+# Words that change the folder, compute a path, or start a shell or another
+# command. A command with one is flagged (a counted scoring form is not).
 deny_words <- c("cd", "pushd", "popd", "chdir", "sl", "set-location", "push-location",
                 "pop-location", "powershell", "powershell.exe", "pwsh", "pwsh.exe", "cmd",
                 "cmd.exe", "dirname", "split-path", "realpath", "resolve-path",
-                "convert-path", "readlink", "get-location")
+                "convert-path", "readlink", "get-location", "bash", "sh", "nohup",
+                "xargs", "setsid", "env", "exec", "eval")
 
 # The number N of the scoring command, or NA when the command is not one of
 # the allowed forms: bash score.sh N, ./score.sh N, the absolute score.sh
@@ -332,6 +344,13 @@ score_command_number <- function(command, sandbox) {
 
 bash_flagged <- function(command, sandbox, top) {
   if (!is.na(score_command_number(command, sandbox))) return(FALSE)
+  # Any other command that names the scorer: a run with &, nohup, a redirect,
+  # tee, a variable or a timeout signal, a second run, or a read of score.sh.
+  if (stringr::str_detect(command, stringr::regex("score\\.sh", ignore_case = TRUE))) {
+    return(TRUE)
+  }
+  # A file run with . or source at the start of a command.
+  if (stringr::str_detect(command, "(^|[;&|(\\n])\\s*(\\.|source)\\s")) return(TRUE)
   # Default deny: expansions, folder changes, path calls and drive-relative names.
   if (stringr::str_detect(command, "\\$|%[A-Za-z_]+%|::")) return(TRUE)
   tokens <- stringr::str_split(command, "[\\s\"'`;|&<>=(){}]+")[[1]]
@@ -374,19 +393,24 @@ entry_content <- function(entry) {
   }
 }
 
-# Numbers N of the scoring commands (score.sh N) that the transcript holds.
+# The number N when a tool block is a counted scoring call: a Bash call in
+# the foreground, in one of the counted forms. NA otherwise.
+block_score_number <- function(block, sandbox) {
+  if (!is.list(block) || !identical(block$type, "tool_use") || !identical(block$name, "Bash") ||
+      !is.list(block$input) || isTRUE(block$input$run_in_background)) {
+    return(NA_integer_)
+  }
+  score_command_number(block$input$command %||% "", sandbox)
+}
+
+# Numbers N of the counted scoring calls (score.sh N) that the transcript holds.
 scoring_calls <- function(transcript, sandbox) {
   sandbox <- normalizePath(sandbox, winslash = "/", mustWork = TRUE)
   parsed <- read_transcript(transcript)
-  purrr::map(parsed$entries, function(entry) {
-    purrr::map(entry_content(entry),
-               function(block) {
-                 if (is.list(block) && identical(block$type, "tool_use") && identical(block$name, "Bash")) {
-                   score_command_number(block$input$command %||% "", sandbox)
-                 }
-               })
-  }) |>
+  calls <- purrr::map(parsed$entries, \(entry) purrr::map_int(
+    entry_content(entry), block_score_number, sandbox = sandbox)) |>
     unlist()
+  as.integer(calls[!is.na(calls)])
 }
 
 # Flags every tool call of a Claude Code JSONL transcript that uses a tool
@@ -436,8 +460,10 @@ audit_transcript <- function(transcript, sandbox) {
         paste(tool, as.character(jsonlite::toJSON(input, auto_unbox = TRUE)))
       } else if (tool == "Bash") {
         command <- input$command %||% ""
-        number <- score_command_number(command, sandbox)
-        if (!is.na(number)) {
+        number <- block_score_number(block, sandbox)
+        if (isTRUE(input$run_in_background)) {
+          paste("background run:", command)
+        } else if (!is.na(number)) {
           seen_score[[as.character(number)]] <<- (seen_score[[as.character(number)]] %||% 0L) + 1L
           if (seen_score[[as.character(number)]] > 1L) {
             paste("repeated scoring call for candidate", number)
@@ -475,7 +501,9 @@ glob_prefix <- function(pattern) {
 # Closing step: audit, copy of the log, freeze of the best candidate.
 # It stops, before it writes anything, when: the description is frozen;
 # score.sh changed; the sandbox log differs from the mirror outside the
-# sandbox; or the transcript lacks a scoring call for a logged candidate.
+# sandbox; the candidates are not 1, 2, 3 ... each once; the log has more
+# than 6 rows; or the transcript lacks a scoring call for a logged candidate.
+# The freeze takes the row of the last kept candidate.
 # map_dir holds the md5 of score.sh and the mirror of the log.
 close_loop <- function(model, dataset, transcript, sandbox,
                        loop_dir = "results/fair/loop",
@@ -497,6 +525,13 @@ close_loop <- function(model, dataset, transcript, sandbox,
     stop("The loop log in the sandbox differs from the mirror. The loop is not valid.")
   }
   if (nrow(log) == 0L) stop("The loop log has no candidate")
+  if (!identical(log$candidate, seq_len(nrow(log)))) {
+    stop("The candidates in the loop log must be 1, 2, 3 and so on, each once. ",
+         "The loop is not valid.")
+  }
+  if (nrow(log) > max_candidates) {
+    stop("The loop log has more than ", max_candidates, " candidates. The loop is not valid.")
+  }
   called <- scoring_calls(transcript, sandbox)
   missing <- setdiff(log$candidate, called)
   if (length(missing) > 0L) {
@@ -522,7 +557,7 @@ close_loop <- function(model, dataset, transcript, sandbox,
     dplyr::mutate(transcript = info$transcript, transcript_md5 = info$transcript_md5) |>
     readr::write_csv(paste0(stem, "_log.csv"))
   readr::write_csv(audit, paste0(stem, "_audit.csv"))
-  best <- log[log$candidate == rule$best, ]
+  best <- log[rule$best_row, ] # the kept row itself, not a match on the number
   tibble::tibble(normal = best$normal[[1]], defective = best$defective[[1]]) |>
     readr::write_csv(frozen)
   list(best = rule$best, best_auc = rule$best_auc, audit_rows = nrow(flagged))

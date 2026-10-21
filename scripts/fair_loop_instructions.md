@@ -30,7 +30,7 @@ Read only files in this folder. You may look at the images in `images/` and `ref
    {{score_command}}
    ```
 
-   Replace `N` with the candidate number. Run it from this folder. It scores all design images, so it takes a few minutes. Run it once for each candidate.
+   Replace `N` with the candidate number. Run it from this folder. It scores all design images, so it takes a few minutes. Run it once for each candidate. If it fails, see the last guardrail.
 2. Read the printed result: the AUC, the mean score for each defect type and the current best candidate. Open `scores/N.csv` to see which images get the wrong scores.
 3. Look at the images that the model ranks wrongly. Compare them with the reference images.
 4. Write the next candidate to `candidates/N.csv`, where N is the next number. The file is a CSV with three columns: `normal`, `defective` and `reason`. It has one data row. Put each text in quotes. Write the reason in one or two sentences: what you saw, and what the new text changes.
@@ -58,8 +58,8 @@ You have at most 6 candidates, including candidate 1. Stop after you score candi
 - Do not guess the labels of images from their file names. The names carry no information.
 - Do not try to read the scoring code or the model settings.
 - Do not run any command other than the scoring command and simple commands that list or read files in this folder.
-- If the scoring command fails, report the error in your last message and stop. Do not retry more than once.
 - Use only the Read, Write, Edit, Glob, Grep and Bash tools. Do not start subagents. Write only to the `candidates/N.csv` file of the next candidate.
 - Do not use `~`, `$HOME`, any other variable, `cd`, or any path outside this folder in a command. Do not use PowerShell.
 - Inside a text, write a quote as two quotes ("").
-- Run the scoring command exactly as written, with the Bash tool timeout set to 600000 ms, and wait for it to finish. Do not run it in the background.
+- Run the scoring command exactly as written, with the Bash tool timeout set to 600000 ms, and wait for it to finish. Do not run it in the background. Do not add `&`, `nohup`, `>`, `tee` or a variable to it. Run only one scoring command at a time.
+- If a scoring run fails, run the same command once more. If it fails again, stop and report the error in your last message.

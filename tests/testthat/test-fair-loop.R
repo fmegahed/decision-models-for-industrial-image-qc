@@ -249,6 +249,93 @@ test_that("finishing a candidate scores, logs and recomputes the kept column", {
   expect_equal(out2$best, 2L)
 })
 
+test_that("a second run of the same slot stops at the finish and logs nothing", {
+  s <- withr::local_tempdir()
+  m <- file.path(withr::local_tempdir(), "mirror.csv")
+  dir.create(file.path(s, "scores"))
+  write_loop_log(empty_loop_log(), file.path(s, "loop_log.csv"))
+  map <- tibble::tibble(image = sprintf("img_%03d.png", 1:6),
+                        image_path = sprintf("orig/%d.png", 1:6))
+  images <- tibble::tibble(
+    dataset = "d", image_path = map$image_path,
+    defect_type = c("a", "a", "b", "good", "good", "good"),
+    actual_class = c("defective", "defective", "defective", "nominal", "nominal", "nominal"))
+  mk <- function(p) dplyr::mutate(images, prob_defective = p)
+  cand <- list(normal = "n", defective = "d", reason = "r")
+  for (n in 1:5) finish_candidate(s, n, mk(c(.6, .6, .4, .5, .5, .5)), map, cand, mirror = m)
+  # Two runs of slot 6 at once: both pass the check at the start.
+  expect_silent(check_candidate_slot(s, 6, m))
+  expect_silent(check_candidate_slot(s, 6, m))
+  finish_candidate(s, 6, mk(c(.6, .6, .4, .5, .5, .5)), map,
+                   list(normal = "TEXT A", defective = "d", reason = "r"), mirror = m)
+  expect_error(finish_candidate(s, 6, mk(c(.9, .8, .7, .3, .2, .1)), map,
+                                list(normal = "TEXT B", defective = "d", reason = "r"),
+                                mirror = m),
+               "not the next row")
+  record <- read_loop_log(m)
+  expect_equal(record$candidate, 1:6)
+  expect_equal(record$normal[[6]], "TEXT A")
+  expect_equal(read_loop_log(file.path(s, "loop_log.csv")), record)
+  scores <- readr::read_csv(file.path(s, "scores", "6.csv"), show_col_types = FALSE)
+  expect_equal(scores$prob_defective, c(.6, .6, .4, .5, .5, .5))
+})
+
+test_that("the keep rule gives the row of the best candidate", {
+  # The log of the review: slot 6 logged twice, the second with TEXT B.
+  log <- tibble::tibble(candidate = c(1:6, 6L), auc = c(rep(0.6, 5), 0.667, 1),
+                        normal = c(paste0("n", 1:5), "TEXT A", "TEXT B"))
+  rule <- apply_keep_rule(log)
+  expect_equal(rule$best, 6L)
+  expect_equal(rule$best_row, 7L)
+  expect_equal(log$normal[[rule$best_row]], "TEXT B")
+  expect_true(rule$kept[[rule$best_row]])
+})
+
+test_that("scoring forms that are not counted give an audit row and do not count", {
+  s <- normalizePath(withr::local_tempdir(), winslash = "/")
+  dir.create(file.path(s, "images"))
+  forms <- c("bash score.sh 3 &", "nohup bash score.sh 3", "bash score.sh 3 > out.txt",
+             "bash score.sh 3 | tee out.txt", "timeout -s KILL 900 bash score.sh 3",
+             "JEV_CHECK_ONLY=true bash score.sh 3", "FAIR_MAP_DIR=fake bash score.sh 3",
+             "bash score.sh 6 & bash score.sh 6", "./score.sh 3 &", "bash sc*.sh 3",
+             ". sc*.sh 3", "ls images; source sc*.sh 3", "cat score.sh")
+  expect_true(all(is.na(purrr::map_int(forms, score_command_number, sandbox = s))))
+  tr <- withr::local_tempfile(fileext = ".jsonl")
+  writeLines(c(purrr::imap_chr(forms, \(cmd, i) bash_line(paste0("f", i), cmd)),
+               tool_line("bg", "Bash", list(command = "bash score.sh 3",
+                                            run_in_background = TRUE))), tr)
+  audit <- audit_transcript(tr, s)
+  expect_equal(audit$time, c(paste0("f", seq_along(forms)), "bg"))
+  expect_equal(scoring_calls(tr, s), integer())
+  # The clean audit of the review: a double run of slot 6, then a plain call.
+  tr2 <- withr::local_tempfile(fileext = ".jsonl")
+  writeLines(c(purrr::map_chr(1:5, \(n) bash_line(paste0("c", n), paste("bash score.sh", n))),
+               bash_line("x", "bash score.sh 6 & bash score.sh 6"),
+               bash_line("c6", "bash score.sh 6")), tr2)
+  audit2 <- audit_transcript(tr2, s)
+  expect_equal(audit2$time, "x")
+  expect_equal(audit2$target, "bash score.sh 6 & bash score.sh 6")
+  expect_equal(scoring_calls(tr2, s), 1:6)
+})
+
+test_that("ordinary read commands stay unflagged", {
+  s <- normalizePath(withr::local_tempdir(), winslash = "/")
+  for (d in c("images", "scores")) dir.create(file.path(s, d))
+  ok <- c("ls .", "ls -la", "cat labels.csv", "head -5 scores/1.csv", "wc -l labels.csv",
+          "grep -c defective labels.csv", "ls images | head -3")
+  tr <- withr::local_tempfile(fileext = ".jsonl")
+  writeLines(purrr::imap_chr(ok, \(cmd, i) bash_line(paste0("o", i), cmd)), tr)
+  expect_equal(nrow(audit_transcript(tr, s)), 0L)
+})
+
+test_that("LOOP.md gives one rule for a failed scoring run", {
+  text <- readLines(file.path(repo_root, "scripts", "fair_loop_instructions.md")) |>
+    paste(collapse = "\n")
+  expect_match(text, "run the same command once more", fixed = TRUE)
+  expect_match(text, "If it fails again, stop", fixed = TRUE)
+  expect_false(stringr::str_detect(text, "Do not retry"))
+})
+
 test_that("the audit flags a planted read and ignores the scoring command", {
   s <- withr::local_tempdir()
   dir.create(file.path(s, "candidates"))
@@ -349,13 +436,15 @@ test_that("candidate 1 must be the generic description", {
 })
 
 # A fake loop: sandbox with a log, the outside records, and a transcript.
-fake_loop <- function(calls = 1:3, env = parent.frame()) {
+fake_loop <- function(calls = 1:3, log = NULL, env = parent.frame()) {
   s <- withr::local_tempdir(.local_envir = env)
   out <- withr::local_tempdir(.local_envir = env)
   dir.create(file.path(out, "loop"))
-  log <- tibble::tibble(candidate = 1:3, time_utc = "t", normal = c("n1", "n2", "n3"),
-                        defective = c("d1", "d2", "d3"), auc = c(.8, .85, .86),
-                        mean_score_by_type = "a=1", reason = "r", kept = NA)
+  if (is.null(log)) {
+    log <- tibble::tibble(candidate = 1:3, time_utc = "t", normal = c("n1", "n2", "n3"),
+                          defective = c("d1", "d2", "d3"), auc = c(.8, .85, .86),
+                          mean_score_by_type = "a=1", reason = "r", kept = NA)
+  }
   write_loop_log(log, file.path(s, "loop_log.csv"))
   write_loop_log(log, file.path(out, "loop", "jev-extrusion_loop_log.csv"))
   writeLines("#!/usr/bin/env bash", file.path(s, "score.sh"))
@@ -415,6 +504,55 @@ test_that("closing stops on an edited score.sh, a changed log or a missing call"
   f <- fake_loop()
   unlink(file.path(f$out, "loop", "jev-extrusion_score_sh.md5"))
   expect_error(close_fake(f), "No md5")
+})
+
+fake_log <- function(candidate, auc = seq(0.6, by = 0.03, length.out = length(candidate)),
+                     normal = paste0("n", seq_along(candidate))) {
+  tibble::tibble(candidate = as.integer(candidate), time_utc = "t", normal = normal,
+                 defective = paste0("d", seq_along(candidate)), auc = auc,
+                 mean_score_by_type = "a=1", reason = "r", kept = NA)
+}
+
+test_that("closing stops on a duplicated or gapped candidate list and on more than 6 rows", {
+  # The log of the review: slot 6 twice, the second row (TEXT B) has the best AUC.
+  review <- fake_log(c(1:6, 6L), auc = c(rep(0.6, 5), 0.667, 1),
+                     normal = c(paste0("n", 1:5), "TEXT A", "TEXT B"))
+  cases <- list(duplicated = list(log = review, error = "each once"),
+                gapped = list(log = fake_log(c(1, 2, 4)), error = "each once"),
+                seven = list(log = fake_log(1:7), error = "more than 6"))
+  for (name in names(cases)) {
+    log <- cases[[name]]$log
+    f <- fake_loop(calls = unique(log$candidate), log = log)
+    expect_error(close_fake(f), cases[[name]]$error, info = name)
+    expect_false(file.exists(file.path(f$out, "descriptions", "jev_extrusion.csv")))
+    expect_false(file.exists(file.path(f$out, "loop", "jev-extrusion_audit.csv")))
+    expect_false(file.exists(file.path(f$out, "loop", "jev-extrusion_log.csv")))
+  }
+})
+
+test_that("the freeze takes the text of the last kept row", {
+  log <- fake_log(1:5, auc = c(.80, .83, .84, .86, .87))
+  f <- fake_loop(calls = 1:5, log = log)
+  res <- close_fake(f)
+  logcopy <- readr::read_csv(file.path(f$out, "loop", "jev-extrusion_log.csv"),
+                             show_col_types = FALSE)
+  expect_equal(logcopy$kept, c(TRUE, TRUE, FALSE, TRUE, FALSE))
+  frozen <- readr::read_csv(file.path(f$out, "descriptions", "jev_extrusion.csv"),
+                            show_col_types = FALSE)
+  last_kept <- max(which(logcopy$kept))
+  expect_equal(frozen$normal, logcopy$normal[[last_kept]])
+  expect_equal(frozen$defective, logcopy$defective[[last_kept]])
+  expect_equal(res$best, 4L)
+})
+
+test_that("a retry after a failed run closes with one repeat row", {
+  f <- fake_loop(calls = c(1, 2, 2, 3))
+  res <- close_fake(f)
+  audit <- readr::read_csv(file.path(f$out, "loop", "jev-extrusion_audit.csv"),
+                           show_col_types = FALSE)
+  expect_equal(audit$target, "repeated scoring call for candidate 2")
+  expect_equal(res$audit_rows, 1L)
+  expect_equal(res$best, 2L)
 })
 
 test_that("the audit file lists a flagged call with the transcript name", {
