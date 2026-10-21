@@ -231,14 +231,15 @@ timing_table <- function(scores, timing_dir, record_root) {
         n_calls = dplyr::n(),
         input_tokens = sum(as.numeric(input_tokens), na.rm = TRUE),
         output_tokens = sum(as.numeric(output_tokens), na.rm = TRUE),
-        cost_usd = sum(as.numeric(cost_usd), na.rm = TRUE),
+        cost_usd = if (all(is.na(cost_usd))) NA_real_ else sum(as.numeric(cost_usd), na.rm = TRUE),
         .by = dplyr::all_of(keys)
       )
   }
 
+  # Full joins: a configuration with calls but no run row (a failed run) keeps its cost.
   per_image |>
     dplyr::full_join(totals, by = keys) |>
-    dplyr::left_join(jev_cost, by = keys) |>
+    dplyr::full_join(jev_cost, by = keys) |>
     dplyr::mutate(n_images = dplyr::coalesce(n_images, runs_images)) |>
     dplyr::select(dplyr::all_of(keys), n_images, median_ms, q25_ms, q75_ms,
                   total_seconds, n_calls, input_tokens, output_tokens, cost_usd) |>

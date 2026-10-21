@@ -27,10 +27,9 @@ settings <- model_settings(model)
 stopifnot(nzchar(dataset), nzchar(description), !is.na(k))
 
 # Only JEV runs log to the TypeSafe call log, which the budget counts.
-# Clef-Flash calls go to results/fair/timing/clef-calls.csv.
-if (!nzchar(env("JEV_CALL_LOG"))) {
-  Sys.setenv(JEV_CALL_LOG = call_log_path(model))
-}
+# Clef-Flash calls always go to results/fair/timing/clef-calls.csv, even if
+# JEV_CALL_LOG holds another value.
+Sys.setenv(JEV_CALL_LOG = select_call_log(model, env("JEV_CALL_LOG")))
 Sys.setenv(JEV_CALL_PURPOSE = paste("fair", split, model, description_label(description),
                                     paste0("k", k), dataset))
 if (model == "jev" && !check_only && !nzchar(env("TYPESAFE_API_KEY"))) {

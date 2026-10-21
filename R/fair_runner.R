@@ -21,6 +21,15 @@ call_log_path <- function(model, record_root = fair_record_root(),
   }
 }
 
+# The log file of a run. A non-JEV run always gets its own log, whatever
+# JEV_CALL_LOG holds (a stale value must not send Clef-Flash calls to the
+# TypeSafe log). A JEV run keeps an explicit JEV_CALL_LOG.
+select_call_log <- function(model, current = Sys.getenv("JEV_CALL_LOG"),
+                            record_root = fair_record_root(),
+                            timing_dir = fair_timing_dir()) {
+  if (model == "jev" && nzchar(current)) current else call_log_path(model, record_root, timing_dir)
+}
+
 # Name of the local GPU, or "local GPU" when nvidia-smi fails.
 gpu_name <- function() {
   name <- tryCatch(
@@ -108,8 +117,12 @@ remaining_calls <- function(purpose_prefix = "fair", record_root = fair_record_r
   log_file <- file.path(record_root, "calls", "typesafe-calls.csv")
   used <- 0L
   if (file.exists(log_file)) {
-    used <- readr::read_csv(log_file, show_col_types = FALSE,
-                            col_types = readr::cols(.default = "c")) |>
+    log <- readr::read_csv(log_file, show_col_types = FALSE,
+                           col_types = readr::cols(.default = "c"))
+    if (!"model" %in% names(log)) {
+      stop("The call log has no model column: ", log_file, ". The budget cannot tell JEV calls from others.")
+    }
+    used <- log |>
       dplyr::filter(.data$model == model_settings("jev")$model,
                     stringr::str_starts(.data$purpose, purpose_prefix)) |>
       nrow()

@@ -285,3 +285,19 @@ test_that("the evaluation writes timing.csv and works without timing files", {
   tab <- readr::read_csv(file.path(out2, "timing.csv"), show_col_types = FALSE)
   expect_true(all(is.na(tab$total_seconds)))
 })
+
+test_that("a configuration with calls but no run row keeps its cost; no cost gives NA", {
+  f <- make_timing()
+  tibble::tibble(
+    purpose = c(rep("fair calibration jev generic k0 textiles", 3),
+                rep("fair test jev final k2 extrusion", 2)),
+    model = "jev-1.13.0", input_tokens = c(10, 10, 10, 1, 1), output_tokens = 1,
+    cost_usd = c(NA, NA, NA, 1e-4, 1e-4)) |>
+    readr::write_csv(file.path(f$record, "calls", "typesafe-calls.csv"))
+  tab <- timing_table(read_fair_scores(f$scores), f$timing, f$record)
+  lost <- dplyr::filter(tab, dataset == "textiles")
+  expect_equal(lost$n_calls, 3)
+  expect_equal(lost$input_tokens, 30)
+  expect_true(is.na(lost$cost_usd))
+  expect_equal(dplyr::filter(tab, model == "jev", dataset == "extrusion")$cost_usd, 2e-4)
+})

@@ -250,3 +250,36 @@ test_that("static guards give clear messages before sets load", {
   expect_error(check_config("clef", "extrusion", cand, 4, "design", tempdir()),
                "The design split needs k = 2")
 })
+
+test_that("a non-JEV run ignores a stale JEV_CALL_LOG; JEV honors an explicit one", {
+  stale <- file.path("rec", "calls", "typesafe-calls.csv")
+  expect_equal(select_call_log("clef", stale, "rec", "tim"), file.path("tim", "clef-calls.csv"))
+  expect_equal(select_call_log("clef", "", "rec", "tim"), file.path("tim", "clef-calls.csv"))
+  expect_equal(select_call_log("jev", "other.csv", "rec", "tim"), "other.csv")
+  expect_equal(select_call_log("jev", "", "rec", "tim"), stale)
+})
+
+test_that("a check-only Clef-Flash script run leaves no TypeSafe log in the environment", {
+  withr::local_dir(repo_root)
+  tim <- withr::local_tempdir()
+  # Run the real script in check-only mode; .Last prints the variable at exit.
+  out <- withr::with_envvar(
+    c(JEV_CALL_LOG = "x/calls/typesafe-calls.csv", FAIR_MODEL = "clef",
+      FAIR_DATASET = "extrusion", FAIR_DESCRIPTION = "generic", FAIR_K = "0",
+      FAIR_SPLIT = "calibration", FAIR_OUT = withr::local_tempdir(),
+      FAIR_TIMING_DIR = tim, JEV_CHECK_ONLY = "true"),
+    system2(file.path(R.home("bin"), "Rscript"),
+            c("-e", shQuote('.Last <- function() cat("LOG=", Sys.getenv("JEV_CALL_LOG"), "\n"); source("scripts/fair_score.R")')),
+            stdout = TRUE,
+            stderr = FALSE)
+  )
+  expect_true(any(grepl("LOG= .*clef-calls.csv", out)))
+  expect_false(any(grepl("typesafe-calls", out)))
+})
+
+test_that("remaining_calls stops with a clear message when the log has no model column", {
+  root <- make_record(100, 0)
+  tibble::tibble(purpose = "fair test jev final k2 extrusion", status = 200) |>
+    readr::write_csv(file.path(root, "calls", "typesafe-calls.csv"))
+  expect_error(remaining_calls(record_root = root), "no model column")
+})
