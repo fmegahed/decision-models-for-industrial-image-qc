@@ -27,3 +27,11 @@ near_copies <- function(paths, others, max_distance = 6) {
   distance <- x %*% (1 - t(y)) + (1 - x) %*% t(y)
   paths[apply(distance, 1, min) <= max_distance]
 }
+
+# Paths with a byte-identical copy (MD5) among `others`.
+md5_copies <- function(paths, others) {
+  if (length(paths) == 0 || length(others) == 0) {
+    return(character())
+  }
+  paths[unname(tools::md5sum(paths)) %in% unname(tools::md5sum(others))]
+}

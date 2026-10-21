@@ -63,9 +63,22 @@ test_that("excluded near-copies shrink C and the report shows the shortfall", {
   expect_equal(nominal$drawn, 23)
   expect_equal(nominal$shortfall, 2)
   expect_named(report, c(
-    "dataset", "actual_class", "available", "excluded_near_copies",
+    "dataset", "actual_class", "rule", "available", "excluded_near_copies",
     "drawn", "shortfall"
   ))
+})
+
+test_that("md5_copies() excludes an exact copy only", {
+  dir <- withr::local_tempdir()
+  writeLines("same", file.path(dir, "a.txt"))
+  writeLines("same", file.path(dir, "b.txt"))
+  writeLines("other", file.path(dir, "c.txt"))
+  a <- file.path(dir, "a.txt")
+  expect_equal(
+    md5_copies(c(file.path(dir, "b.txt"), file.path(dir, "c.txt")), others = a),
+    file.path(dir, "b.txt")
+  )
+  expect_equal(md5_copies(character(), others = a), character())
 })
 
 test_that("reference ranks are nested and round-robin over types", {
@@ -163,4 +176,8 @@ test_that("real sets are disjoint, nested and complete", {
   expect_true(all(checked$n <= checked$target))
   expect_true(all(checked$n == checked$target | checked$excluded_near_copies > 0))
   expect_equal(dplyr::n_distinct(drawn$n[drawn$dataset == "extrusion"]), 1)
+  expect_equal(drawn$n[drawn$dataset == "pipe_staple"], c(17, 17))
+  expect_equal(report$rule[report$dataset == "extrusion"], c("dhash6", "dhash6"))
+  expect_true(all(report$rule[report$dataset != "extrusion"] == "md5"))
+  expect_equal(report$excluded_near_copies[report$dataset == "pipe_staple"], c(0, 0))
 })

@@ -44,7 +44,10 @@ draw_calibration <- function(pool, n_per_class = 25, seed = 202611,
 }
 
 # One row for each dataset and class: available, excluded, drawn, shortfall.
-draw_report <- function(pool, drawn, exclude = character(), n_per_class = 25) {
+# shortfall = n_per_class - drawn, so it is positive by design when a class
+# has fewer images than n_per_class (pipe staple: 17 drawn, shortfall 8).
+draw_report <- function(pool, drawn, exclude = character(), n_per_class = 25,
+                        rule = NA_character_) {
   excluded <- pool |>
     dplyr::filter(.data$image_path %in% exclude) |>
     dplyr::count(.data$dataset, .data$actual_class, name = "excluded_near_copies")
@@ -59,9 +62,10 @@ draw_report <- function(pool, drawn, exclude = character(), n_per_class = 25) {
     dplyr::mutate(
       excluded_near_copies = tidyr::replace_na(.data$excluded_near_copies, 0L),
       drawn = tidyr::replace_na(.data$drawn, 0L),
-      shortfall = n_per_class - .data$drawn
+      shortfall = n_per_class - .data$drawn,
+      rule = rule
     ) |>
-    dplyr::select("dataset", "actual_class", "available",
+    dplyr::select("dataset", "actual_class", "rule", "available",
                   "excluded_near_copies", "drawn", "shortfall")
 }
 

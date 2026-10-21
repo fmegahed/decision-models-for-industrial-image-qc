@@ -3,6 +3,14 @@
 source("R/image_hash.R")
 source("R/fair_sets.R")
 
+# Near-copy rule of each dataset. dhash6 (dHash distance <= 6) only fits
+# extrusion, whose frames come from video. The other datasets show one fixed
+# scene, so dHash flags the scene; they exclude byte-identical copies only.
+rules <- c(
+  extrusion = "dhash6", textiles = "md5", pipe_staple = "md5",
+  microstructure = "md5"
+)
+
 out_dir <- file.path("results", "fair", "sets")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 cols <- c("dataset", "image_path", "defect_type", "actual_class")
@@ -23,15 +31,21 @@ draw_dataset <- function(name) {
   pool <- images |>
     dplyr::filter(.data$split != "test", !.data$image_path %in% in_learning) |>
     dplyr::select(dplyr::all_of(cols))
-  exclude <- near_copies(pool$image_path, c(in_learning, test))
+  rule <- rules[[name]]
+  exclude <- if (rule == "dhash6") {
+    near_copies(pool$image_path, c(in_learning, test))
+  } else {
+    md5_copies(pool$image_path, c(in_learning, test))
+  }
   drawn <- draw_calibration(pool, n_per_class = 25, seed = 202611, exclude = exclude)
   list(
     drawn = drawn,
-    report = draw_report(pool, drawn, exclude = exclude, n_per_class = 25)
+    report = draw_report(pool, drawn, exclude = exclude, n_per_class = 25,
+                         rule = rule)
   )
 }
 
-datasets <- setdiff(unique(learning$dataset), "pan_images")
+datasets <- names(rules)
 results <- purrr::map(datasets, draw_dataset)
 calibration <- purrr::map(results, "drawn") |> purrr::list_rbind()
 report <- purrr::map(results, "report") |> purrr::list_rbind()
