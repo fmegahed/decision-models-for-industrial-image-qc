@@ -1,0 +1,9 @@
+dataset,class,truncated
+extrusion,normal,FALSE
+extrusion,defective,FALSE
+microstructure,normal,FALSE
+microstructure,defective,FALSE
+pipe_staple,normal,FALSE
+pipe_staple,defective,FALSE
+textiles,normal,FALSE
+textiles,defective,FALSE

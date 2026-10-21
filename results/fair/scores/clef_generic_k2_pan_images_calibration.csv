@@ -1,0 +1,17 @@
+dataset,image_path,defect_type,actual_class,prob_defective,model,description,k,split,elapsed_ms
+pan_images,imgs/pan_images/train/defective/IMG_1572.JPG,defective,defective,0.9329437130748804,clef,generic,2,calibration,1454.1
+pan_images,imgs/pan_images/train/defective/IMG_1573.JPG,defective,defective,0.9309620718252101,clef,generic,2,calibration,1133
+pan_images,imgs/pan_images/train/defective/IMG_1574.JPG,defective,defective,0.9230391643039738,clef,generic,2,calibration,1211
+pan_images,imgs/pan_images/train/defective/IMG_1576.JPG,defective,defective,0.9246876936763765,clef,generic,2,calibration,1242.9
+pan_images,imgs/pan_images/train/defective/IMG_1581.JPG,defective,defective,0.9343951625409306,clef,generic,2,calibration,1179.2
+pan_images,imgs/pan_images/train/defective/IMG_1582.JPG,defective,defective,0.9314625069680097,clef,generic,2,calibration,1178.5
+pan_images,imgs/pan_images/train/defective/IMG_1585.JPG,defective,defective,0.9343951625409306,clef,generic,2,calibration,1157.2
+pan_images,imgs/pan_images/train/defective/IMG_1747.JPG,defective,defective,0.3684056955947133,clef,generic,2,calibration,1120.8
+pan_images,imgs/pan_images/train/nominal/1.JPG,nominal,nominal,0.03904829272622638,clef,generic,2,calibration,1157.8
+pan_images,imgs/pan_images/train/nominal/11.JPG,nominal,nominal,0.04369106064046812,clef,generic,2,calibration,1122.9
+pan_images,imgs/pan_images/train/nominal/6.JPG,nominal,nominal,0.04336579876390677,clef,generic,2,calibration,1118.9
+pan_images,imgs/pan_images/train/nominal/IMG_1441.JPG,nominal,nominal,0.04401864986294638,clef,generic,2,calibration,1205.7
+pan_images,imgs/pan_images/train/nominal/IMG_1451.JPG,nominal,nominal,0.04208772791561884,clef,generic,2,calibration,1157.3
+pan_images,imgs/pan_images/train/nominal/IMG_1456.JPG,nominal,nominal,0.04434858139539836,clef,generic,2,calibration,1149.9
+pan_images,imgs/pan_images/train/nominal/IMG_1463.JPG,nominal,nominal,0.040845715909949315,clef,generic,2,calibration,1199.8
+pan_images,imgs/pan_images/train/nominal/IMG_1468.JPG,nominal,nominal,0.042722197546490565,clef,generic,2,calibration,1111.3

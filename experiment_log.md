@@ -253,7 +253,65 @@ One fresh, isolated Claude Code agent (Opus 5.5) for each model and dataset (D81
 
 - Every audit has only the row "No call outside the sandbox. The loop was blind." No loop needed a retry.
 - The agents stopped early when no candidate could pass the +0.02 rule (pipe staple, JEV textiles) or when they had no further idea that they expected to help (Clef-Flash textiles and microstructure, JEV microstructure).
-- What the loops found: naming over- and under-extrusion (extrusion); describing the whole-surface texture, and saying that fine grain is normal (textiles); naming the bright clip that is missing (pipe staple, Clef-Flash); describing the color distribution of the grain map, random against one or two dominant hue families or same-hue patches (microstructure). JEV ranked pipe staple almost perfectly with the generic description, so its final description is the generic one, and its P2 difference is zero by construction.
+- What the loops found: naming over- and under-extrusion (extrusion); describing the whole-surface texture, and saying that fine grain is normal (textiles); naming the bright clip that is missing (pipe staple, Clef-Flash); describing the color distribution of the grain map, random against one or two dominant hue families or same-hue patches (microstructure). JEV ranked pipe staple almost perfectly with the generic description, so its final description is the generic one. (Correction after the test runs: its P2 difference is not zero by construction. P2 compares two runs of the same prompt, and JEV gave slightly different probabilities; see "Test runs" below and D88.)
 - Low-severity microstructure defects (Bimodal_low, Band_low) stay hard for both models; the agents said that these images look random to them too.
 - Records: `results/fair/loop/` (log copies, mirrors, audits, image maps, score.sh md5), `results/fair/descriptions/` (frozen texts). The 8 transcripts are kept outside git in `../fair-loop-sandbox/transcripts/`; their names and md5 are in the audit files.
 - Paid calls of the loops: 1,248 JEV calls (purpose "fair design jev ..."), no failed call.
+
+### Calibration runs (2026-10-21)
+
+Each of the 28 configurations of design section 5.6 scored its calibration set C once, for JEV and for Clef-Flash; CLIP scored the zero_final variant with the frozen JEV descriptions (pans have none). Then `scripts/fair_evaluate.R` wrote `results/fair/summary/calibration_summary.csv`. No test file existed at this step.
+
+Raw-score AUC on C (k = 2; pans: generic description; CLIP baseline: k = 50, pans k = 10 with leave-one-out scores in L):
+
+| Dataset | JEV final | Clef-Flash final | JEV generic | Clef-Flash generic | CLIP baseline |
+|---|---|---|---|---|---|
+| Extrusion | 0.670 | 0.692 | 0.647 | 0.738 | 0.563 |
+| Textiles | 1.000 | 0.963 | 0.962 | 0.887 | 0.998 |
+| Pipe staple | 0.983 | 0.976 | 0.979 | 0.476 | 0.824 |
+| Microstructure | 0.979 | 0.930 | 0.884 | 0.928 | 0.995 |
+| Pans | 1.000 | 1.000 | 1.000 | 1.000 | 0.900 |
+
+- The final description helps most where the generic one is weak: Clef-Flash pipe staple (0.476 to 0.976), JEV microstructure (0.884 to 0.979), Clef-Flash textiles (0.887 to 0.963).
+- Extrusion stays hard for every method on C (all AUC values below 0.75), also for the descriptions that the loops chose (design AUC 0.76 to 0.78).
+- Without references (k = 0), JEV reverses the order on pipe staple: AUC 0.130 (final) and 0.170 (generic). One reference per class gives 0.972.
+- Negative Platt slopes (D82: allowed, reported, flagged): JEV final_k0 and generic_k0 pipe staple (-9.07, -7.64), Clef-Flash generic_k2 pipe staple (-1.05), CLIP zero_k0 microstructure (-6.23) and textiles (-1.71). For these configurations Platt reverses the raw order, so the calibrated test result can be better than the raw AUC suggests.
+- fmm saw these results and approved the test runs (D87).
+- Paid calls: 1,170 JEV calls (purpose "fair calibration jev ..."), no failed call. Clef-Flash ran on the local server (no cost).
+
+### Test runs (2026-10-21)
+
+After D87, each configuration scored the test set once: 28 JEV runs (6,012 calls, no failed call), 28 Clef-Flash runs (local server), and the CLIP zero_final variant (4 datasets). Then `scripts/fair_evaluate.R` (2,000 stratified paired bootstrap resamples, seed 202612) wrote `metrics.csv`, `paired.csv` (84 rows), `k_curve.csv` and `timing.csv` in `results/fair/summary/`.
+
+Test balanced accuracy after Platt scaling on C, decision at 0.5 (AUC in brackets). Decision models: final description, k = 2 (pans: generic description). CLIP baseline: k = 50 (pans: k = 10).
+
+| Dataset | JEV | Clef-Flash | CLIP baseline | CLIP, same references |
+|---|---|---|---|---|
+| Extrusion | 0.750 (0.826) | 0.710 (0.798) | 0.715 (0.774) | 0.670 (0.743) |
+| Textiles | 0.965 (0.995) | 0.840 (0.911) | 0.975 (0.998) | 0.685 (0.753) |
+| Pipe staple | 0.940 (0.994) | 0.990 (1.000) | 0.570 (0.631) | 0.670 (0.686) |
+| Microstructure | 0.902 (0.959) | 0.867 (0.924) | 0.933 (0.990) | 0.842 (0.939) |
+| Pans | 1.000 (1.000) | 0.885 (1.000) | 0.641 (0.999) | 0.744 (0.988) |
+
+Paired comparisons: difference of balanced accuracy (95% paired bootstrap interval), and the exact McNemar p-value after the Holm adjustment over the 14 tests of each model.
+
+| Comparison | Model | Extrusion | Textiles | Pipe staple | Microstructure | Pans |
+|---|---|---|---|---|---|---|
+| P1: final k2 - CLIP baseline | JEV | +0.035 (-0.035, 0.115), p = 1.00 | -0.010 (-0.040, 0.020), p = 1.00 | +0.370 (0.280, 0.470), p < 0.001 | -0.031 (-0.058, -0.004), p = 0.17 | +0.359 (0.282, 0.423), p < 0.001 |
+| P1: final k2 - CLIP baseline | Clef-Flash | -0.005 (-0.080, 0.075), p = 1.00 | -0.135 (-0.190, -0.080), p < 0.001 | +0.420 (0.340, 0.500), p < 0.001 | -0.067 (-0.098, -0.036), p < 0.001 | +0.244 (0.167, 0.321), p < 0.001 |
+| P2: final k2 - generic k2 | JEV | +0.130 (0.070, 0.190), p < 0.001 | +0.145 (0.090, 0.205), p < 0.001 | 0.000 (-0.030, 0.030), p = 1.00 | +0.147 (0.107, 0.187), p < 0.001 | - |
+| P2: final k2 - generic k2 | Clef-Flash | +0.035 (-0.020, 0.090), p = 0.88 | +0.085 (0.005, 0.165), p = 0.28 | +0.530 (0.430, 0.620), p < 0.001 | +0.064 (0.033, 0.096), p = 0.002 | - |
+| P3: final k2 - final k0 | JEV | +0.090 (0.040, 0.145), p = 0.018 | +0.090 (0.050, 0.135), p < 0.001 | +0.210 (0.110, 0.310), p = 0.001 | +0.013 (-0.009, 0.036), p = 1.00 | +0.231 (0.154, 0.308), p < 0.001 |
+| P3: final k2 - final k0 | Clef-Flash | +0.070 (0.015, 0.130), p = 0.17 | +0.145 (0.095, 0.200), p < 0.001 | +0.040 (0.000, 0.090), p = 0.88 | +0.013 (-0.009, 0.036), p = 0.88 | +0.167 (0.077, 0.256), p = 0.016 |
+
+- References: two references per class bring most of the gain. JEV test balanced accuracy at k = 0, 1, 2, 4: extrusion 0.660, 0.735, 0.750, 0.760; textiles 0.875, 0.960, 0.965, 0.970; pipe staple 0.730, 0.910, 0.940, 0.950; microstructure 0.889, 0.884, 0.902, 0.918; pans 0.769, 0.987, 1.000, 1.000.
+- Description: the final description raises JEV by 0.13 to 0.15 on extrusion, textiles and microstructure, and Clef-Flash by 0.53 on pipe staple. With the generic description at k = 2, JEV is below the CLIP baseline on extrusion (0.620), textiles (0.820) and microstructure (0.756).
+- Against the CLIP baseline: both decision models are much better on pipe staple; on extrusion and textiles JEV is equal (the intervals include 0); on microstructure JEV is 0.031 lower (interval excludes 0; McNemar not significant after Holm), and Clef-Flash is lower on textiles and microstructure.
+- Pans, P1: the CLIP baseline ranks the pans test images almost perfectly (AUC 0.999), but its scores lie between 0.497 and 0.515. The Platt fit on the leave-one-out scores of the 10 + 10 images in L puts the threshold too high for the test defectives (median 0.513 in L, 0.501 in the test set): sensitivity 0.282, balanced accuracy 0.641. With the raw rule of the CLIP paper (0.5), the CLIP baseline has 0.910 on pans. So the P1 difference on pans comes from the calibration of CLIP on very few images, not from the ranking.
+- JEV repeat runs (D88): for pipe staple, the final description of JEV is the generic text, so final_k2 and generic_k2 send the same prompts. The two runs gave slightly different results: AUC on C 0.983 and 0.979; test sensitivity 0.92 and 0.94, specificity 0.96 and 0.94, balanced accuracy 0.94 in both. This P2 row therefore measures the run-to-run variation of JEV: a difference of 0.000 (-0.030, 0.030).
+- CLIP zero_final on textiles (D89): with the JEV textiles description, CLIP zero-shot gives a probability of 0.999 or more to every image of C and of the test set. Platt clamps its input to 0.005 to 0.995, so all inputs are equal; the slope is not defined (NA), and Platt gives 0.5 to every image (balanced accuracy 0.500; raw test AUC 0.685). The configuration stays in the results as it is, with a flag. It is not part of P1 to P3.
+- Negative Platt slopes (D82), test results after Platt: Clef-Flash generic_k2 pipe staple 0.460; JEV final_k0 and generic_k0 pipe staple (raw test AUC 0.191 and 0.181); CLIP zero_k0 microstructure 0.640 and textiles 0.645.
+- Undefined values: precision and F1 are NA in 36 raw-score rows (18 configurations and splits), where the raw rule at 0.5 predicts no defect; yardstick warns each time it computes one (60 warnings in one evaluation). No Platt or isotonic row has an NA value.
+- Time per image on the test sets (median): JEV 175 to 290 ms (pans 970 ms), one call at a time to the TypeSafe API; Clef-Flash 173 to 257 ms (pans 1,212 ms) on the local GPU; CLIP baseline 10 to 13 ms (pans 98 ms) on the local GPU, after one warm-up call.
+- Cost: the 6,012 JEV test calls cost about USD 0.53 (12.6 million input tokens). JEV final k = 2 costs about USD 0.011 to 0.051 for each test set (100 to 450 images).
+
