@@ -175,10 +175,14 @@ test_that("the script writes the three summaries", {
   out <- withr::local_tempdir()
   run_fair_evaluation(dir, out, times = 20, timing_dir = withr::local_tempdir(),
                       record_root = withr::local_tempdir())
-  expect_setequal(list.files(out), c("metrics.csv", "paired.csv", "k_curve.csv", "timing.csv"))
+  expect_setequal(list.files(out), c("metrics.csv", "paired.csv", "k_curve.csv", "timing.csv",
+                                     "calibration_summary.csv"))
   expect_named(readr::read_csv(file.path(out, "metrics.csv"), show_col_types = FALSE),
                c("model", "description", "k", "dataset", "split", "calibration",
-                 "in_sample", "metric", "value"))
+                 "in_sample", "metric", "value", "platt_slope"))
+  expect_named(readr::read_csv(file.path(out, "calibration_summary.csv"), show_col_types = FALSE),
+               c("model", "description", "k", "dataset", "n_nominal", "n_defective",
+                 "raw_roc_auc", "raw_bal_accuracy", "platt_slope"))
   expect_named(readr::read_csv(file.path(out, "paired.csv"), show_col_types = FALSE),
                c("comparison", "model", "dataset", "metric", "difference", "low",
                  "high", "mcnemar_p", "holm_p", "holm_family_size"))
@@ -300,4 +304,53 @@ test_that("a configuration with calls but no run row keeps its cost; no cost giv
   expect_equal(lost$input_tokens, 30)
   expect_true(is.na(lost$cost_usd))
   expect_equal(dplyr::filter(tab, model == "jev", dataset == "extrusion")$cost_usd, 2e-4)
+})
+
+test_that("the calibration summary covers every configuration with two classes in C, with no test file", {
+  dir <- withr::local_tempdir()
+  # C of jev: defective .9, .4; nominal .6, .1 (AUC 0.75; balanced accuracy 0.5).
+  write_scores(dir, "jev", "final", 2, "extrusion", "calibration", 0, n = 4,
+               probs = c(0.9, 0.4, 0.6, 0.1))
+  write_scores(dir, "clip", "refs", 1, "extrusion", "calibration", 1) # no test file
+  write_scores(dir, "clip", "zero", 0, "extrusion", "test", 1) # no calibration file
+  write_scores(dir, "clef", "generic", 2, "textiles", "calibration", 1)
+  scores <- read_fair_scores(dir)
+  # one class in the calibration rows of clef: not in the summary
+  scores$actual_class[scores$model == "clef"] <- "defective"
+  s <- calibration_summary(scores)
+  expect_named(s, c("model", "description", "k", "dataset", "n_nominal", "n_defective",
+                    "raw_roc_auc", "raw_bal_accuracy", "platt_slope"))
+  expect_setequal(paste(s$model, s$description, s$k), c("jev final 2", "clip refs 1"))
+  jev <- dplyr::filter(s, model == "jev")
+  expect_equal(jev$n_nominal, 2)
+  expect_equal(jev$n_defective, 2)
+  expect_equal(jev$raw_roc_auc, 0.75)
+  expect_equal(jev$raw_bal_accuracy, 0.5)
+  # The slope of Platt's fit, refitted here with the smoothed targets.
+  y <- c(1, 1, 0, 0)
+  target <- ifelse(y == 1, 3 / 4, 1 / 4)
+  x <- stats::qlogis(c(0.9, 0.4, 0.6, 0.1))
+  slope <- unname(stats::coef(stats::glm(target ~ x, family = stats::quasibinomial()))[["x"]])
+  expect_equal(jev$platt_slope, slope)
+})
+
+test_that("metrics.csv and the calibration summary report the Platt slope, also when it is negative", {
+  dir <- withr::local_tempdir()
+  # Scores on C that rank the classes the wrong way: the slope is negative.
+  write_scores(dir, "clip", "zero", 0, "extrusion", "calibration", -2)
+  write_scores(dir, "clip", "zero", 0, "extrusion", "test", 1)
+  write_scores(dir, "clip", "refs", 2, "extrusion", "calibration", 2)
+  write_scores(dir, "clip", "refs", 2, "extrusion", "test", 2)
+  scores <- read_fair_scores(dir)
+  m <- calibrate_all(scores) |> metrics_table()
+  slopes <- dplyr::distinct(m, description, platt_slope)
+  expect_equal(nrow(slopes), 2)
+  expect_lt(slopes$platt_slope[slopes$description == "zero"], 0)
+  expect_gt(slopes$platt_slope[slopes$description == "refs"], 0)
+  s <- calibration_summary(scores)
+  expect_equal(s$platt_slope[s$description == "zero"], slopes$platt_slope[slopes$description == "zero"])
+  # With a negative slope, Platt reverses the order: the test AUC drops below 0.5.
+  auc <- dplyr::filter(m, description == "zero", split == "test", metric == "roc_auc")
+  expect_lt(auc$value[auc$calibration == "platt"], 0.5)
+  expect_gt(auc$value[auc$calibration == "raw"], 0.5)
 })

@@ -1,3 +1,7 @@
+<!--
+Note for the reader: scripts/fair_run_loop.sh starts the agent of this loop in this folder, as a fresh and isolated Claude Code process, with this command:
+claude -p "Read LOOP.md and follow it." --restricted --safe-mode --strict-mcp-config --tools Read,Write,Edit,Glob,Grep,Bash,TodoWrite --allowedTools Read Glob Grep TodoWrite Write Edit "Bash(bash score.sh:*)" "Bash(./score.sh:*)" "Bash(ls:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(cat:*)" "Bash(wc:*)" "Bash(sort:*)" "Bash(cut:*)" "Bash(grep:*)" --disable-slash-commands --permission-prompts none --model claude-opus-5-5 --session-id <new UUID>
+-->
 # Goal: Improve the design AUC of {{model}} on {{dataset}} images
 
 You work in a small sandbox folder with Claude Code. Use a disciplined, small-step loop. Your objective is to **raise the ROC AUC on the design images** of the `{{dataset}}` dataset. You do this by changing only two texts: the description of a nominal image and the description of a defective image.
@@ -56,10 +60,11 @@ You have at most 6 candidates, including candidate 1. Stop after you score candi
 ## Guardrails
 
 - Do not guess the labels of images from their file names. The names carry no information.
-- Do not try to read the scoring code or the model settings.
+- Do not try to read the scoring code (`score.sh`) or the model settings. The audit flags a read of `score.sh`.
 - Do not run any command other than the scoring command and simple commands that list or read files in this folder.
 - Use only the Read, Write, Edit, Glob, Grep and Bash tools. Do not start subagents. Write only to the `candidates/N.csv` file of the next candidate.
 - Do not use `~`, `$HOME`, any other variable, `cd`, or any path outside this folder in a command. Do not use PowerShell.
+- Do not use `$` in a command (for example in awk or R one-liners).
 - Inside a text, write a quote as two quotes ("").
 - Run the scoring command exactly as written, with the Bash tool timeout set to 600000 ms, and wait for it to finish. Do not run it in the background. Do not add `&`, `nohup`, `>`, `tee` or a variable to it. Run only one scoring command at a time.
-- If a scoring run fails, run the same command once more. If it fails again, stop and report the error in your last message.
+- If a scoring run fails, run the same command once more. This one retry is allowed: the audit shows it as a "repeated scoring call" row, and a person reviews it. If it fails again, stop and report the error in your last message.

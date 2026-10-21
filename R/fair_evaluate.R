@@ -13,11 +13,38 @@ read_fair_scores <- function(dir) {
     purrr::list_rbind()
 }
 
+#' Slope of the Platt fit on logit(p)
+#' @details The coefficient of the fit that platt() makes (platt() is not
+#'   changed). A positive slope keeps the order of the scores; a negative
+#'   slope reverses it.
+platt_slope <- function(p, y) {
+  unname(stats::coef(environment(platt(p, y))$fit)[["x"]])
+}
+
+#' Raw-score metrics on C of every configuration, before any test run
+#' @details Every configuration with calibration rows of both classes, with
+#'   or without a test file: the number of images per class, the AUC and the
+#'   balanced accuracy at 0.5 of the raw scores, and the Platt slope.
+calibration_summary <- function(scores) {
+  scores |>
+    dplyr::filter(split == "calibration") |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(config_keys))) |>
+    dplyr::filter(dplyr::n_distinct(actual_class) == 2) |>
+    dplyr::group_modify(\(d, key) {
+      y <- as.integer(d$actual_class == "defective")
+      m <- class_metrics(d)
+      tibble::tibble(n_nominal = sum(y == 0), n_defective = sum(y == 1),
+                     raw_roc_auc = m$roc_auc, raw_bal_accuracy = m$bal_accuracy,
+                     platt_slope = platt_slope(d$prob_defective, y))
+    }) |>
+    dplyr::ungroup()
+}
+
 #' Add Platt and isotonic probabilities to the scores of each configuration
 #' @details Both calibrators are fitted on the calibration rows of the same
 #'   configuration only. A configuration without test rows, or with one class
 #'   in its calibration rows, is dropped, and a message names it. Test rows
-#'   never enter a fit.
+#'   never enter a fit. The column platt_slope holds the slope of the fit.
 calibrate_all <- function(scores) {
   # The configurations that cannot be calibrated.
   dropped <- scores |>
@@ -44,7 +71,8 @@ calibrate_all <- function(scores) {
       dplyr::mutate(d,
         raw = prob_defective,
         platt = platt(cal$prob_defective, y)(prob_defective),
-        isotonic = isotonic(cal$prob_defective, y)(prob_defective)
+        isotonic = isotonic(cal$prob_defective, y)(prob_defective),
+        platt_slope = platt_slope(cal$prob_defective, y)
       )
     }) |>
     dplyr::ungroup()
@@ -52,7 +80,9 @@ calibrate_all <- function(scores) {
 
 #' Long metrics table: raw, Platt and isotonic, on both splits
 #' @details Platt and isotonic rows of the calibration split are in sample.
+#'   Each row has the Platt slope of its configuration (platt_slope).
 metrics_table <- function(calibrated) {
+  slopes <- dplyr::distinct(calibrated, dplyr::across(dplyr::all_of(c(config_keys, "platt_slope"))))
   calibrated |>
     tidyr::pivot_longer(c(raw, platt, isotonic), names_to = "calibration",
                         values_to = "prob") |>
@@ -64,8 +94,9 @@ metrics_table <- function(calibrated) {
     dplyr::ungroup() |>
     dplyr::mutate(in_sample = split == "calibration" & calibration != "raw") |>
     tidyr::pivot_longer(accuracy:ece, names_to = "metric", values_to = "value") |>
+    dplyr::left_join(slopes, by = config_keys) |>
     dplyr::select(model, description, k, dataset, split, calibration,
-                  in_sample, metric, value)
+                  in_sample, metric, value, platt_slope)
 }
 
 # Platt-calibrated test predictions of one configuration (NA k: any k).
@@ -247,6 +278,8 @@ timing_table <- function(scores, timing_dir, record_root) {
 }
 
 #' Run the whole evaluation and write the summaries
+#' @details calibration_summary.csv needs no test file: it is the summary of
+#'   C that the researchers see before the test runs.
 run_fair_evaluation <- function(scores_dir, out_dir, times = 2000,
                                 timing_dir = "results/fair/timing",
                                 record_root = Sys.getenv("FAIR_RECORD_ROOT",
@@ -267,7 +300,8 @@ run_fair_evaluation <- function(scores_dir, out_dir, times = 2000,
   }
   out <- list(metrics = metrics_table(calibrated), paired = paired,
               k_curve = k_curve_table(calibrated, datasets, times),
-              timing = timing_table(scores, timing_dir, record_root))
+              timing = timing_table(scores, timing_dir, record_root),
+              calibration_summary = calibration_summary(scores))
   purrr::iwalk(out, \(d, name) {
     readr::write_csv(d, file.path(out_dir, paste0(name, ".csv")))
   })

@@ -58,7 +58,8 @@ The runs of the decision models (the description loops, and the calibration and 
 run_evaluate <- FALSE # metrics, paired tests and k-curve of the re-run (no cost)
 run_clip     <- FALSE # CLIP variants on a local GPU (set RETICULATE_PYTHON first)
 run_clef     <- FALSE # Clef-Flash calibration and test runs (local SGLang server)
-run_jev      <- FALSE # JEV calibration and test runs (paid TypeSafe API)
+run_jev      <- FALSE # JEV calibration and test runs (paid TypeSafe API; needs
+                      # FAIR_RECORD_ROOT and a "Re-run" budget row)
 # TRUE builds every table and figure from the re-run (render again after
 # the render that ran the switches).
 use_rerun    <- FALSE
@@ -724,7 +725,7 @@ All methods do the binary task: nominal or defective. The event class of all met
 
 Each call to JEV or Clef-Flash holds k reference images per class, then the image to classify. The main setting is k = 2, so a call holds 4 references. The reference curve uses k = 0, 1, 2 and 4. The nominal references are a random draw from the nominal images of L. The defective references take one image per defect type, in a random order of the types, until there are k images. Pans and pipe staple have one defect type and take a random draw. The seed is 202610. JEV, Clef-Flash and CLIP use the same references (@fig-references). Microstructure has 9 defect types, so at k = 2 its references show only 2 of them. This is the cost of few references, and the curve to k = 4 measures it.
 
-## Description loop
+## Description loop {#sec-loop-methods}
 
 A description is the pair of texts that tells the model what a nominal and a defective image look like. The loop looks for a better description, for JEV and for Clef-Flash separately, on the four datasets other than pans:
 
@@ -732,15 +733,25 @@ A description is the pair of texts that tells the model what a nominal and a def
 - The loop starts from the generic description of `classify_image()`. Nominal: "No visible manufacturing defects; the part appears conforming." Defective: "At least one visible manufacturing defect or anomaly."
 - A candidate changes only the two texts. The references (k = 2), the image size and the crop do not change. Each dataset and model has at most 6 candidates, including the start.
 - The score of a candidate is its ROC AUC [@hanley1982auc] on the design images. A candidate replaces the current best if its AUC is at least 0.02 higher. The final description is the last one kept.
-- A fresh Claude Code agent runs the loop, one agent for each model. It works in a sandbox folder that holds only the design images (with neutral file names), their class and defect type, the four reference images, the generic description, the scoring command and the loop instructions (`scripts/fair_loop_instructions.md`). It cannot see the test images, C or any result.
+- A Claude Code agent runs the loop: one fresh agent for each model and dataset (8 loops, 8 agents; decision D81), so each loop is audited and closed on its own. The agent works in a sandbox folder that holds only the design images (with neutral file names), their class and defect type, the four reference images, the generic description, the scoring command and the loop instructions (`scripts/fair_loop_instructions.md`). It cannot see the test images, C or any result.
 - The loop is blind: the instructions carry no dataset knowledge from the researchers (decision D74). The researchers approve the instructions before the loop starts, and they do not edit a description during the loop.
-- `scripts/fair_close_loop.R` audits the transcript of the agent. It flags every tool call outside the sandbox, then freezes the final description.
+- `scripts/fair_close_loop.R` audits the transcript of the agent. It flags every tool call outside the sandbox and every read of the scoring script, then freezes the final description.
+
+`scripts/fair_run_loop.sh <model> <dataset>` starts each agent as a separate, isolated Claude Code process, with the sandbox as its working folder. The process reads no user, project or local settings, and it loads no CLAUDE.md, skills, plugins, hooks, MCP servers or slash commands. It has only the tools Read, Write, Edit, Glob, Grep, Bash and TodoWrite, and the file tools stay in the sandbox. Bash runs without a prompt only for the scoring command and simple read commands; the process denies any other call. The model is pinned. Each loop gets a new session ID, so the path of its transcript is known. The command:
+
+```bash
+claude -p "Read LOOP.md and follow it." --restricted --safe-mode --strict-mcp-config --tools Read,Write,Edit,Glob,Grep,Bash,TodoWrite --allowedTools Read Glob Grep TodoWrite Write Edit "Bash(bash score.sh:*)" "Bash(./score.sh:*)" "Bash(ls:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(cat:*)" "Bash(wc:*)" "Bash(sort:*)" "Bash(cut:*)" "Bash(grep:*)" --disable-slash-commands --permission-prompts none --model claude-opus-5-5 --session-id <new UUID>
+```
+
+The launcher refuses to start when the sandbox does not exist, when a loop log from an earlier attempt exists, or when the description is already frozen. With `JEV_CHECK_ONLY=true`, a rehearsal runs the checks only and makes no paid call.
 
 The design AUC of the final description is optimistic, because the loop chose on these images. Its AUC on C is not, because C chose nothing. Pans have no loop: 20 images cannot give references, design images and calibration images. JEV and Clef-Flash use the generic description on pans.
 
 ## Calibration and decision
 
-Each configuration scores C once, and then the test set once. `scripts/fair_score.R` refuses a second run, and a test run before the calibration run. Platt scaling [@platt1999probabilistic], fitted on the C scores of the same configuration, gives the calibrated probability. It uses the smoothed targets of Platt, so a C that separates perfectly still gives a finite fit. The decision is defective when the calibrated probability is 0.5 or more. No method tunes a threshold. C is balanced, so this rule aims at balanced accuracy. Isotonic regression [@zadrozny2002transforming], fitted on C, is a sensitivity analysis (@sec-isotonic).
+Each configuration scores C once, and then the test set once. `scripts/fair_score.R` refuses a second run, and a test run before the calibration run. Platt scaling [@platt1999probabilistic], fitted on the C scores of the same configuration, gives the calibrated probability. It uses the smoothed targets of Platt, so a C that separates perfectly still gives a finite fit. Platt keeps the order of the scores only when its slope is positive; a negative slope reverses the order. `metrics.csv` reports the slope of each configuration (column `platt_slope`). The decision is defective when the calibrated probability is 0.5 or more. No method tunes a threshold. C is balanced, so this rule aims at balanced accuracy. Isotonic regression [@zadrozny2002transforming], fitted on C, is a sensitivity analysis (@sec-isotonic).
+
+Before the test runs, the researchers see the results on C: `scripts/fair_evaluate.R` writes `calibration_summary.csv`, with the number of images per class, the AUC and the balanced accuracy at 0.5 of the raw scores, and the Platt slope of each configuration that has a calibration file. It needs no test file. A test run of a final description stops when the frozen description changed after the calibration run (the calibration file keeps the md5 of the frozen file). A run of a final description also stops when the audit of its loop flagged a tool call, unless a recorded decision accepts the flagged calls (`FAIR_AUDIT_DECISION`; `runs.csv` keeps the decision ID).
 
 Pans have no C. JEV, Clef-Flash and CLIP with the same references calibrate on the images of L that are not references; these images choose nothing. The CLIP baseline calibrates on leave-one-out scores in L. Near-identical pan photos make these scores optimistic. CLIP zero-shot calibrates on all 20 images of L.
 
@@ -756,7 +767,7 @@ The CLIP score of an image with labeled images is the softmax of its two highest
 | CLIP, zero-shot with the final descriptions | none (the final JEV descriptions as text prompts, cut at 77 tokens) | Platt on C | does a better description help CLIP too? |
 | CLIP, paper rule | L | none (raw score at 0.5) | continuity with the CLIP paper |
 
-: CLIP variants. The variant with the final descriptions runs after the loops.
+: CLIP variants. The variant with the final descriptions runs after the loops, on the four datasets with a loop (pans have no final description).
 
 ## Configurations {#sec-configurations}
 
@@ -778,7 +789,7 @@ The headline metrics are balanced accuracy and MCC. Balanced accuracy does not d
 
 ## Time and cost {#sec-time-methods}
 
-The time per image of JEV and Clef-Flash is the wall time of the call for that image, with the image preparation (`elapsed_ms` in the score files). The CLIP score files have no time, because they are one-time files. A separate pass on the test images times each CLIP variant: `encode_ms` is the time to load, prepare and encode the image, and `score_ms` is the time to score the encoded image. One warm-up call runs before the timing, because the first call on the GPU is slower. The features of the learning and reference images are encoded once and do not count. Each scoring run adds one row to `runs.csv` (start, end, seconds and hardware). The cost of JEV comes from the TypeSafe call log (@sec-time).
+The time per image of JEV and Clef-Flash is the wall time of the call for that image, with the image preparation (`elapsed_ms` in the score files). When a call fails (an HTTP error, a connection error or an answer with no valid probability), the runner tries the image again: at most 3 attempts in all, after waits of 2 s and 8 s; then the run stops. The retries and the waits count in `elapsed_ms`. The call log keeps each failed attempt, so the budget counts it. The CLIP score files have no time, because they are one-time files. A separate pass on the test images times each CLIP variant: `encode_ms` is the time to load, prepare and encode the image, and `score_ms` is the time to score the encoded image. One warm-up call runs before the timing, because the first call on the GPU is slower. The features of the learning and reference images are encoded once and do not count. Each scoring run adds one row to `runs.csv` (start, end, seconds and hardware). The cost of JEV comes from the TypeSafe call log (@sec-time).
 
 ## Paired comparisons {#sec-paired-methods}
 
@@ -854,8 +865,9 @@ note(!has_loop)
 #| label: tbl-loop
 #| tbl-cap: "Description loop: the candidates of each dataset and model, the design AUC of the generic and of the final description (optimistic: the loop chose on these images), and their AUC on C at k = 2 (not optimistic). Audit: tool calls of the agent outside the sandbox."
 #| eval: !expr has_loop
-# AUC on C of the generic and final descriptions at k = 2 (raw scores: Platt
-# keeps the order, and the raw AUC is not in sample).
+# AUC on C of the generic and final descriptions at k = 2 (raw scores, which
+# are not in sample). Platt keeps the order only when its slope is positive;
+# metrics.csv reports the slope (platt_slope).
 auc_on_c <- metrics |>
   dplyr::filter(model %in% c("jev", "clef"), split == "calibration",
                 calibration == "raw", metric == "roc_auc", k == k_main) |>
@@ -1708,7 +1720,7 @@ read_csv_quiet(file.path(scores_dir, "clip_truncation.csv")) |>
 
 # Re-run steps {#sec-rerun}
 
-These steps make all results of `results/fair/` from the images. Each step is a script in `scripts/`, run from the repository root. Steps marked **paid** call the TypeSafe API and need `TYPESAFE_API_KEY` in `.Renviron` (never commit it), a budget row in `replication_materials/calls/README.md`, and the call log `replication_materials/calls/typesafe-calls.csv`. The guards of `scripts/fair_score.R` stop a JEV run that needs more calls than the budget row has left; `JEV_CHECK_ONLY=true` runs the checks only. The original runs used the calls of the budget row, so a re-run of a paid step needs a new budget row first.
+These steps make all results of `results/fair/` from the images. Each step is a script in `scripts/`, run from the repository root. Steps marked **paid** call the TypeSafe API and need `TYPESAFE_API_KEY` in `.Renviron` (never commit it) and `FAIR_RECORD_ROOT`: the folder of `calls/README.md` with the budget rows (`replication_materials` in a clone of `main`). A paid JEV run does not fall back to another folder. It logs each call to `<FAIR_RECORD_ROOT>/calls/typesafe-calls.csv` and stops when `JEV_CALL_LOG` names another file. The guards of `scripts/fair_score.R` stop a JEV run that needs more calls than its budget row has left; each JEV run prints the budget file, the call log, the calls left, and the spent and maximum cost. `JEV_CHECK_ONLY=true` runs the checks only; any value other than `true` or `false` stops the run. The original runs used the calls of the "Fair comparison" row. The re-run switches log their calls with the purpose prefix `rerun` (`FAIR_PURPOSE_PREFIX=rerun`), and these calls count against a separate "Re-run" row, which must exist first.
 
 | Step | Script | Cost |
 |---|---|---|
@@ -1716,7 +1728,7 @@ These steps make all results of `results/fair/` from the images. Each step is a 
 | 2. Score the CLIP variants | `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip.R` | local GPU |
 | 2b. Time the CLIP variants on the test images | `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip_timing.R` | local GPU |
 | 3. Make the sandbox of a loop | `Rscript scripts/fair_make_sandbox.R <model> <dataset>` | none |
-| 4. Run the loop | a fresh Claude Code agent in the sandbox reads `LOOP.md` and runs `score.sh`, which calls `scripts/fair_score.R` with `FAIR_SPLIT=design` | **paid** for JEV (up to 576 calls per dataset); local GPU for Clef-Flash |
+| 4. Run the loop | `bash scripts/fair_run_loop.sh <model> <dataset>` starts one fresh, isolated Claude Code agent in the sandbox. It reads `LOOP.md` and runs `score.sh`, which calls `scripts/fair_score.R` with `FAIR_SPLIT=design` | **paid** for JEV (up to 576 calls per dataset); local GPU for Clef-Flash |
 | 5. Close the loop | `Rscript scripts/fair_close_loop.R <model> <dataset> <transcript>` | none |
 | 6. Calibration and test runs | `FAIR_MODEL=<model> FAIR_DATASET=<dataset> FAIR_DESCRIPTION=<final or generic> FAIR_K=<k> FAIR_SPLIT=calibration Rscript scripts/fair_score.R`, then the same with `FAIR_SPLIT=test` | **paid** for JEV; local GPU for Clef-Flash |
 | 7. Metrics, paired comparisons and k-curve | `Rscript scripts/fair_evaluate.R` | none |
@@ -1726,9 +1738,10 @@ These steps make all results of `results/fair/` from the images. Each step is a 
 Notes on the steps:
 
 - Step 1 rewrites `results/fair/sets/` with the same draws (the seeds are fixed). Check with `git diff` that the files do not change.
-- Step 2 needs a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (`results/clip/python_environment.txt`). After the loops, `FAIR_CLIP_TEXT=final` adds the zero-shot variant with the final descriptions. Run CLIP when no other process uses the GPU.
-- Steps 3 to 5 run once for each model (jev, clef) and dataset (extrusion, textiles, pipe_staple, microstructure). The researchers approve `LOOP.md` before step 4. Run the agent as a separate `claude -p` process with the sandbox as its working folder, so that it gets no project instructions and no project memory. Step 5 refuses to overwrite a frozen description.
-- Step 6 runs the configurations of @sec-configurations. Clef-Flash needs its local server: `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`.
+- Step 2 needs a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (`results/clip/python_environment.txt`). After the loops, `FAIR_CLIP_TEXT=final` adds the zero-shot variant with the final JEV descriptions. It skips pans and each dataset with no frozen JEV description, with a message. Run it first with `FAIR_SPLITS=calibration`, and with `FAIR_SPLITS=test` after the researchers approve the calibration results; a test run stops when the calibration file of its dataset does not exist. Run CLIP when no other process uses the GPU.
+- Steps 3 to 5 run once for each model (jev, clef) and dataset (extrusion, textiles, pipe_staple, microstructure): 8 loops, each with one fresh agent. The researchers approve `LOOP.md` before step 4. Step 3 for JEV needs `FAIR_RECORD_ROOT` with the "Fair comparison" row, because `score.sh` keeps it. Step 4 runs the agent as a separate, isolated `claude -p` process with the sandbox as its working folder (@sec-loop-methods gives the command), so that it gets no project instructions, no project memory and no user settings. `--dry-run` prints the command and starts nothing. The launcher prints the path of the transcript for step 5. Step 5 refuses to overwrite a frozen description.
+- Before step 6, `Rscript scripts/fair_check_call.R <model> 4` makes one call with 4 references per class (9 images), to check that the model accepts them (purpose `fair check <model> k4`). It writes only its row of the call log. `JEV_CHECK_ONLY=true` runs its checks only.
+- Step 6 runs the configurations of @sec-configurations; other configurations stop. Clef-Flash needs its local server: `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`. A run of a final description stops when its loop audit flagged a tool call, unless `FAIR_AUDIT_DECISION` names the decision that accepts the flagged calls. Step 7 also writes `calibration_summary.csv` (the results on C), which needs no test file.
 - Step 2b writes `results/fair/timing/clip_timing.csv` and one row per variant and dataset to `results/fair/timing/runs.csv`. It does not change the CLIP score files. It stops if `clip_timing.csv` exists.
 - Each run of step 6 adds one row to `runs.csv` and an `elapsed_ms` column to its score file. JEV calls go to the TypeSafe call log, which the budget counts. Clef-Flash calls go to `results/fair/timing/clef-calls.csv`.
 - `FAIR_OUT`, `FAIR_SCORES`, `FAIR_SUMMARY` and `FAIR_TIMING_DIR` send the outputs to another folder.
@@ -1763,6 +1776,8 @@ score_plan <- tidyr::expand_grid(dataset = dataset_order,
                                              description)) |>
   dplyr::distinct() |>
   dplyr::filter(description == "final" | k %in% c(0, 2) | dataset == "pan_images")
+# The calls of a re-run have the purpose prefix "rerun" and count against
+# the "Re-run" budget row (a paid JEV re-run also needs FAIR_RECORD_ROOT).
 rerun_scores <- function(model) {
   for (split in c("calibration", "test")) {
     purrr::pwalk(score_plan, \(dataset, description, k) {
@@ -1770,7 +1785,8 @@ rerun_scores <- function(model) {
         FAIR_MODEL = model, FAIR_DATASET = dataset, FAIR_DESCRIPTION = description,
         FAIR_K = as.character(k), FAIR_SPLIT = split,
         FAIR_OUT = file.path(rerun_root, "runs"),
-        FAIR_TIMING_DIR = file.path(rerun_root, "timing_runs")
+        FAIR_TIMING_DIR = file.path(rerun_root, "timing_runs"),
+        FAIR_PURPOSE_PREFIX = "rerun"
       ))
     })
   }
@@ -1780,11 +1796,12 @@ rerun_scores <- function(model) {
 ```{r}
 #| label: rerun-clip
 #| eval: !expr run_clip
-# Step 2: the CLIP variants, then the zero-shot variant with the final
-# descriptions.
-run_script("scripts/fair_clip.R", c(FAIR_OUT = file.path(rerun_root, "runs")))
-run_script("scripts/fair_clip.R", c(FAIR_OUT = file.path(rerun_root, "runs"),
-                                    FAIR_CLIP_TEXT = "final"))
+# Step 2: the CLIP variants, then the zero-shot variant with the final JEV
+# descriptions (it skips pans and each dataset with no frozen description).
+# CLIP makes no API call; the prefix keeps all re-run steps alike.
+rerun_clip_vars <- c(FAIR_OUT = file.path(rerun_root, "runs"), FAIR_PURPOSE_PREFIX = "rerun")
+run_script("scripts/fair_clip.R", rerun_clip_vars)
+run_script("scripts/fair_clip.R", c(rerun_clip_vars, FAIR_CLIP_TEXT = "final"))
 # Step 2b: the timing pass.
 run_script("scripts/fair_clip_timing.R",
            c(FAIR_TIMING_DIR = file.path(rerun_root, "timing_runs")))

@@ -13,8 +13,8 @@ Can structured decision models, which return a probability for each allowed answ
 The fair comparison (branch `fair-comparison`, design in `replication_materials/plans/2026-10-20-fair-comparison-design.md`) gives every method the same labeled images:
 
 1. Audit the images for duplicates across data splits.
-2. Draw the sets: a learning set L (the CLIP baseline set, 50 images per class; pans 10), k reference images per class from L, and a calibration set C (25 images per class) that excludes near-copies of L and test images.
-3. Find a better defect description with a blind loop: a fresh Claude Code agent changes only the two description texts and keeps a change when the ROC AUC on the images of L that are not references rises by at least 0.02.
+2. Draw the sets: a learning set L (the CLIP baseline set, 50 images per class; pans 10), k reference images per class from L, and a calibration set C (25 images per class) that excludes near-copies (dHash) of L and test images for extrusion, and exact copies (MD5) for the other datasets.
+3. Find a better defect description with a blind loop: one fresh Claude Code agent for each model and dataset changes only the two description texts and keeps a change when the ROC AUC on the images of L that are not references rises by at least 0.02.
 4. Calibrate every method (JEV, Clef-Flash and CLIP) with Platt scaling on C, and decide at 0.5.
 5. Score each configuration once on the test images, and compare the methods with paired tests on the same images.
 
@@ -49,7 +49,7 @@ Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.2
 | `replication_materials/` | The replication record: decisions, process, plans, releases, results and paid-call budget (website above) |
 | `experiment_log.md` | The lab notebook: setup notes, every v0.0.1 trial (60), decisions and rule changes, and the final-test sections |
 | `R/` | Shared R functions: the JEV/SystemOne client (`industrial_defect_classifier.R`), calibration (`calibration_functions.R`), metrics and paired tests (`evaluation.R`), and the fair comparison: sets (`fair_sets.R`, `image_hash.R`), scoring runner and guards (`fair_runner.R`), blind loop (`fair_loop.R`), CLIP leave-one-out (`fair_clip.R`) and evaluation (`fair_evaluate.R`) |
-| `scripts/` | Runnable steps (run from the repository root; see below). `fair_*.R` make the fair comparison; the other scripts reproduce tag `v0.0.1` |
+| `scripts/` | Runnable steps (run from the repository root; see below). `fair_*.R` and the loop launcher `fair_run_loop.sh` make the fair comparison; the other scripts reproduce tag `v0.0.1` |
 | `tests/testthat/` | Tests of the R functions and of the guards of the fair comparison (no paid call) |
 | `python/` | CLIP functions (from the CLIP qmd of the prior study) |
 | `experiments/` | Inputs chosen during the v0.0.1 tuning (criteria and reference sets) and one-time data scripts (leakage check, duplicate removal) |
@@ -77,12 +77,12 @@ Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr
 Fair comparison (scripts `scripts/fair_*.R`, in this order):
 
 1. Sets, no cost: `Rscript scripts/fair_draw_sets.R`. It draws L, C, the references and the design images into `results/fair/sets/` (seeds 202610 and 202611), with the near-copy rule of each dataset.
-2. CLIP variants (local GPU): `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip.R`. It needs a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (versions in `results/clip/python_environment.txt`). After the loops, `FAIR_CLIP_TEXT=final` adds CLIP zero-shot with the final descriptions. Stop the Clef-Flash server first: two CUDA processes on one GPU made a CLIP run crash.
-3. Description loops: `Rscript scripts/fair_make_sandbox.R <model> <dataset>` makes the sandbox, a fresh Claude Code agent runs the loop in it (instructions: `scripts/fair_loop_instructions.md`), and `Rscript scripts/fair_close_loop.R <model> <dataset> <transcript>` audits the transcript and freezes the description. **Paid** for JEV (up to 576 calls per dataset); local GPU for Clef-Flash.
-4. Calibration and test runs: `FAIR_MODEL=<jev or clef> FAIR_DATASET=<dataset> FAIR_DESCRIPTION=<final or generic> FAIR_K=<0, 1, 2 or 4> FAIR_SPLIT=calibration Rscript scripts/fair_score.R`, then the same with `FAIR_SPLIT=test`. Each run is one-time. `JEV_CHECK_ONLY=true` runs the checks only. **Paid** for JEV; local GPU for Clef-Flash.
-5. Evaluation, no cost: `Rscript scripts/fair_evaluate.R` writes `metrics.csv`, `paired.csv` and `k_curve.csv` to `results/fair/summary/`.
+2. CLIP variants (local GPU): `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip.R`. It needs a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (versions in `results/clip/python_environment.txt`). After the loops, `FAIR_CLIP_TEXT=final` adds CLIP zero-shot with the final JEV descriptions. It skips pans and each dataset with no frozen JEV description. Run it first with `FAIR_SPLITS=calibration`, then with `FAIR_SPLITS=test` after the researchers approve the calibration results. Stop the Clef-Flash server first: two CUDA processes on one GPU made a CLIP run crash.
+3. Description loops, one for each model and dataset (8): `Rscript scripts/fair_make_sandbox.R <model> <dataset>` makes the sandbox; `bash scripts/fair_run_loop.sh <model> <dataset>` (Git Bash) starts one fresh, isolated Claude Code agent in it (instructions: `scripts/fair_loop_instructions.md`; `--dry-run` prints the command only) and prints the path of the transcript; `Rscript scripts/fair_close_loop.R <model> <dataset> <transcript>` audits the transcript and freezes the description. **Paid** for JEV (up to 576 calls per dataset); local GPU for Clef-Flash.
+4. Calibration and test runs: first the check call `Rscript scripts/fair_check_call.R <model> 4` (one call with 9 images). Then `FAIR_MODEL=<jev or clef> FAIR_DATASET=<dataset> FAIR_DESCRIPTION=<final or generic> FAIR_K=<0, 1, 2 or 4> FAIR_SPLIT=calibration Rscript scripts/fair_score.R`, then the same with `FAIR_SPLIT=test`. Only the configurations of the design run. Each run is one-time. `JEV_CHECK_ONLY=true` runs the checks only. **Paid** for JEV; local GPU for Clef-Flash.
+5. Evaluation, no cost: `Rscript scripts/fair_evaluate.R` writes `metrics.csv`, `paired.csv`, `k_curve.csv`, `timing.csv` and `calibration_summary.csv` (the results on C, before any test run) to `results/fair/summary/`.
 
-- JEV (paid API): put `TYPESAFE_API_KEY=...` in a `.Renviron` file at the root. Never commit it. A paid run needs a budget row in `replication_materials/calls/README.md`; each call goes to `replication_materials/calls/typesafe-calls.csv`.
+- JEV (paid API): put `TYPESAFE_API_KEY=...` in a `.Renviron` file at the root. Never commit it. A paid run needs `FAIR_RECORD_ROOT`, the `replication_materials` folder on `main` (no fallback), with a budget row in its `calls/README.md`: "Fair comparison" for the study, "Re-run" for the re-runs of the analysis document (purpose prefix `rerun`). Each call goes to `<FAIR_RECORD_ROOT>/calls/typesafe-calls.csv`.
 - Clef-Flash (local GPU, about 25 GB): `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`. Its server ignores the TypeSafe `assets` field, so images go as an ordered list (`image_format = "images"`).
 
 v0.0.1: the other scripts reproduce tag [`v0.0.1`](https://github.com/fmegahed/decision-models-for-industrial-image-qc/tree/v0.0.1); the analysis document of that tag calls them.

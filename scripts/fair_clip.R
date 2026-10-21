@@ -5,8 +5,12 @@
 #   baseline (k 50; pans 10), refs (k 1, 2, 4) and zero (k 0), for the
 #   calibration and test splits of the five datasets.
 # FAIR_CLIP_TEXT=final: the zero_final variant only (text prompts from
-#   results/fair/descriptions/jev_<dataset>.csv, cut at 77 tokens). It needs the
-#   frozen descriptions.
+#   results/fair/descriptions/jev_<dataset>.csv, cut at 77 tokens). It skips
+#   pans (no loop) and each dataset with no frozen JEV description, with a
+#   message. Gate order: FAIR_SPLITS=calibration first; FAIR_SPLITS=test after
+#   the researchers approve the calibration results. A test run needs the
+#   calibration file of its dataset. The calibration run writes
+#   clip_truncation.csv (which texts CLIP had to cut).
 # FAIR_OUT (default results/fair/scores), FAIR_DESC_DIR, FAIR_DATASETS and
 # FAIR_SPLITS (comma-separated) narrow a run; the defaults are the full run.
 # Run the script when no other process uses the GPU. A score file is never
@@ -27,6 +31,21 @@ stopifnot(all(datasets %in% all_datasets), all(splits %in% c("calibration", "tes
 
 prompts <- clip_prompts # the v0.0.1 zero-shot prompts (R/fair_clip.R)
 
+# zero_final needs the frozen JEV description of a dataset. Pans have none.
+if (final_text) {
+  frozen <- file.exists(file.path(desc_dir, paste0("jev_", datasets, ".csv")))
+  skip <- datasets == "pan_images" | !frozen
+  for (d in datasets[skip]) {
+    message("zero_final skips ", d, ": ",
+            if (d == "pan_images") "pans have no loop" else "no frozen JEV description")
+  }
+  datasets <- datasets[!skip]
+  if (length(datasets) == 0L) {
+    message("No dataset has a frozen JEV description in ", desc_dir, ". Nothing to do.")
+    quit(save = "no")
+  }
+}
+
 # One row per file to write. The baseline k is the size of L per class; the
 # baseline scores the whole of C or of the test set (k_images 0: no references).
 variants <- if (final_text) {
@@ -44,12 +63,25 @@ plan <- tidyr::expand_grid(variants, dataset = datasets, split = splits) |>
       list("clip", .data$description, .data$k, .data$dataset, .data$split), score_file_name
     ))
   )
+# The calibration run of zero_final reports the cut texts.
 truncation_file <- file.path(out, "clip_truncation.csv")
-existing <- c(plan$file, if (final_text) truncation_file)
+write_truncation <- final_text && "calibration" %in% splits
+existing <- c(plan$file, if (write_truncation) truncation_file)
 existing <- existing[file.exists(existing)]
 if (length(existing)) {
   stop("Score files already exist (the CLIP run is one-time): ",
        paste(existing, collapse = ", "))
+}
+# Gate order of zero_final: a test file comes after the calibration file.
+if (final_text && !"calibration" %in% splits) {
+  calibration_files <- file.path(out, purrr::map_chr(datasets, \(d) {
+    score_file_name("clip", "zero_final", 0, d, "calibration")
+  }))
+  if (!all(file.exists(calibration_files))) {
+    stop("No zero_final calibration file for ",
+         paste(datasets[!file.exists(calibration_files)], collapse = ", "),
+         ". Run the calibration split first.")
+  }
 }
 dir.create(out, recursive = TRUE, showWarnings = FALSE)
 
@@ -61,7 +93,7 @@ final_labels <- \(dataset) {
   c(d$normal[[1]], d$defective[[1]])
 }
 
-if (final_text) {
+if (write_truncation) {
   purrr::map(datasets, \(d) {
     tibble::tibble(dataset = d, class = c("normal", "defective"),
                    truncated = purrr::map_lgl(final_labels(d), text_is_cut))
@@ -75,8 +107,11 @@ score_dataset <- function(dataset) {
   learning <- read_set("learning", "results/fair/sets") |>
     dplyr::filter(.data$dataset == .env$dataset)
   scored_sets <- purrr::pmap(rows, \(split, k_images, ...) fair_images(dataset, split, k_images))
-  # Each image once; as.list() keeps a single path a list for Python.
-  paths <- unique(c(unlist(purrr::map(scored_sets, "image_path")), learning$image_path))
+  # Each image once; as.list() keeps a single path a list for Python. Only
+  # the baseline and the references need the images of L.
+  needs_learning <- any(rows$description %in% c("baseline", "refs"))
+  paths <- unique(c(unlist(purrr::map(scored_sets, "image_path")),
+                    if (needs_learning) learning$image_path))
   features <- clip_encode_images(as.list(paths))
   rownames(features) <- paths
   cat(dataset, ":", length(paths), "images encoded\n")

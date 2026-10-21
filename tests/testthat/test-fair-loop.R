@@ -21,9 +21,10 @@ bash_line <- function(time, command, name = "Bash") {
 make_test_sandbox <- function(env = parent.frame()) {
   root <- withr::local_tempdir(.local_envir = env)
   map_dir <- withr::local_tempdir(.local_envir = env)
+  record <- make_record(env = env)
   sandbox <- make_sandbox("jev", "extrusion", root, repo = repo_root,
-                          map_dir = map_dir)
-  list(sandbox = sandbox, map_dir = map_dir)
+                          map_dir = map_dir, record_root = record)
+  list(sandbox = sandbox, map_dir = map_dir, record = record)
 }
 
 test_that("the keep rule keeps candidates 1, 3 and 5", {
@@ -215,7 +216,8 @@ test_that("a mirror from an earlier attempt blocks a new sandbox", {
   root <- withr::local_tempdir()
   map_dir <- withr::local_tempdir()
   writeLines("x", file.path(map_dir, "jev-extrusion_loop_log.csv"))
-  expect_error(make_sandbox("jev", "extrusion", root, repo = repo_root, map_dir = map_dir),
+  expect_error(make_sandbox("jev", "extrusion", root, repo = repo_root, map_dir = map_dir,
+                            record_root = make_record()),
                "earlier attempt")
   expect_false(dir.exists(file.path(root, "jev-extrusion")))
 })
@@ -334,6 +336,64 @@ test_that("LOOP.md gives one rule for a failed scoring run", {
   expect_match(text, "run the same command once more", fixed = TRUE)
   expect_match(text, "If it fails again, stop", fixed = TRUE)
   expect_false(stringr::str_detect(text, "Do not retry"))
+  # The one retry is allowed, and the audit shows it for a person to review.
+  expect_match(text, "This one retry is allowed", fixed = TRUE)
+  expect_match(text, "\"repeated scoring call\" row", fixed = TRUE)
+  expect_match(text, "a person reviews it", fixed = TRUE)
+})
+
+test_that("LOOP.md bans the dollar sign in commands", {
+  text <- readLines(file.path(repo_root, "scripts", "fair_loop_instructions.md")) |>
+    paste(collapse = "\n")
+  expect_match(text, "Do not use `$` in a command (for example in awk or R one-liners).",
+               fixed = TRUE)
+})
+
+test_that("the audit flags a read of score.sh", {
+  s <- withr::local_tempdir()
+  sb <- normalizePath(s, winslash = "/")
+  writeLines("x", file.path(s, "score.sh"))
+  writeLines("x", file.path(s, "labels.csv"))
+  tr <- withr::local_tempfile(fileext = ".jsonl")
+  writeLines(c(
+    tool_line("r1", "Read", list(file_path = file.path(sb, "score.sh"))),
+    tool_line("r2", "Read", list(file_path = "score.sh")),
+    tool_line("r3", "Read", list(file_path = "./SCORE.SH")),
+    tool_line("r4", "Grep", list(pattern = "FAIR", path = "score.sh")),
+    tool_line("r5", "Read", list(file_path = file.path(sb, "labels.csv"))),
+    tool_line("r6", "Read", list(file_path = "labels.csv")),
+    bash_line("r7", "bash score.sh 1")
+  ), tr)
+  audit <- audit_transcript(tr, s)
+  expect_equal(audit$time, c("r1", "r2", "r3", "r4"))
+  expect_equal(audit$tool, c("Read", "Read", "Read", "Grep"))
+})
+
+test_that("the sandbox of a JEV loop needs FAIR_RECORD_ROOT with a Fair comparison row", {
+  root <- withr::local_tempdir()
+  map_dir <- withr::local_tempdir()
+  withr::local_envvar(FAIR_RECORD_ROOT = NA)
+  expect_error(make_sandbox("jev", "extrusion", root, repo = repo_root, map_dir = map_dir),
+               "Set FAIR_RECORD_ROOT")
+  expect_error(make_sandbox("jev", "extrusion", root, repo = repo_root, map_dir = map_dir,
+                            record_root = file.path(root, "no-such-record")),
+               "does not exist")
+  bare <- withr::local_tempdir()
+  dir.create(file.path(bare, "calls"))
+  writeLines("| Date | Service | Purpose | Max calls |", file.path(bare, "calls", "README.md"))
+  expect_error(make_sandbox("jev", "extrusion", root, repo = repo_root, map_dir = map_dir,
+                            record_root = bare),
+               "Fair comparison")
+  expect_false(dir.exists(file.path(root, "jev-extrusion")))
+  expect_length(list.files(map_dir), 0)
+})
+
+test_that("score.sh bakes the checked record root", {
+  skip_if_not(file.exists(file.path(repo_root, "imgs")))
+  made <- make_test_sandbox()
+  sh <- readLines(file.path(made$sandbox, "score.sh"))
+  expect_true(any(stringr::str_detect(sh, stringr::fixed(
+    paste0("FAIR_RECORD_ROOT=\"", normalizePath(made$record, winslash = "/"), "\"")))))
 })
 
 test_that("the audit flags a planted read and ignores the scoring command", {

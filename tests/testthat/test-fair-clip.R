@@ -89,28 +89,77 @@ test_that("a pan refs calibration set holds L without the references", {
   expect_false(any(s$image_path %in% refs$image_path))
 })
 
-test_that("zero_final cuts long descriptions at 77 tokens and reports the cut", {
+run_clip_script <- function() {
+  out <- suppressWarnings(system2(file.path(R.home("bin"), "Rscript"), "scripts/fair_clip.R",
+                                  stdout = TRUE, stderr = TRUE))
+  list(text = paste(out, collapse = "
+"),
+       status = if (is.null(attr(out, "status"))) 0L else attr(out, "status"))
+}
+
+test_that("zero_final skips pans and datasets with no frozen JEV description", {
   skip_without_clip()
   desc <- withr::local_tempdir()
   out <- withr::local_tempdir()
-  long <- paste(rep("a bright metallic surface with fine scratches", 20), collapse = " ")
-  readr::write_csv(tibble::tibble(normal = "A clean pan.", defective = long),
+  long <- paste(rep("a bright metallic clamp with fine scratches", 20), collapse = " ")
+  readr::write_csv(tibble::tibble(normal = "A clamp holds the pipe.", defective = long),
+                   file.path(desc, "jev_pipe_staple.csv"))
+  readr::write_csv(tibble::tibble(normal = "A clean pan.", defective = "A marked pan."),
                    file.path(desc, "jev_pan_images.csv"))
   withr::local_dir(repo_root)
-  withr::local_envvar(FAIR_CLIP_TEXT = "final", FAIR_DATASETS = "pan_images",
+  withr::local_envvar(FAIR_CLIP_TEXT = "final", FAIR_DATASETS = "pan_images,pipe_staple,textiles",
                       FAIR_SPLITS = "calibration", FAIR_OUT = out, FAIR_DESC_DIR = desc)
-  run <- \() system2(file.path(R.home("bin"), "Rscript"), "scripts/fair_clip.R",
-                     stdout = FALSE, stderr = FALSE)
-  expect_equal(run(), 0)
+  res <- run_clip_script()
+  expect_equal(res$status, 0L)
+  expect_match(res$text, "zero_final skips pan_images", fixed = TRUE)
+  expect_match(res$text, "zero_final skips textiles", fixed = TRUE)
+  expect_setequal(list.files(out), c("clip_truncation.csv",
+                                     "clip_zero_final_k0_pipe_staple_calibration.csv"))
   trunc <- readr::read_csv(file.path(out, "clip_truncation.csv"), show_col_types = FALSE)
+  expect_equal(trunc$dataset, c("pipe_staple", "pipe_staple"))
   expect_equal(trunc$class, c("normal", "defective"))
   expect_equal(trunc$truncated, c(FALSE, TRUE))
-  s <- readr::read_csv(file.path(out, "clip_zero_final_k0_pan_images_calibration.csv"),
+  s <- readr::read_csv(file.path(out, "clip_zero_final_k0_pipe_staple_calibration.csv"),
                        show_col_types = FALSE)
-  expect_equal(nrow(s), 20)
+  expect_equal(nrow(s), 34)
   expect_equal(unique(s$description), "zero_final")
-  # one-time: a second run stops and keeps the file
-  expect_false(run() == 0)
+  # The test split comes after the calibration split, in a second run. The
+  # truncation file of the first run does not block it.
+  withr::local_envvar(FAIR_SPLITS = "test", FAIR_DATASETS = "pipe_staple")
+  expect_equal(run_clip_script()$status, 0L)
+  expect_equal(nrow(readr::read_csv(file.path(out, "clip_zero_final_k0_pipe_staple_test.csv"),
+                                    show_col_types = FALSE)), 100)
+  # One-time: a second run of a split stops and keeps the files.
+  withr::local_envvar(FAIR_SPLITS = "calibration")
+  expect_false(run_clip_script()$status == 0L)
+  expect_equal(nrow(readr::read_csv(file.path(out, "clip_truncation.csv"), show_col_types = FALSE)), 2)
+})
+
+test_that("a zero_final test run needs its calibration run first", {
+  skip_without_clip()
+  desc <- withr::local_tempdir()
+  out <- withr::local_tempdir()
+  readr::write_csv(tibble::tibble(normal = "A clamp holds the pipe.", defective = "No clamp."),
+                   file.path(desc, "jev_pipe_staple.csv"))
+  withr::local_dir(repo_root)
+  withr::local_envvar(FAIR_CLIP_TEXT = "final", FAIR_DATASETS = "pipe_staple",
+                      FAIR_SPLITS = "test", FAIR_OUT = out, FAIR_DESC_DIR = desc)
+  res <- run_clip_script()
+  expect_false(res$status == 0L)
+  expect_match(res$text, "Run the calibration split first", fixed = TRUE)
+  expect_length(list.files(out), 0)
+})
+
+test_that("zero_final with no frozen description at all writes nothing and says so", {
+  skip_without_clip()
+  out <- withr::local_tempdir()
+  withr::local_dir(repo_root)
+  withr::local_envvar(FAIR_CLIP_TEXT = "final", FAIR_DATASETS = NA, FAIR_SPLITS = NA,
+                      FAIR_OUT = out, FAIR_DESC_DIR = withr::local_tempdir())
+  res <- run_clip_script()
+  expect_equal(res$status, 0L)
+  expect_match(res$text, "No dataset has a frozen JEV description", fixed = TRUE)
+  expect_length(list.files(out), 0)
 })
 
 test_that("the timing pass writes per-image times and one run row per variant", {

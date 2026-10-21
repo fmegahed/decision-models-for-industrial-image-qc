@@ -4,39 +4,58 @@
 #   FAIR_SPLIT=calibration JEV_CHECK_ONLY=true Rscript scripts/fair_score.R
 #
 # FAIR_DESCRIPTION: generic, final, or a CSV path (design split only).
+# Only the configurations of design section 5.6 run.
 # FAIR_OUT: output folder (default results/fair/scores). With a candidate CSV,
 # FAIR_OUT is the loop sandbox: candidates/<n>.csv is scored into scores/<n>.csv
 # and one row goes to loop_log.csv (see R/fair_loop.R). FAIR_MAP_DIR: folder of
 # the image map (default results/fair/loop).
-# FAIR_RECORD_ROOT: folder of calls/README.md and calls/typesafe-calls.csv.
+# FAIR_RECORD_ROOT: folder of calls/README.md and calls/typesafe-calls.csv. A
+# paid JEV run needs it (no fallback), with the budget row of its purpose. A
+# JEV run logs only to <FAIR_RECORD_ROOT>/calls/typesafe-calls.csv.
+# FAIR_PURPOSE_PREFIX: fair (default) or rerun (the re-runs of the analysis
+# document); each prefix counts against its own budget row ("Fair comparison"
+# or "Re-run").
+# FAIR_AUDIT_DECISION: the decision ID that accepts a flagged loop audit (final
+# runs only); it goes to runs.csv.
 # FAIR_TIMING_DIR (default results/fair/timing): runs.csv and clef-calls.csv.
+# JEV_CHECK_ONLY: true runs the checks only; any value other than true, false
+# or empty stops the run.
 
 source("R/industrial_defect_classifier.R")
 source("R/fair_runner.R")
 source("R/fair_loop.R")
 
 env <- \(name, default = "") Sys.getenv(name, unset = default)
+check_only <- check_only_mode() # a bad value stops here, first
+prefix <- purpose_prefix()
 model <- env("FAIR_MODEL")
 dataset <- env("FAIR_DATASET")
 description <- env("FAIR_DESCRIPTION")
 k <- as.integer(env("FAIR_K"))
 split <- env("FAIR_SPLIT")
 out <- env("FAIR_OUT", "results/fair/scores")
-check_only <- identical(tolower(env("JEV_CHECK_ONLY")), "true")
 settings <- model_settings(model)
 stopifnot(nzchar(dataset), nzchar(description), !is.na(k))
 
-# Only JEV runs log to the TypeSafe call log, which the budget counts.
-# Clef-Flash calls always go to results/fair/timing/clef-calls.csv, even if
-# JEV_CALL_LOG holds another value.
-Sys.setenv(JEV_CALL_LOG = select_call_log(model, env("JEV_CALL_LOG")))
-Sys.setenv(JEV_CALL_PURPOSE = paste("fair", split, model, description_label(description),
+# A paid JEV run needs a checked record root. Only JEV runs log to the
+# TypeSafe call log, which the budget counts. Clef-Flash calls always go to
+# results/fair/timing/clef-calls.csv, even if JEV_CALL_LOG holds another value.
+record_root <- run_record_root(model, check_only, prefix)
+call_log <- select_call_log(model, env("JEV_CALL_LOG"), record_root)
+Sys.setenv(JEV_CALL_LOG = call_log)
+Sys.setenv(JEV_CALL_PURPOSE = paste(prefix, split, model, description_label(description),
                                     paste0("k", k), dataset))
+cat("Call log:", call_log, "\n")
 if (model == "jev" && !check_only && !nzchar(env("TYPESAFE_API_KEY"))) {
   stop("Set TYPESAFE_API_KEY")
 }
 
-check_config(model, dataset, description, k, split, out) # clear messages first
+# Clear messages first. A final run needs a clean loop audit or a decision ID.
+audit_decision <- check_config(model, dataset, description, k, split, out,
+                               audit_decision = env("FAIR_AUDIT_DECISION"))
+if (!is.na(audit_decision)) {
+  cat("Loop audit: flagged rows accepted by decision", audit_decision, "\n")
+}
 loop_mode <- split == "design" && !description %in% c("generic", "final")
 if (loop_mode) {
   n <- suppressWarnings(as.integer(tools::file_path_sans_ext(basename(description))))
@@ -63,12 +82,15 @@ if (!is.null(references)) {
 }
 
 check_run(model, dataset, description, k, split, out, n_images = nrow(images),
-          check_only = check_only)
+          record_root = record_root, audit_decision = env("FAIR_AUDIT_DECISION"),
+          check_only = check_only, prefix = prefix)
 criteria <- if (loop_mode) {
   candidate[c("normal", "defective")] # the scored text is the logged text
 } else {
   fair_criteria(description, model, dataset)
 }
+# The md5 of the frozen file that gave the criteria (final runs only).
+description_md5 <- if (description == "final") frozen_md5(model, dataset) else NA_character_
 cat(model, description_label(description), paste0("k", k), dataset, split,
     "| images", nrow(images), "| references", length(unlist(references)),
     "| checks passed\n")
@@ -91,5 +113,6 @@ if (loop_mode) {
 }
 
 scores <- score_and_write(images, references, criteria, settings, model, description,
-                          k, split, out, dataset)
+                          k, split, out, dataset, description_md5 = description_md5,
+                          audit_decision = audit_decision)
 cat("Wrote", nrow(scores), "scores\n")

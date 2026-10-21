@@ -214,11 +214,14 @@ score_script_lines <- function(repo, model, dataset, sandbox_abs, record_root, m
 
 # Builds <sandbox_root>/<model>-<dataset>/ and the image map outside it.
 # Returns the sandbox folder. All paths in design.csv are relative to repo.
+# A JEV loop makes paid calls, so its record root (baked into score.sh) must
+# be FAIR_RECORD_ROOT, with no fallback, and have the "Fair comparison"
+# budget row. A Clef-Flash loop falls back to <repo>/replication_materials.
 make_sandbox <- function(model, dataset, sandbox_root, repo = ".",
                          sets_dir = file.path(repo, "results", "fair", "sets"),
                          map_dir = file.path(repo, "results", "fair", "loop"),
                          instructions = file.path(repo, "scripts", "fair_loop_instructions.md"),
-                         record_root = file.path(repo, "replication_materials"),
+                         record_root = Sys.getenv("FAIR_RECORD_ROOT"),
                          rscript = fair_default_rscript) {
   repo <- normalizePath(repo, winslash = "/", mustWork = TRUE)
   sandbox_root <- normalizePath(sandbox_root, winslash = "/", mustWork = FALSE)
@@ -229,11 +232,17 @@ make_sandbox <- function(model, dataset, sandbox_root, repo = ".",
   sandbox <- file.path(sandbox_root, paste0(model, "-", dataset))
   if (dir.exists(sandbox)) stop("The sandbox folder already exists: ", sandbox)
   settings <- model_settings(model)
+  record_root <- if (model == "jev") {
+    paid_record_root(record_root, "fair")
+  } else if (nzchar(record_root)) {
+    normalizePath(record_root, winslash = "/", mustWork = FALSE)
+  } else {
+    file.path(repo, "replication_materials")
+  }
   old_mirror <- file.path(map_dir, paste0(model, "-", dataset, "_loop_log.csv"))
   if (file.exists(old_mirror)) {
     stop("A loop log mirror from an earlier attempt exists: ", old_mirror)
   }
-  record_root <- normalizePath(record_root, winslash = "/", mustWork = FALSE)
 
   design <- readr::read_csv(file.path(sets_dir, "design.csv"), show_col_types = FALSE) |>
     dplyr::filter(.data$dataset == .env$dataset)
@@ -416,9 +425,10 @@ scoring_calls <- function(transcript, sandbox) {
 }
 
 # Flags every tool call of a Claude Code JSONL transcript that uses a tool
-# off the allow-list, names a path outside the sandbox, or writes any file
-# other than candidates 2 to 6. It also flags a line that is not JSON, a
-# tool call of another block type, and an entry whose cwd is not the sandbox.
+# off the allow-list, names a path outside the sandbox, reads score.sh, or
+# writes any file other than candidates 2 to 6. It also flags a line that is
+# not JSON, a tool call of another block type, and an entry whose cwd is not
+# the sandbox.
 # An empty table means the loop was blind.
 audit_transcript <- function(transcript, sandbox) {
   sandbox <- normalizePath(sandbox, winslash = "/", mustWork = TRUE)
@@ -482,7 +492,11 @@ audit_transcript <- function(transcript, sandbox) {
         if (!nzchar(p) || write_flagged(p, sandbox, top)) p else character()
       } else {
         reads <- reads[!is.na(reads) & nzchar(reads)]
-        reads[!purrr::map_lgl(reads, inside_sandbox, sandbox = sandbox, top = top)]
+        outside <- !purrr::map_lgl(reads, inside_sandbox, sandbox = sandbox, top = top)
+        # LOOP.md forbids a read of the scoring code: a Read or Grep of score.sh.
+        scorer <- tool %in% c("Read", "Grep") &
+          stringr::str_detect(reads, stringr::regex("(^|[/\\\\])score\\.sh$", ignore_case = TRUE))
+        reads[outside | scorer]
       }
       if (length(flagged) == 0L) return(NULL)
       row(time, tool, flagged)
