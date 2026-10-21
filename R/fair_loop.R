@@ -34,10 +34,20 @@ write_candidate <- function(path, normal, defective, reason) {
     readr::write_csv(path)
 }
 
+# Strict read. A bad file stops the run before any paid call.
 read_candidate <- function(path) {
-  d <- readr::read_csv(path, show_col_types = FALSE,
-                       col_types = readr::cols(.default = "c"))
-  stopifnot(all(c("normal", "defective", "reason") %in% names(d)), nrow(d) == 1L)
+  d <- suppressWarnings(readr::read_csv(path, show_col_types = FALSE,
+                                       col_types = readr::cols(.default = "c")))
+  if (nrow(readr::problems(d)) > 0L) stop("The candidate file has parsing problems: ", path)
+  if (!setequal(names(d), c("normal", "defective", "reason"))) {
+    stop("The candidate file needs the columns normal, defective and reason")
+  }
+  if (nrow(d) != 1L) stop("The candidate file needs exactly one data row")
+  for (col in c("normal", "defective", "reason")) {
+    if (is.na(d[[col]][[1]]) || !nzchar(stringr::str_trim(d[[col]][[1]]))) {
+      stop("The candidate text '", col, "' is empty")
+    }
+  }
   list(normal = d$normal[[1]], defective = d$defective[[1]], reason = d$reason[[1]])
 }
 
@@ -77,10 +87,6 @@ check_candidate_slot <- function(sandbox, n) {
 finish_candidate <- function(sandbox, n, scores, map, text) {
   scores <- dplyr::left_join(scores, map, by = "image_path")
   stopifnot(!anyNA(scores$image))
-  scores |>
-    dplyr::transmute(image = .data$image, class = .data$actual_class,
-                     defect_type = .data$defect_type, prob_defective = .data$prob_defective) |>
-    readr::write_csv(file.path(sandbox, "scores", paste0(n, ".csv")))
   truth <- factor(scores$actual_class, levels = c("defective", "nominal"))
   auc <- yardstick::roc_auc_vec(truth, scores$prob_defective, event_level = "first")
   by_type <- scores |>
@@ -97,6 +103,11 @@ finish_candidate <- function(sandbox, n, scores, map, text) {
   rule <- apply_keep_rule(log)
   log$kept <- rule$kept
   write_loop_log(log, log_file)
+  # The scores file comes after the log row: a failure leaves the slot free.
+  scores |>
+    dplyr::transmute(image = .data$image, class = .data$actual_class,
+                     defect_type = .data$defect_type, prob_defective = .data$prob_defective) |>
+    readr::write_csv(file.path(sandbox, "scores", paste0(n, ".csv")))
   list(auc = auc, mean_score_by_type = type_text, best = rule$best,
        best_auc = rule$best_auc, kept = rule$kept[[nrow(log)]])
 }
@@ -192,7 +203,14 @@ make_sandbox <- function(model, dataset, sandbox_root, repo = ".",
   write_loop_log(empty_loop_log(), file.path(sandbox, "loop_log.csv"))
 
   sandbox_abs <- normalizePath(sandbox, winslash = "/")
-  writeLines(c(
+  default_map <- file.path(repo, "results", "fair", "loop")
+  map_line <- if (identical(clean_path(normalizePath(map_dir, winslash = "/")),
+                            clean_path(default_map))) {
+    ""
+  } else {
+    paste0(" FAIR_MAP_DIR=\"", normalizePath(map_dir, winslash = "/"), "\"")
+  }
+  readr::write_lines(c(
     "#!/usr/bin/env bash",
     "# Scores one candidate on the design images. Usage: bash score.sh N",
     "set -e",
@@ -203,9 +221,12 @@ make_sandbox <- function(model, dataset, sandbox_root, repo = ".",
            " FAIR_DESCRIPTION=\"", sandbox_abs, "/candidates/$1.csv\"",
            " FAIR_OUT=\"", sandbox_abs, "\"",
            " FAIR_RECORD_ROOT=\"", record_root, "\"",
-           " FAIR_MAP_DIR=\"", normalizePath(map_dir, winslash = "/"), "\"",
+           map_line,
            " \"", rscript, "\" scripts/fair_score.R")
   ), file.path(sandbox, "score.sh"))
+  # The md5 of score.sh goes outside the sandbox. close_loop() checks it.
+  writeLines(unname(tools::md5sum(file.path(sandbox, "score.sh"))),
+             file.path(map_dir, paste0(model, "-", dataset, "_score_sh.md5")))
 
   defect_types <- design |>
     dplyr::filter(.data$actual_class == "defective") |>
@@ -213,13 +234,13 @@ make_sandbox <- function(model, dataset, sandbox_root, repo = ".",
     dplyr::pull(.data$defect_type) |>
     sort() |>
     paste(collapse = ", ")
-  readLines(instructions, warn = FALSE) |>
+  text <- readLines(instructions, warn = FALSE) |>
     stringr::str_replace_all(stringr::fixed("{{dataset}}"), dataset) |>
     stringr::str_replace_all(stringr::fixed("{{defect_types}}"), defect_types) |>
     stringr::str_replace_all(stringr::fixed("{{model}}"),
                              if (model == "jev") "JEV" else "Clef-Flash") |>
-    stringr::str_replace_all(stringr::fixed("{{score_command}}"), "bash score.sh N") |>
-    writeLines(file.path(sandbox, "LOOP.md"))
+    stringr::str_replace_all(stringr::fixed("{{score_command}}"), "bash score.sh N")
+  readr::write_lines(text, file.path(sandbox, "LOOP.md"))
   sandbox
 }
 
@@ -237,6 +258,12 @@ inside_sandbox <- function(p, sandbox, top) {
   stringr::str_extract(cleaned, "^[^/]+") %in% top
 }
 
+# Tools that the loop agent may use. Any other tool is flagged (default deny).
+# PowerShell goes through the same checks as Bash. TodoWrite reads no file.
+allowed_tools <- c("Read", "Write", "Edit", "Glob", "Grep", "Bash", "PowerShell", "TodoWrite")
+
+home_token <- "^(\\$\\{?(HOME|USERPROFILE|OLDPWD|HOMEPATH)|\\$env:|~|%(USERPROFILE|HOMEPATH|HOMEDRIVE)%)"
+
 bash_flagged <- function(command, sandbox, top) {
   # The only allowed command: bash score.sh N (also ./score.sh N, or the absolute path).
   plain <- stringr::str_replace_all(command, "\\\\", "/") |>
@@ -247,13 +274,25 @@ bash_flagged <- function(command, sandbox, top) {
   }
   tokens <- stringr::str_split(command, "[\\s\"'`;|&<>=()]+")[[1]]
   tokens <- tokens[nzchar(tokens)]
+  if (any(stringr::str_detect(tokens, stringr::regex(home_token, ignore_case = TRUE)))) {
+    return(TRUE)
+  }
   paths <- tokens[is_absolute_path(tokens) | stringr::str_detect(tokens, "\\.\\.") |
-                    stringr::str_detect(tokens, "/")]
+                    stringr::str_detect(tokens, "[/\\\\]")]
   !all(purrr::map_lgl(paths, inside_sandbox, sandbox = sandbox, top = top))
 }
 
-# Flags every tool call of a Claude Code JSONL transcript that names a path
-# outside the sandbox. An empty table means the loop was blind.
+# A write is allowed only to candidates/<n>.csv in the sandbox.
+write_flagged <- function(p, sandbox, top) {
+  if (!inside_sandbox(p, sandbox, top)) return(TRUE)
+  resolved <- if (is_absolute_path(p)) clean_path(p) else clean_path(file.path(sandbox, p))
+  relative <- substring(resolved, nchar(clean_path(sandbox)) + 2L)
+  !stringr::str_detect(relative, "^candidates/[1-6]\\.csv$")
+}
+
+# Flags every tool call of a Claude Code JSONL transcript that uses a tool
+# off the allow-list, names a path outside the sandbox, or writes any file
+# other than a candidate file. An empty table means the loop was blind.
 audit_transcript <- function(transcript, sandbox) {
   sandbox <- normalizePath(sandbox, winslash = "/", mustWork = TRUE)
   top <- c(".", list.files(sandbox, all.files = FALSE))
@@ -268,19 +307,22 @@ audit_transcript <- function(transcript, sandbox) {
     purrr::map(content, function(block) {
       if (!identical(block$type, "tool_use")) return(NULL)
       input <- block$input
-      tool <- block$name
-      targets <- switch(tool,
+      tool <- as.character(block$name %||% "unknown")
+      reads <- switch(tool,
         Read = input$file_path,
-        Write = , Edit = input$file_path,
-        NotebookEdit = input$notebook_path,
         Grep = input$path,
         Glob = c(input$path, glob_prefix(input$pattern)),
         NULL)
-      flagged <- if (tool == "Bash") {
+      flagged <- if (!tool %in% allowed_tools) {
+        paste(tool, as.character(jsonlite::toJSON(input, auto_unbox = TRUE)))
+      } else if (tool %in% c("Bash", "PowerShell")) {
         if (bash_flagged(input$command %||% "", sandbox, top)) input$command else character()
+      } else if (tool %in% c("Write", "Edit")) {
+        p <- input$file_path %||% ""
+        if (!nzchar(p) || write_flagged(p, sandbox, top)) p else character()
       } else {
-        targets <- targets[!is.na(targets) & nzchar(targets)]
-        targets[!purrr::map_lgl(targets, inside_sandbox, sandbox = sandbox, top = top)]
+        reads <- reads[!is.na(reads) & nzchar(reads)]
+        reads[!purrr::map_lgl(reads, inside_sandbox, sandbox = sandbox, top = top)]
       }
       if (length(flagged) == 0L) return(NULL)
       tibble::tibble(time = time, tool = tool, target = flagged)
@@ -298,21 +340,33 @@ glob_prefix <- function(pattern) {
 }
 
 # Closing step: audit, copy of the log, freeze of the best candidate.
-# Refuses to overwrite a frozen file; checks that first so nothing is half done.
+# Refuses to overwrite a frozen file, and stops when score.sh changed; it
+# checks both first so nothing is half done. map_dir holds the md5 of score.sh.
 close_loop <- function(model, dataset, transcript, sandbox,
                        loop_dir = "results/fair/loop",
-                       description_dir = "results/fair/descriptions") {
+                       description_dir = "results/fair/descriptions",
+                       map_dir = loop_dir) {
   frozen <- frozen_description_file(model, dataset, description_dir)
   if (file.exists(frozen)) stop("The description is already frozen: ", frozen)
+  md5_file <- file.path(map_dir, paste0(model, "-", dataset, "_score_sh.md5"))
+  if (!file.exists(md5_file)) stop("No md5 record of score.sh: ", md5_file)
+  md5_now <- unname(tools::md5sum(file.path(sandbox, "score.sh")))
+  if (!identical(md5_now, readLines(md5_file, warn = FALSE)[[1]])) {
+    stop("score.sh changed after the sandbox was made. The loop is not valid.")
+  }
   log <- read_loop_log(file.path(sandbox, "loop_log.csv"))
   if (nrow(log) == 0L) stop("The loop log has no candidate")
   rule <- apply_keep_rule(log)
   log$kept <- rule$kept
-  audit <- audit_transcript(transcript, sandbox)
+  audit <- audit_transcript(transcript, sandbox) |>
+    dplyr::mutate(transcript = basename(transcript))
   dir.create(loop_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(description_dir, recursive = TRUE, showWarnings = FALSE)
   stem <- file.path(loop_dir, paste0(model, "-", dataset))
-  write_loop_log(log, paste0(stem, "_log.csv"))
+  log |>
+    dplyr::select(dplyr::all_of(loop_columns)) |>
+    dplyr::mutate(transcript = basename(transcript)) |>
+    readr::write_csv(paste0(stem, "_log.csv"))
   readr::write_csv(audit, paste0(stem, "_audit.csv"))
   best <- log[log$candidate == rule$best, ]
   tibble::tibble(normal = best$normal[[1]], defective = best$defective[[1]]) |>

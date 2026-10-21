@@ -147,6 +147,7 @@ test_that("finishing a candidate scores, logs and recomputes the kept column", {
 test_that("the audit flags a planted read and ignores the scoring command", {
   s <- withr::local_tempdir()
   sb <- normalizePath(s, winslash = "/")
+  dir.create(file.path(s, "candidates"))
   tr <- withr::local_tempfile(fileext = ".jsonl")
   line <- function(time, name, input) {
     as.character(jsonlite::toJSON(list(
@@ -166,11 +167,27 @@ test_that("the audit flags a planted read and ignores the scoring command", {
     line("t8", "Grep", list(pattern = "x", path = ".")),
     line("t9", "Write", list(file_path = file.path(dirname(sb), "other.csv"), content = "x")),
     line("t10", "Write", list(file_path = file.path(sb, "candidates", "2.csv"), content = "x")),
-    line("t11", "Bash", list(command = "ls images"))
+    line("t11", "Bash", list(command = "ls images")),
+    line("t12", "PowerShell",
+         list(command = paste("Get-Content", file.path(repo_root, "experiment_log.md")))),
+    line("t13", "PowerShell", list(command = "Get-ChildItem ..")),
+    line("t14", "PowerShell", list(command = "bash score.sh 5")),
+    line("t15", "Agent", list(prompt = "look around")),
+    line("t16", "WebFetch", list(url = "https://example.com")),
+    line("t17", "mcp__x__read_file", list(path = "a.txt")),
+    line("t18", "Read", list(file_path = file.path(repo_root, "R", "fair_runner.R"))),
+    line("t19", "Bash", list(command = "cat $HOME/x.txt")),
+    line("t20", "Bash", list(command = "cat ~/x.txt")),
+    line("t21", "PowerShell", list(command = "Get-Content $env:USERPROFILE\\x.txt")),
+    line("t22", "Write", list(file_path = file.path(sb, "score.sh"), content = "x")),
+    line("t23", "Edit", list(file_path = "labels.csv", old_string = "a", new_string = "b")),
+    line("t24", "TodoWrite", list(todos = list())),
+    line("t25", "Write", list(file_path = "candidates/3.csv", content = "x"))
   ), tr)
   audit <- audit_transcript(tr, s)
   expect_named(audit, c("time", "tool", "target"))
-  expect_setequal(audit$time, c("t2", "t6", "t7", "t9"))
+  expect_setequal(audit$time, c("t2", "t6", "t7", "t9", "t12", "t13", "t15", "t16",
+                                "t17", "t18", "t19", "t20", "t21", "t22", "t23"))
   expect_true("results/final_test/x.csv" %in% audit$target)
   empty <- withr::local_tempfile(fileext = ".jsonl")
   writeLines(line("t1", "Read", list(file_path = file.path(sb, "labels.csv"))), empty)
@@ -187,8 +204,18 @@ test_that("closing the loop copies the log, writes the audit and freezes once", 
   write_loop_log(log, file.path(s, "loop_log.csv"))
   tr <- withr::local_tempfile(fileext = ".jsonl")
   writeLines("", tr)
+  writeLines("#!/usr/bin/env bash", file.path(s, "score.sh"))
+  dir.create(file.path(out, "loop"))
+  writeLines(unname(tools::md5sum(file.path(s, "score.sh"))),
+             file.path(out, "loop", "jev-extrusion_score_sh.md5"))
   res <- close_loop("jev", "extrusion", tr, s, loop_dir = file.path(out, "loop"),
                     description_dir = file.path(out, "descriptions"))
+  logcopy <- readr::read_csv(file.path(out, "loop", "jev-extrusion_log.csv"),
+                             show_col_types = FALSE)
+  expect_equal(logcopy$transcript, rep(basename(tr), 3))
+  expect_named(readr::read_csv(file.path(out, "loop", "jev-extrusion_audit.csv"),
+                               show_col_types = FALSE),
+               c("time", "tool", "target", "transcript"))
   frozen <- readr::read_csv(file.path(out, "descriptions", "jev_extrusion.csv"),
                             show_col_types = FALSE)
   expect_equal(frozen$normal, "n2")
@@ -200,6 +227,87 @@ test_that("closing the loop copies the log, writes the audit and freezes once", 
   expect_error(close_loop("jev", "extrusion", tr, s, loop_dir = file.path(out, "loop"),
                           description_dir = file.path(out, "descriptions")),
                "already frozen")
+  # An edited score.sh stops the close.
+  writeLines(c("#!/usr/bin/env bash", "echo changed"), file.path(s, "score.sh"))
+  expect_error(close_loop("clef", "extrusion", tr, s, loop_dir = file.path(out, "loop"),
+                          description_dir = file.path(out, "d2")), "No md5")
+  file.copy(file.path(out, "loop", "jev-extrusion_score_sh.md5"),
+            file.path(out, "loop", "clef-extrusion_score_sh.md5"))
+  expect_error(close_loop("clef", "extrusion", tr, s, loop_dir = file.path(out, "loop"),
+                          description_dir = file.path(out, "d2")), "score.sh changed")
+  expect_false(file.exists(file.path(out, "d2", "clef_extrusion.csv")))
+})
+
+test_that("special characters go from a candidate through the log into the frozen file", {
+  s <- withr::local_tempdir()
+  out <- withr::local_tempdir()
+  dir.create(file.path(s, "scores"))
+  dir.create(file.path(out, "loop"))
+  write_loop_log(empty_loop_log(), file.path(s, "loop_log.csv"))
+  writeLines("x", file.path(s, "score.sh"))
+  writeLines(unname(tools::md5sum(file.path(s, "score.sh"))),
+             file.path(out, "loop", "jev-extrusion_score_sh.md5"))
+  cand_file <- file.path(s, "cand.csv")
+  write_candidate(cand_file, "Clean, \"smooth\" | part\nline two", "Cut, \"gap\" | x\ny",
+                  "why, \"so\"")
+  cand <- read_candidate(cand_file)
+  map <- tibble::tibble(image = c("img_001.png", "img_002.png"),
+                        image_path = c("o/1.png", "o/2.png"))
+  scores <- tibble::tibble(dataset = "d", image_path = map$image_path,
+                           defect_type = c("a", "good"),
+                           actual_class = c("defective", "nominal"),
+                           prob_defective = c(.9, .1))
+  finish_candidate(s, 1, scores, map, cand)
+  tr <- withr::local_tempfile(fileext = ".jsonl")
+  writeLines("", tr)
+  close_loop("jev", "extrusion", tr, s, loop_dir = file.path(out, "loop"),
+             description_dir = file.path(out, "descriptions"))
+  frozen <- readr::read_csv(file.path(out, "descriptions", "jev_extrusion.csv"),
+                            show_col_types = FALSE, col_types = readr::cols(.default = "c"))
+  expect_equal(frozen$normal, cand$normal)
+  expect_equal(frozen$defective, cand$defective)
+})
+
+test_that("a bad candidate file is refused before any call", {
+  f <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("normal,defective", "a,b"), f)
+  expect_error(read_candidate(f), "columns normal, defective and reason")
+  writeLines(c("normal,defective,reason", "a,,why"), f)
+  expect_error(read_candidate(f), "empty")
+  writeLines(c("normal,defective,reason", "a,b,why", "c,d,why"), f)
+  expect_error(read_candidate(f), "exactly one")
+  writeLines(c("normal,defective,reason", "\"a,b,why"), f)
+  expect_error(read_candidate(f))
+})
+
+test_that("score.sh names only the repository root, sandbox, record root and Rscript", {
+  skip_if_not(file.exists(file.path(repo_root, "imgs")))
+  root <- withr::local_tempdir()
+  map_dir <- file.path(repo_root, "results", "fair", "loop")
+  map_file <- file.path(map_dir, "jev-extrusion_image_map.csv")
+  md5_file <- file.path(map_dir, "jev-extrusion_score_sh.md5")
+  had <- c(dir.exists(map_dir), file.exists(map_file), file.exists(md5_file))
+  withr::defer({
+    if (!had[[2]]) unlink(map_file)
+    if (!had[[3]]) unlink(md5_file)
+    if (!had[[1]]) unlink(map_dir, recursive = TRUE)
+  })
+  sandbox <- make_sandbox("jev", "extrusion", root, repo = repo_root)
+  sh <- readLines(file.path(sandbox, "score.sh"), warn = FALSE)
+  expect_false(any(stringr::str_detect(sh, "FAIR_MAP_DIR")))
+  expect_false(any(stringr::str_detect(sh, "results/")))
+  for (f in c("score.sh", "LOOP.md")) {
+    bytes <- readBin(file.path(sandbox, f), "raw", 100000)
+    expect_false(as.raw(13) %in% bytes, info = f) # LF only
+  }
+  paths <- unlist(stringr::str_extract_all(paste(sh, collapse = " "), "(?<=\")[A-Za-z]:/[^\"]+"))
+  allowed <- c(normalizePath(repo_root, winslash = "/"),
+               normalizePath(sandbox, winslash = "/"),
+               normalizePath(file.path(repo_root, "replication_materials"),
+                             winslash = "/", mustWork = FALSE),
+               rscript)
+  ok <- purrr::map_lgl(paths, \(p) any(stringr::str_starts(p, stringr::fixed(allowed))))
+  expect_true(all(ok))
 })
 
 test_that("the scorer refuses candidate 7 and a skipped number in check-only mode", {

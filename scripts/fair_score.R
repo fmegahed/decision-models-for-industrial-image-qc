@@ -39,6 +39,7 @@ loop_mode <- split == "design" && !description %in% c("generic", "final")
 if (loop_mode) {
   n <- suppressWarnings(as.integer(tools::file_path_sans_ext(basename(description))))
   check_candidate_slot(out, n)
+  candidate <- read_candidate(description) # a bad file stops here, before any call
 }
 images <- fair_images(dataset, split, k)
 stopifnot(nrow(images) > 0L, all(file.exists(images$image_path)))
@@ -57,7 +58,11 @@ if (!is.null(references)) {
 
 check_run(model, dataset, description, k, split, out, n_images = nrow(images),
           check_only = check_only)
-criteria <- fair_criteria(description, model, dataset)
+criteria <- if (loop_mode) {
+  candidate[c("normal", "defective")] # the scored text is the logged text
+} else {
+  fair_criteria(description, model, dataset)
+}
 cat(model, description_label(description), paste0("k", k), dataset, split,
     "| images", nrow(images), "| references", length(unlist(references)),
     "| checks passed\n")
@@ -68,7 +73,7 @@ if (loop_mode) {
   map <- readr::read_csv(file.path(map_dir, paste0(basename(normalizePath(out)), "_image_map.csv")),
                          show_col_types = FALSE)
   scores <- score_images(images, references, criteria, settings, model, description, k, split)
-  result <- finish_candidate(out, n, scores, map, read_candidate(description))
+  result <- finish_candidate(out, n, scores, map, candidate)
   cat("Candidate", n, "design AUC:", round(result$auc, 3), "\n")
   cat("Mean score by defect type:", result$mean_score_by_type, "\n")
   cat("Kept:", result$kept, "| current best: candidate", result$best,
