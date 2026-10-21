@@ -116,12 +116,9 @@ fair_criteria <- function(description, model, dataset,
   list(normal = d$normal[[1]], defective = d$defective[[1]])
 }
 
-# Guards. Stops with a clear message; in check-only mode the budget check
-# prints and does not stop. Returns the calls left (NA for clef) invisibly.
-check_run <- function(model, dataset, description, k, split, out, n_images = 0,
-                      record_root = fair_record_root(),
-                      description_dir = "results/fair/descriptions",
-                      check_only = FALSE) {
+# Static guards: they need no image list, so the script runs them first.
+check_config <- function(model, dataset, description, k, split, out,
+                         description_dir = "results/fair/descriptions") {
   model_settings(model)
   if (!k %in% c(0, 1, 2, 4)) stop("FAIR_K must be 0, 1, 2 or 4")
   if (!split %in% c("design", "calibration", "test")) {
@@ -156,6 +153,16 @@ check_run <- function(model, dataset, description, k, split, out, n_images = 0,
       stop("No calibration file for ", stem, ". Run the calibration split first.")
     }
   }
+  invisible(TRUE)
+}
+
+# All guards. Stops with a clear message; in check-only mode the budget check
+# prints and does not stop. Returns the calls left (NA for clef) invisibly.
+check_run <- function(model, dataset, description, k, split, out, n_images = 0,
+                      record_root = fair_record_root(),
+                      description_dir = "results/fair/descriptions",
+                      check_only = FALSE) {
+  check_config(model, dataset, description, k, split, out, description_dir)
   left <- NA_real_
   if (model == "jev") {
     left <- remaining_calls(record_root = record_root)
@@ -193,4 +200,14 @@ score_images <- function(images, references, criteria, settings, model, descript
       description = description_label(description), k = k, split = split
     )
   })
+}
+
+# Scores every image, then writes the file. A failure leaves no file.
+score_and_write <- function(images, references, criteria, settings, model,
+                            description, k, split, out, dataset) {
+  scores <- score_images(images, references, criteria, settings, model,
+                         description, k, split)
+  dir.create(out, recursive = TRUE, showWarnings = FALSE)
+  readr::write_csv(scores, file.path(out, score_file_name(model, description, k, dataset, split)))
+  invisible(scores)
 }

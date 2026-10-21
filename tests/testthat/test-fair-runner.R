@@ -126,3 +126,72 @@ test_that("pan calibration drops the references at k", {
                nrow(images) + 2)
   expect_named(refs, c("normal", "defective"), ignore.order = TRUE)
 })
+
+# ---- score_images and the write path, with a stub for classify_image ------
+rec <- new.env()
+assign("classify_image", function(...) {
+  rec$calls <- c(rec$calls, list(list(...)))
+  rec$answer()
+}, envir = globalenv())
+withr::defer(rm("classify_image", envir = globalenv()), teardown_env())
+answer_with <- function(p) {
+  rec$calls <- list()
+  rec$answer <- function() tibble::tibble(class = c("nominal", "defective"), probability = c(1 - p, p))
+}
+stub_images <- tibble::tibble(dataset = "extrusion", image_path = c("a.jpg", "b.jpg"),
+                              defect_type = c("x", "y"), actual_class = c("nominal", "defective"))
+stub_refs <- list(normal = "n1.jpg", defective = "d1.jpg")
+
+test_that("score_images passes references unchanged and uses the local key for clef", {
+  answer_with(0.3)
+  withr::local_envvar(TYPESAFE_API_KEY = "secret-key")
+  scores <- score_images(stub_images, stub_refs, generic_description(),
+                         model_settings("clef"), "clef", "generic", 2, "calibration")
+  call <- rec$calls[[1]]
+  expect_identical(call$reference_images, stub_refs)
+  expect_equal(call$api_key, "local")
+  expect_equal(call$image_format, "images")
+  expect_equal(call$max_size, 768)
+  expect_equal(scores$prob_defective, c(0.3, 0.3))
+  expect_named(scores, c("dataset", "image_path", "defect_type", "actual_class",
+                         "prob_defective", "model", "description", "k", "split"))
+})
+
+test_that("score_images sends the TypeSafe key only to the TypeSafe URL", {
+  answer_with(0.6)
+  withr::local_envvar(TYPESAFE_API_KEY = "secret-key")
+  score_images(stub_images[1, ], NULL, generic_description(), model_settings("jev"),
+               "jev", "generic", 0, "calibration")
+  expect_equal(rec$calls[[1]]$api_key, "secret-key")
+  expect_equal(rec$calls[[1]]$image_format, "assets")
+})
+
+test_that("a bad probability stops the run and leaves no file", {
+  out <- withr::local_tempdir()
+  for (bad in c(NA_real_, Inf)) {
+    answer_with(bad)
+    expect_error(
+      score_and_write(stub_images, NULL, generic_description(), model_settings("clef"),
+                      "clef", "generic", 0, "calibration", out, "extrusion"),
+      "Invalid defect probability"
+    )
+  }
+  expect_length(list.files(out), 0)
+})
+
+test_that("score_and_write writes after all images are scored", {
+  out <- withr::local_tempdir()
+  answer_with(0.8)
+  score_and_write(stub_images, NULL, generic_description(), model_settings("clef"),
+                  "clef", "generic", 0, "calibration", out, "extrusion")
+  expect_equal(list.files(out), "clef_generic_k0_extrusion_calibration.csv")
+})
+
+test_that("static guards give clear messages before sets load", {
+  cand <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("normal,defective", "a,b"), cand)
+  expect_error(check_config("clef", "pan_images", cand, 2, "design", tempdir()),
+               "The design split has no pan images")
+  expect_error(check_config("clef", "extrusion", cand, 4, "design", tempdir()),
+               "The design split needs k = 2")
+})

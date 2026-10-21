@@ -30,6 +30,7 @@ if (model == "jev" && !check_only && !nzchar(env("TYPESAFE_API_KEY"))) {
   stop("Set TYPESAFE_API_KEY")
 }
 
+check_config(model, dataset, description, k, split, out) # clear messages first
 images <- fair_images(dataset, split, k)
 stopifnot(nrow(images) > 0L, all(file.exists(images$image_path)))
 references <- fair_references(dataset, k)
@@ -53,7 +54,6 @@ cat(model, description_label(description), paste0("k", k), dataset, split,
     "| checks passed\n")
 if (check_only) quit(save = "no")
 
-scores <- score_images(images, references, criteria, settings, model, description, k, split)
-dir.create(out, recursive = TRUE, showWarnings = FALSE)
-readr::write_csv(scores, file.path(out, score_file_name(model, description, k, dataset, split)))
+scores <- score_and_write(images, references, criteria, settings, model, description,
+                          k, split, out, dataset)
 cat("Wrote", nrow(scores), "scores\n")
