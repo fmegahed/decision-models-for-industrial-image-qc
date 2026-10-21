@@ -1,6 +1,34 @@
 Dataset,Method,Step,Configurations,Images,Total time (s)
+Metallic pans,JEV,Calibration runs,4,66,56.3
+Metallic pans,JEV,Test runs,4,312,295.7
+Metallic pans,Clef-Flash,Calibration runs,4,66,63
+Metallic pans,Clef-Flash,Test runs,4,312,345.1
 Metallic pans,CLIP,Timing pass,5,390,47.8
+Extrusion,JEV,Design loop,6,576,92
+Extrusion,JEV,Calibration runs,6,300,45.5
+Extrusion,JEV,Test runs,6,1200,195.6
+Extrusion,Clef-Flash,Design loop,6,576,80.6
+Extrusion,Clef-Flash,Calibration runs,6,300,36.4
+Extrusion,Clef-Flash,Test runs,6,1200,185.6
 Extrusion,CLIP,Timing pass,5,1000,15.6
+Textiles,JEV,Design loop,2,192,39.1
+Textiles,JEV,Calibration runs,6,300,56.5
+Textiles,JEV,Test runs,6,1200,310.3
+Textiles,Clef-Flash,Design loop,5,480,74.3
+Textiles,Clef-Flash,Calibration runs,6,300,40.1
+Textiles,Clef-Flash,Test runs,6,1200,202.8
 Textiles,CLIP,Timing pass,5,1000,14.9
+Pipe staple,JEV,Design loop,1,96,22.4
+Pipe staple,JEV,Calibration runs,6,204,45.2
+Pipe staple,JEV,Test runs,6,600,157.8
+Pipe staple,Clef-Flash,Design loop,2,192,41.6
+Pipe staple,Clef-Flash,Calibration runs,6,204,36.9
+Pipe staple,Clef-Flash,Test runs,6,600,135.6
 Pipe staple,CLIP,Timing pass,5,500,9.7
+Microstructure,JEV,Design loop,4,384,107.3
+Microstructure,JEV,Calibration runs,6,300,75.3
+Microstructure,JEV,Test runs,6,2700,769.3
+Microstructure,Clef-Flash,Design loop,5,480,105.6
+Microstructure,Clef-Flash,Calibration runs,6,300,52.2
+Microstructure,Clef-Flash,Test runs,6,2700,608.9
 Microstructure,CLIP,Timing pass,5,2250,31.4

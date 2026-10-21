@@ -1,0 +1,9 @@
+Dataset,Model,Candidates,Final candidate,"Design AUC, generic","Design AUC, final","AUC on C, generic","AUC on C, final",Audit: calls outside the sandbox
+Extrusion,JEV,6,3,0.585,0.783,0.647,0.67,0
+Extrusion,Clef-Flash,6,2,0.708,0.764,0.738,0.692,0
+Textiles,JEV,2,2,0.917,0.991,0.962,1,0
+Textiles,Clef-Flash,5,4,0.855,0.928,0.887,0.963,0
+Pipe staple,JEV,1,1,0.994,0.994,0.979,0.983,0
+Pipe staple,Clef-Flash,2,2,0.569,0.997,0.476,0.976,0
+Microstructure,JEV,4,2,0.77,0.945,0.884,0.979,0
+Microstructure,Clef-Flash,5,3,0.886,0.936,0.928,0.93,0
