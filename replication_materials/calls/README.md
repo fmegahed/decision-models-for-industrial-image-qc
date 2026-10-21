@@ -27,6 +27,21 @@ The record started after the experiments (D7). The paid calls before it were app
 - 2026-10-20, about 18:40 UTC: 100 JEV calls, made by mistake. A test of a new guard in `scripts/optimize_jev.R` was meant to stop before any call, but Rscript reloaded the key from `.Renviron`. The run used the default microstructure settings, so it repeated the baseline (BA 0.54, AUC 0.789, against 0.55 and 0.803). Estimated cost: about USD 0.011. There is no per-call log (open item O2).
 - Totals: 4,654 JEV calls, about USD 0.53. Left under the budget row: 2,346 calls and about USD 4.47.
 
+## Calls of the fair comparison
+
+Budget row of 2026-10-21 (D84). Each call has a row in `typesafe-calls.csv`. The cost is an estimate: input tokens times USD 0.042 per million.
+
+| Step | Purpose prefix | Calls | Failed | Input tokens | Estimated cost (USD) |
+|---|---|---|---|---|---|
+| Checks before the loops | fair check | 4 | 0 | 6,448 | 0.0003 |
+| Description loops (design set) | fair design | 1,248 | 0 | 2,422,368 | 0.10 |
+| Calibration runs (set C) | fair calibration | 1,170 | 0 | 2,292,808 | 0.10 |
+| Test runs (one time) | fair test | 6,012 | 0 | 12,622,200 | 0.53 |
+| Total | | 8,434 | 0 | 17,343,824 | 0.73 |
+
+- Left under the budget row: 41,566 calls and about USD 19.27.
+- Clef-Flash and CLIP ran on a local GPU. They had no API cost.
+
 ## Rule
 
 Do not put a key, a token or an authorization header in any file in this folder.
