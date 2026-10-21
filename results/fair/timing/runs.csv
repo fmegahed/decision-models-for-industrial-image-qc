@@ -1,0 +1,26 @@
+model,description,k,dataset,split,candidate,n_images,start_utc,end_utc,seconds,hardware
+clip,baseline,50,extrusion,test,NA,200,2026-10-21T05:36:44Z,2026-10-21T05:36:48Z,3.734,NVIDIA RTX 5000 Ada Generation
+clip,refs,1,extrusion,test,NA,200,2026-10-21T05:36:48Z,2026-10-21T05:36:51Z,3.002,NVIDIA RTX 5000 Ada Generation
+clip,refs,2,extrusion,test,NA,200,2026-10-21T05:36:51Z,2026-10-21T05:36:54Z,2.755,NVIDIA RTX 5000 Ada Generation
+clip,refs,4,extrusion,test,NA,200,2026-10-21T05:36:54Z,2026-10-21T05:36:56Z,2.527,NVIDIA RTX 5000 Ada Generation
+clip,zero,0,extrusion,test,NA,200,2026-10-21T05:36:56Z,2026-10-21T05:37:00Z,3.601,NVIDIA RTX 5000 Ada Generation
+clip,baseline,50,microstructure,test,NA,450,2026-10-21T05:37:00Z,2026-10-21T05:37:07Z,7.576,NVIDIA RTX 5000 Ada Generation
+clip,refs,1,microstructure,test,NA,450,2026-10-21T05:37:07Z,2026-10-21T05:37:13Z,5.578,NVIDIA RTX 5000 Ada Generation
+clip,refs,2,microstructure,test,NA,450,2026-10-21T05:37:13Z,2026-10-21T05:37:18Z,5.058,NVIDIA RTX 5000 Ada Generation
+clip,refs,4,microstructure,test,NA,450,2026-10-21T05:37:18Z,2026-10-21T05:37:23Z,5.494,NVIDIA RTX 5000 Ada Generation
+clip,zero,0,microstructure,test,NA,450,2026-10-21T05:37:23Z,2026-10-21T05:37:31Z,7.735,NVIDIA RTX 5000 Ada Generation
+clip,baseline,10,pan_images,test,NA,78,2026-10-21T05:37:31Z,2026-10-21T05:37:40Z,8.511,NVIDIA RTX 5000 Ada Generation
+clip,refs,1,pan_images,test,NA,78,2026-10-21T05:37:40Z,2026-10-21T05:37:49Z,9.425,NVIDIA RTX 5000 Ada Generation
+clip,refs,2,pan_images,test,NA,78,2026-10-21T05:37:49Z,2026-10-21T05:37:59Z,9.821,NVIDIA RTX 5000 Ada Generation
+clip,refs,4,pan_images,test,NA,78,2026-10-21T05:37:59Z,2026-10-21T05:38:09Z,10.123,NVIDIA RTX 5000 Ada Generation
+clip,zero,0,pan_images,test,NA,78,2026-10-21T05:38:09Z,2026-10-21T05:38:19Z,9.915,NVIDIA RTX 5000 Ada Generation
+clip,baseline,50,pipe_staple,test,NA,100,2026-10-21T05:38:19Z,2026-10-21T05:38:22Z,3.173,NVIDIA RTX 5000 Ada Generation
+clip,refs,1,pipe_staple,test,NA,100,2026-10-21T05:38:22Z,2026-10-21T05:38:24Z,1.466,NVIDIA RTX 5000 Ada Generation
+clip,refs,2,pipe_staple,test,NA,100,2026-10-21T05:38:24Z,2026-10-21T05:38:25Z,1.526,NVIDIA RTX 5000 Ada Generation
+clip,refs,4,pipe_staple,test,NA,100,2026-10-21T05:38:25Z,2026-10-21T05:38:27Z,1.601,NVIDIA RTX 5000 Ada Generation
+clip,zero,0,pipe_staple,test,NA,100,2026-10-21T05:38:27Z,2026-10-21T05:38:29Z,1.925,NVIDIA RTX 5000 Ada Generation
+clip,baseline,50,textiles,test,NA,200,2026-10-21T05:38:29Z,2026-10-21T05:38:32Z,3.558,NVIDIA RTX 5000 Ada Generation
+clip,refs,1,textiles,test,NA,200,2026-10-21T05:38:32Z,2026-10-21T05:38:35Z,2.559,NVIDIA RTX 5000 Ada Generation
+clip,refs,2,textiles,test,NA,200,2026-10-21T05:38:35Z,2026-10-21T05:38:37Z,2.455,NVIDIA RTX 5000 Ada Generation
+clip,refs,4,textiles,test,NA,200,2026-10-21T05:38:37Z,2026-10-21T05:38:40Z,2.535,NVIDIA RTX 5000 Ada Generation
+clip,zero,0,textiles,test,NA,200,2026-10-21T05:38:40Z,2026-10-21T05:38:44Z,3.794,NVIDIA RTX 5000 Ada Generation

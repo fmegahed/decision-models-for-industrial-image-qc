@@ -9,6 +9,7 @@
 # and one row goes to loop_log.csv (see R/fair_loop.R). FAIR_MAP_DIR: folder of
 # the image map (default results/fair/loop).
 # FAIR_RECORD_ROOT: folder of calls/README.md and calls/typesafe-calls.csv.
+# FAIR_TIMING_DIR (default results/fair/timing): runs.csv and clef-calls.csv.
 
 source("R/industrial_defect_classifier.R")
 source("R/fair_runner.R")
@@ -25,8 +26,10 @@ check_only <- identical(tolower(env("JEV_CHECK_ONLY")), "true")
 settings <- model_settings(model)
 stopifnot(nzchar(dataset), nzchar(description), !is.na(k))
 
+# Only JEV runs log to the TypeSafe call log, which the budget counts.
+# Clef-Flash calls go to results/fair/timing/clef-calls.csv.
 if (!nzchar(env("JEV_CALL_LOG"))) {
-  Sys.setenv(JEV_CALL_LOG = file.path(fair_record_root(), "calls", "typesafe-calls.csv"))
+  Sys.setenv(JEV_CALL_LOG = call_log_path(model))
 }
 Sys.setenv(JEV_CALL_PURPOSE = paste("fair", split, model, description_label(description),
                                     paste0("k", k), dataset))
@@ -75,8 +78,12 @@ if (check_only) quit(save = "no")
 if (loop_mode) {
   map <- readr::read_csv(file.path(map_dir, paste0(basename(normalizePath(out)), "_image_map.csv")),
                          show_col_types = FALSE)
+  start <- Sys.time()
   scores <- score_images(images, references, criteria, settings, model, description, k, split)
+  end <- Sys.time()
   result <- finish_candidate(out, n, scores, map, candidate, mirror = mirror)
+  append_run(fair_timing_dir(), model, description, k, dataset, split, nrow(scores),
+             start, end, candidate = n)
   cat("Candidate", n, "design AUC:", round(result$auc, 3), "\n")
   cat("Mean score by defect type:", result$mean_score_by_type, "\n")
   cat("Kept:", result$kept, "| current best: candidate", result$best,

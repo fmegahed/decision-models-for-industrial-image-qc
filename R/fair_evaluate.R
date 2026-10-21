@@ -5,8 +5,10 @@ headline <- c("bal_accuracy", "mcc", "roc_auc")
 config_keys <- c("model", "description", "k", "dataset")
 
 #' Read every score file of a folder into one tibble
+#' @details Only files that end in _calibration.csv or _test.csv count. A file
+#'   may or may not have the column elapsed_ms (CLIP files have none).
 read_fair_scores <- function(dir) {
-  list.files(dir, pattern = "\\.csv$", full.names = TRUE) |>
+  list.files(dir, pattern = "_(calibration|test)\\.csv$", full.names = TRUE) |>
     purrr::map(readr::read_csv, show_col_types = FALSE) |>
     purrr::list_rbind()
 }
@@ -14,8 +16,25 @@ read_fair_scores <- function(dir) {
 #' Add Platt and isotonic probabilities to the scores of each configuration
 #' @details Both calibrators are fitted on the calibration rows of the same
 #'   configuration only. A configuration without test rows, or with one class
-#'   in its calibration rows, is dropped. Test rows never enter a fit.
+#'   in its calibration rows, is dropped, and a message names it. Test rows
+#'   never enter a fit.
 calibrate_all <- function(scores) {
+  # The configurations that cannot be calibrated.
+  dropped <- scores |>
+    dplyr::summarise(
+      has_test = any(split == "test"),
+      n_classes = dplyr::n_distinct(actual_class[split == "calibration"]),
+      .by = dplyr::all_of(config_keys)
+    ) |>
+    dplyr::filter(!has_test | n_classes < 2) |>
+    dplyr::mutate(
+      label = paste(model, description, paste0("k", k), dataset),
+      reason = dplyr::if_else(has_test, "one calibration class", "no test rows")
+    )
+  if (nrow(dropped) > 0) {
+    message("calibrate_all drops ", nrow(dropped), " configuration(s): ",
+            paste0(dropped$label, " (", dropped$reason, ")", collapse = "; "))
+  }
   scores |>
     dplyr::group_by(dplyr::across(dplyr::all_of(config_keys))) |>
     dplyr::group_modify(\(d, key) {
@@ -150,9 +169,89 @@ k_curve_table <- function(calibrated, datasets, times = 2000) {
     purrr::list_rbind()
 }
 
-#' Run the whole evaluation and write the three summaries
-run_fair_evaluation <- function(scores_dir, out_dir, times = 2000) {
-  calibrated <- calibrate_all(read_fair_scores(scores_dir))
+#' Time per image, total time and JEV cost of each configuration
+#' @details Time per image comes from elapsed_ms (decision models) or from
+#'   encode_ms + score_ms in clip_timing.csv (CLIP, test split). The total
+#'   time comes from runs.csv. The calls, tokens and cost of JEV come from the
+#'   TypeSafe call log, grouped by the configuration in the purpose
+#'   ("fair <split> <model> <description> k<k> <dataset>"). A column that does
+#'   not apply is NA. Missing timing files give NA, not an error.
+timing_table <- function(scores, timing_dir, record_root) {
+  keys <- c(config_keys, "split")
+  read_if <- \(file, ...) {
+    if (file.exists(file)) readr::read_csv(file, show_col_types = FALSE, ...) else NULL
+  }
+  if (!"elapsed_ms" %in% names(scores)) scores$elapsed_ms <- NA_real_
+  clip <- read_if(file.path(timing_dir, "clip_timing.csv"))
+  if (is.null(clip)) {
+    clip <- tibble::tibble(variant = character(), k = double(), dataset = character(),
+                           encode_ms = double(), score_ms = double())
+  }
+  per_image <- clip |>
+    dplyr::transmute(model = "clip", description = variant, k, dataset, split = "test",
+                     elapsed_ms = encode_ms + score_ms) |>
+    dplyr::bind_rows(dplyr::select(scores, dplyr::all_of(c(keys, "elapsed_ms")))) |>
+    dplyr::filter(!is.na(elapsed_ms)) |>
+    dplyr::summarise(
+      n_images = dplyr::n(),
+      median_ms = stats::median(elapsed_ms),
+      q25_ms = stats::quantile(elapsed_ms, 0.25, names = FALSE),
+      q75_ms = stats::quantile(elapsed_ms, 0.75, names = FALSE),
+      .by = dplyr::all_of(keys)
+    )
+
+  runs <- read_if(file.path(timing_dir, "runs.csv"),
+                  col_types = readr::cols(.default = "c", k = "d", n_images = "d", seconds = "d"))
+  if (is.null(runs)) {
+    runs <- tibble::tibble(model = character(), description = character(), k = double(),
+                           dataset = character(), split = character(),
+                           n_images = double(), seconds = double())
+  }
+  totals <- runs |>
+    dplyr::summarise(runs_images = sum(n_images), total_seconds = sum(seconds),
+                     .by = dplyr::all_of(keys))
+
+  calls <- read_if(file.path(record_root, "calls", "typesafe-calls.csv"),
+                   col_types = readr::cols(.default = "c"))
+  jev_cost <- tibble::tibble(model = character(), description = character(), k = double(),
+                             dataset = character(), split = character(), n_calls = integer(),
+                             input_tokens = double(), output_tokens = double(),
+                             cost_usd = double())
+  if (!is.null(calls)) {
+    pattern <- "^fair (\\S+) jev (\\S+) k(\\d+) (\\S+)$"
+    parsed <- calls |>
+      dplyr::filter(model == "jev-1.13.0", stringr::str_detect(.data$purpose, .env$pattern)) |>
+      dplyr::mutate(
+        parts = stringr::str_match(.data$purpose, .env$pattern),
+        model = "jev", split = parts[, 2], description = parts[, 3],
+        k = as.numeric(parts[, 4]), dataset = parts[, 5]
+      )
+    jev_cost <- parsed |>
+      dplyr::summarise(
+        n_calls = dplyr::n(),
+        input_tokens = sum(as.numeric(input_tokens), na.rm = TRUE),
+        output_tokens = sum(as.numeric(output_tokens), na.rm = TRUE),
+        cost_usd = sum(as.numeric(cost_usd), na.rm = TRUE),
+        .by = dplyr::all_of(keys)
+      )
+  }
+
+  per_image |>
+    dplyr::full_join(totals, by = keys) |>
+    dplyr::left_join(jev_cost, by = keys) |>
+    dplyr::mutate(n_images = dplyr::coalesce(n_images, runs_images)) |>
+    dplyr::select(dplyr::all_of(keys), n_images, median_ms, q25_ms, q75_ms,
+                  total_seconds, n_calls, input_tokens, output_tokens, cost_usd) |>
+    dplyr::arrange(dplyr::across(dplyr::all_of(keys)))
+}
+
+#' Run the whole evaluation and write the summaries
+run_fair_evaluation <- function(scores_dir, out_dir, times = 2000,
+                                timing_dir = "results/fair/timing",
+                                record_root = Sys.getenv("FAIR_RECORD_ROOT",
+                                                         unset = "replication_materials")) {
+  scores <- read_fair_scores(scores_dir)
+  calibrated <- calibrate_all(scores)
   datasets <- sort(unique(calibrated$dataset))
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
   paired <- purrr::map(c("jev", "clef"), \(m) {
@@ -166,7 +265,8 @@ run_fair_evaluation <- function(scores_dir, out_dir, times = 2000) {
       holm_family_size = integer())
   }
   out <- list(metrics = metrics_table(calibrated), paired = paired,
-              k_curve = k_curve_table(calibrated, datasets, times))
+              k_curve = k_curve_table(calibrated, datasets, times),
+              timing = timing_table(scores, timing_dir, record_root))
   purrr::iwalk(out, \(d, name) {
     readr::write_csv(d, file.path(out_dir, paste0(name, ".csv")))
   })

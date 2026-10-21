@@ -11,7 +11,10 @@ make_record <- function(max_calls = 100, used = 0) {
   ), file.path(root, "calls", "README.md"))
   if (used > 0) {
     tibble::tibble(
-      purpose = c(rep("fair test jev final k2 extrusion", used), "test other"),
+      purpose = c(rep("fair test jev final k2 extrusion", used), "test other",
+                  "fair test clef final k2 extrusion", "fair test clef final k2 extrusion"),
+      model = c(rep("jev-1.13.0", used), "jev-1.13.0",
+                "Cloudflare/clef-flash", "Cloudflare/clef-flash"),
       status = 200
     ) |>
       readr::write_csv(file.path(root, "calls", "typesafe-calls.csv"))
@@ -35,6 +38,16 @@ freeze <- function(dir, name = "jev_extrusion.csv") {
 test_that("remaining_calls reads the Fair comparison row and fair log rows", {
   expect_equal(remaining_calls(record_root = make_record(100, 30)), 70)
   expect_equal(remaining_calls(record_root = make_record(100, 0)), 100)
+})
+
+test_that("remaining_calls counts only JEV rows whose purpose starts with fair", {
+  # make_record adds one JEV row with another purpose and two Clef-Flash fair rows.
+  expect_equal(remaining_calls(record_root = make_record(100, 5)), 95)
+})
+
+test_that("only JEV runs log to the TypeSafe call log", {
+  expect_equal(call_log_path("jev", "rec", "tim"), file.path("rec", "calls", "typesafe-calls.csv"))
+  expect_equal(call_log_path("clef", "rec", "tim"), file.path("tim", "clef-calls.csv"))
 })
 
 test_that("remaining_calls is 0 without a Fair comparison row", {
@@ -154,7 +167,7 @@ test_that("score_images passes references unchanged and uses the local key for c
   expect_equal(call$max_size, 768)
   expect_equal(scores$prob_defective, c(0.3, 0.3))
   expect_named(scores, c("dataset", "image_path", "defect_type", "actual_class",
-                         "prob_defective", "model", "description", "k", "split"))
+                         "prob_defective", "model", "description", "k", "split", "elapsed_ms"))
 })
 
 test_that("score_images sends the TypeSafe key only to the TypeSafe URL", {
@@ -168,23 +181,65 @@ test_that("score_images sends the TypeSafe key only to the TypeSafe URL", {
 
 test_that("a bad probability stops the run and leaves no file", {
   out <- withr::local_tempdir()
+  tim <- withr::local_tempdir()
   for (bad in c(NA_real_, Inf)) {
     answer_with(bad)
     expect_error(
       score_and_write(stub_images, NULL, generic_description(), model_settings("clef"),
-                      "clef", "generic", 0, "calibration", out, "extrusion"),
+                      "clef", "generic", 0, "calibration", out, "extrusion", timing_dir = tim),
       "Invalid defect probability"
     )
   }
   expect_length(list.files(out), 0)
+  expect_length(list.files(tim), 0)
 })
 
 test_that("score_and_write writes after all images are scored", {
   out <- withr::local_tempdir()
+  tim <- withr::local_tempdir()
   answer_with(0.8)
   score_and_write(stub_images, NULL, generic_description(), model_settings("clef"),
-                  "clef", "generic", 0, "calibration", out, "extrusion")
+                  "clef", "generic", 0, "calibration", out, "extrusion", timing_dir = tim)
   expect_equal(list.files(out), "clef_generic_k0_extrusion_calibration.csv")
+})
+
+test_that("a run writes elapsed_ms for each image and one row to runs.csv", {
+  out <- withr::local_tempdir()
+  tim <- withr::local_tempdir()
+  answer_with(0.8)
+  score_and_write(stub_images, NULL, generic_description(), model_settings("clef"),
+                  "clef", "generic", 0, "calibration", out, "extrusion", timing_dir = tim)
+  written <- readr::read_csv(file.path(out, "clef_generic_k0_extrusion_calibration.csv"),
+                             show_col_types = FALSE)
+  expect_true("elapsed_ms" %in% names(written))
+  expect_length(written$elapsed_ms, 2)
+  expect_true(all(written$elapsed_ms >= 0))
+  runs <- readr::read_csv(file.path(tim, "runs.csv"), show_col_types = FALSE)
+  expect_named(runs, c("model", "description", "k", "dataset", "split", "candidate",
+                       "n_images", "start_utc", "end_utc", "seconds", "hardware"))
+  expect_equal(nrow(runs), 1)
+  expect_equal(runs$n_images, 2)
+  expect_equal(runs$model, "clef")
+  expect_true(is.na(runs$candidate))
+  expect_gte(runs$seconds, 0)
+  expect_false(runs$hardware == "TypeSafe API")
+  # a second run adds a row
+  out2 <- withr::local_tempdir()
+  score_and_write(stub_images, NULL, generic_description(), model_settings("jev"),
+                  "jev", "generic", 0, "calibration", out2, "extrusion", timing_dir = tim)
+  runs <- readr::read_csv(file.path(tim, "runs.csv"), show_col_types = FALSE)
+  expect_equal(nrow(runs), 2)
+  expect_equal(runs$hardware[2], "TypeSafe API")
+})
+
+test_that("append_run records the candidate number of a design run", {
+  tim <- withr::local_tempdir()
+  t0 <- Sys.time()
+  append_run(tim, "jev", "3", 2, "extrusion", "design", 40, t0, t0 + 5, candidate = 3)
+  runs <- readr::read_csv(file.path(tim, "runs.csv"), show_col_types = FALSE)
+  expect_equal(runs$candidate, 3)
+  expect_equal(runs$seconds, 5)
+  expect_equal(runs$hardware, "TypeSafe API")
 })
 
 test_that("static guards give clear messages before sets load", {

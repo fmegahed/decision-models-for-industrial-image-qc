@@ -776,6 +776,10 @@ Each configuration reports these metrics on C and on the test set, with the yard
 
 The headline metrics are balanced accuracy and MCC. Balanced accuracy does not depend on the prevalence. MCC uses all four cells of the confusion matrix. F1 and precision ignore true negatives, and they change when the other class is the event. All test sets are balanced, so accuracy equals balanced accuracy on the test sets; the tables show both. After calibration, the metrics on C are in sample (column `in_sample` of `metrics.csv`), so the tables of this document use the test set.
 
+## Time and cost {#sec-time-methods}
+
+The time per image of JEV and Clef-Flash is the wall time of the call for that image, with the image preparation (`elapsed_ms` in the score files). The CLIP score files have no time, because they are one-time files. A separate pass on the test images times each CLIP variant: `encode_ms` is the time to load, prepare and encode the image, and `score_ms` is the time to score the encoded image. One warm-up call runs before the timing, because the first call on the GPU is slower. The features of the learning and reference images are encoded once and do not count. Each scoring run adds one row to `runs.csv` (start, end, seconds and hardware). The cost of JEV comes from the TypeSafe call log (@sec-time).
+
 ## Paired comparisons {#sec-paired-methods}
 
 These comparisons were fixed before the test runs (decision D71). Each one applies to each dataset and to each decision model (JEV and Clef-Flash):
@@ -1414,6 +1418,152 @@ fig_reliability <- function(layout) {
 save_figure(fig_reliability, "F7_reliability", height = reliability_heights)
 ```
 
+# Time and cost {#sec-time}
+
+This section gives the time that each method needs for one image, the total time of each step, and the calls, tokens and estimated cost of JEV. `scripts/fair_evaluate.R` makes `results/fair/summary/timing.csv` from the `elapsed_ms` column of the score files, from `clip_timing.csv` and `runs.csv` in `results/fair/timing/`, and from the TypeSafe call log. @sec-time-methods tells how each time is measured.
+
+```{r}
+#| label: time-data
+# The timing summary, and the hardware of each method from runs.csv.
+timing <- read_csv_quiet(
+  file.path(summary_dir, "timing.csv"),
+  col_types = readr::cols(.default = "d", model = "c", description = "c",
+                          dataset = "c", split = "c")
+)
+runs_file <- file.path(results_root, "timing", "runs.csv")
+hardware <- if (file.exists(runs_file)) {
+  read_csv_quiet(runs_file, col_types = readr::cols(.default = "c")) |>
+    dplyr::distinct(model, hardware)
+} else {
+  tibble::tibble(model = character(), hardware = character())
+}
+has_decision_time <- any(timing$model %in% c("jev", "clef") & !is.na(timing$median_ms))
+has_clip_time <- any(timing$model == "clip" & !is.na(timing$median_ms))
+has_cost <- any(!is.na(timing$n_calls))
+
+# Median time of the CLIP baseline: pans against the other datasets.
+clip_base <- dplyr::filter(timing, model == "clip", description == "baseline", split == "test")
+clip_pan_ms <- clip_base$median_ms[clip_base$dataset == "pan_images"]
+clip_other_ms <- mean(clip_base$median_ms[clip_base$dataset != "pan_images"])
+if (length(clip_pan_ms) == 0) clip_pan_ms <- clip_other_ms <- NA_real_
+
+# One sentence that names the hardware of each method.
+hardware_text <- hardware |>
+  dplyr::mutate(label = model_labels[model]) |>
+  dplyr::arrange(match(model, names(model_labels))) |>
+  dplyr::summarise(text = stringr::str_c(label[1], ": ", stringr::str_c(hardware, collapse = ", ")),
+                   .by = model) |>
+  dplyr::pull(text) |>
+  stringr::str_c(collapse = "; ")
+```
+
+The times come from different hardware: `r hardware_text`. JEV time includes the network and the queue of the service, and CLIP time does not. The methods are therefore not ranked on time alone.
+
+## Time per image
+
+@tbl-time gives the median and the interquartile range (Q1 to Q3) of the time per image on the test set. The CLIP time is the time of the timing pass, after one warm-up call. The CLIP baseline needs a median of `r fmt(clip_pan_ms, 0)` ms for a pan image and `r fmt(clip_other_ms, 0)` ms on average for an image of the other datasets.
+
+```{r}
+#| label: time-note
+#| echo: false
+#| results: asis
+note(!has_decision_time, "Until then, the table shows CLIP only.")
+```
+
+```{r}
+#| label: tbl-time
+#| tbl-cap: "Time per image on the test sets (ms): median and quartiles. JEV and Clef-Flash: the wall time of the call with the image preparation. CLIP: image loading, preparation, encoding and scoring on the local GPU, after one warm-up call. The hardware differs between the methods (see the text)."
+#| eval: !expr has_clip_time || has_decision_time
+# Test rows of the main methods, with their hardware.
+time_rows <- main_configs |>
+  dplyr::inner_join(dplyr::filter(timing, split == "test", !is.na(median_ms)),
+                    by = c("model", "description", "k", "dataset")) |>
+  dplyr::left_join(hardware, by = "model") |>
+  dplyr::arrange(match(dataset, dataset_order), match(method, main_methods$method))
+
+# Table T8.
+t8 <- time_rows |>
+  dplyr::transmute(
+    Dataset = dataset_labels[dataset], Method = method, Hardware = hardware,
+    Images = n_images, Median = median_ms, Q1 = q25_ms, Q3 = q75_ms
+  )
+save_table(t8, "T8_time_per_image", "Time per image on the test sets (ms).",
+           digits = 1, page_length = 25, group = "Dataset")
+```
+
+## Total time
+
+@tbl-total-time gives the total time of each step: the description loops (design images), the calibration runs and the test runs, summed over the configurations of a model and a dataset. The step of CLIP is the timing pass on the test images. The original scoring runs of CLIP were not timed.
+
+```{r}
+#| label: total-note
+#| echo: false
+#| results: asis
+note(!has_decision_time, "Until then, the table shows CLIP only.")
+```
+
+```{r}
+#| label: tbl-total-time
+#| tbl-cap: "Total time of each step (seconds), summed over the configurations of a method and a dataset. Design: all candidates of the description loop. CLIP: the timing pass on the test images."
+#| eval: !expr any(!is.na(timing$total_seconds))
+step_labels <- c(design = "Design loop", calibration = "Calibration runs", test = "Test runs")
+total_rows <- timing |>
+  dplyr::filter(!is.na(total_seconds)) |>
+  dplyr::summarise(runs = dplyr::n(), images = sum(n_images, na.rm = TRUE),
+                   seconds = sum(total_seconds),
+                   .by = c(model, dataset, split)) |>
+  dplyr::arrange(match(dataset, dataset_order), match(model, names(model_labels)),
+                 match(split, names(step_labels)))
+
+# Table T9.
+t9 <- total_rows |>
+  dplyr::transmute(
+    Dataset = dataset_labels[dataset], Method = model_labels[model],
+    Step = dplyr::if_else(model == "clip", "Timing pass", step_labels[split]),
+    Configurations = runs, Images = images, `Total time (s)` = seconds
+  )
+save_table(t9, "T9_total_time", "Total time of each step (seconds).",
+           digits = 1, page_length = 25, group = "Dataset")
+```
+
+## JEV cost
+
+The cost of JEV is an estimate: the input tokens of each call times USD 0.042 per million, the price in `R/industrial_defect_classifier.R`. The client logs the tokens of each call in the TypeSafe call log, with the purpose of the call, which names the step and the configuration. The estimate does not include the output tokens. After the runs, the replication record compares the logged total with the usage that the TypeSafe account shows.
+
+```{r}
+#| label: cost-note
+#| echo: false
+#| results: asis
+note(!has_cost, "Until then, no JEV call has a cost in the log.")
+```
+
+```{r}
+#| label: tbl-cost
+#| tbl-cap: "Calls, tokens and estimated cost of the JEV runs, by configuration. Estimated cost: input tokens times USD 0.042 per million."
+#| eval: !expr has_cost
+cost_rows <- timing |>
+  dplyr::filter(!is.na(n_calls)) |>
+  dplyr::arrange(match(dataset, dataset_order), match(split, names(step_labels)), k)
+
+# Table T10: one row per configuration, then the total.
+t10 <- cost_rows |>
+  dplyr::transmute(
+    Dataset = dataset_labels[dataset], Step = step_labels[split],
+    Configuration = dplyr::if_else(split == "design", stringr::str_c("candidate ", description),
+                                   stringr::str_c(description, ", k = ", k)),
+    Calls = n_calls, `Input tokens` = input_tokens, `Output tokens` = output_tokens,
+    `Estimated cost (USD)` = cost_usd
+  ) |>
+  dplyr::bind_rows(tibble::tibble(
+    Dataset = "Total", Step = "All", Configuration = "All configurations",
+    Calls = sum(cost_rows$n_calls), `Input tokens` = sum(cost_rows$input_tokens),
+    `Output tokens` = sum(cost_rows$output_tokens),
+    `Estimated cost (USD)` = sum(cost_rows$cost_usd)
+  ))
+save_table(t10, "T10_jev_cost", "Calls, tokens and estimated cost of the JEV runs.",
+           digits = 4, page_length = 25, group = "Dataset")
+```
+
 # v0.0.1 {#sec-v001}
 
 Version v0.0.1 is the tag [`v0.0.1`](https://github.com/fmegahed/decision-models-for-industrial-image-qc/tree/v0.0.1) (commit 33ffd59). Its analysis document, tables and figures stay in the tag, and the v0.0.1 scripts in `scripts/` reproduce it. The v0.0.1 results stay in the replication record. A reader can find five weak points in v0.0.1:
@@ -1564,6 +1714,7 @@ These steps make all results of `results/fair/` from the images. Each step is a 
 |---|---|---|
 | 1. Draw L, C, the references and the design images | `Rscript scripts/fair_draw_sets.R` | none |
 | 2. Score the CLIP variants | `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip.R` | local GPU |
+| 2b. Time the CLIP variants on the test images | `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip_timing.R` | local GPU |
 | 3. Make the sandbox of a loop | `Rscript scripts/fair_make_sandbox.R <model> <dataset>` | none |
 | 4. Run the loop | a fresh Claude Code agent in the sandbox reads `LOOP.md` and runs `score.sh`, which calls `scripts/fair_score.R` with `FAIR_SPLIT=design` | **paid** for JEV (up to 576 calls per dataset); local GPU for Clef-Flash |
 | 5. Close the loop | `Rscript scripts/fair_close_loop.R <model> <dataset> <transcript>` | none |
@@ -1578,15 +1729,17 @@ Notes on the steps:
 - Step 2 needs a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (`results/clip/python_environment.txt`). After the loops, `FAIR_CLIP_TEXT=final` adds the zero-shot variant with the final descriptions. Run CLIP when no other process uses the GPU.
 - Steps 3 to 5 run once for each model (jev, clef) and dataset (extrusion, textiles, pipe_staple, microstructure). The researchers approve `LOOP.md` before step 4. Run the agent as a separate `claude -p` process with the sandbox as its working folder, so that it gets no project instructions and no project memory. Step 5 refuses to overwrite a frozen description.
 - Step 6 runs the configurations of @sec-configurations. Clef-Flash needs its local server: `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`.
-- `FAIR_OUT`, `FAIR_SCORES` and `FAIR_SUMMARY` send the outputs to another folder.
+- Step 2b writes `results/fair/timing/clip_timing.csv` and one row per variant and dataset to `results/fair/timing/runs.csv`. It does not change the CLIP score files. It stops if `clip_timing.csv` exists.
+- Each run of step 6 adds one row to `runs.csv` and an `elapsed_ms` column to its score file. JEV calls go to the TypeSafe call log, which the budget counts. Clef-Flash calls go to `results/fair/timing/clef-calls.csv`.
+- `FAIR_OUT`, `FAIR_SCORES`, `FAIR_SUMMARY` and `FAIR_TIMING_DIR` send the outputs to another folder.
 
 The chunks below run only when their switch in @sec-switches is `TRUE`. They write to `results/rerun/fair/` only, so the saved results never change:
 
-1. The score switches (`run_clip`, `run_clef`, `run_jev`) write the new score files to `results/rerun/fair/runs/`.
-2. The evaluation runs after any switch. It first fills `results/rerun/fair/scores/` with the saved score files, and puts each re-run file in place of the saved file of the same configuration and split. Thus a partial re-run (for example CLIP only) still gives a full set of scores, and no file mixes the two sources. It then writes the summaries to `results/rerun/fair/summary/`. A re-run of a decision model must run both splits of a configuration, as `rerun_scores()` does.
+1. The score switches (`run_clip`, `run_clef`, `run_jev`) write the new score files to `results/rerun/fair/runs/`, and their timing files to `results/rerun/fair/timing_runs/`.
+2. The evaluation runs after any switch. It first fills `results/rerun/fair/scores/` with the saved score files, and puts each re-run file in place of the saved file of the same configuration and split. Thus a partial re-run (for example CLIP only) still gives a full set of scores, and no file mixes the two sources. It makes `results/rerun/fair/timing/` in the same way: the saved timing files, with the re-run rows in place of the saved rows of the same run. It then writes the summaries to `results/rerun/fair/summary/`. A re-run of a decision model must run both splits of a configuration, as `rerun_scores()` does.
 3. Set `use_rerun` to `TRUE` in @sec-switches, with the switches back at `FALSE`, and render again. Every table and figure then comes from `results/rerun/fair/scores/` and `results/rerun/fair/summary/`, and the figure and table files go to `results/rerun/fair/figs/` and `results/rerun/fair/tables/`.
 
-The same steps from the command line: run the scripts with `FAIR_OUT=results/rerun/fair/runs`; make `results/rerun/fair/scores/` as in item 2; run `FAIR_SCORES=results/rerun/fair/scores FAIR_SUMMARY=results/rerun/fair/summary Rscript scripts/fair_evaluate.R`; then render with `use_rerun <- TRUE`.
+The same steps from the command line: run the scripts with `FAIR_OUT=results/rerun/fair/runs` and `FAIR_TIMING_DIR=results/rerun/fair/timing_runs`; make `results/rerun/fair/scores/` and `results/rerun/fair/timing/` as in item 2; run `FAIR_SCORES=results/rerun/fair/scores FAIR_SUMMARY=results/rerun/fair/summary FAIR_TIMING_DIR=results/rerun/fair/timing Rscript scripts/fair_evaluate.R`; then render with `use_rerun <- TRUE`.
 
 ```{r}
 #| label: rerun-helpers
@@ -1616,7 +1769,8 @@ rerun_scores <- function(model) {
       run_script("scripts/fair_score.R", c(
         FAIR_MODEL = model, FAIR_DATASET = dataset, FAIR_DESCRIPTION = description,
         FAIR_K = as.character(k), FAIR_SPLIT = split,
-        FAIR_OUT = file.path(rerun_root, "runs")
+        FAIR_OUT = file.path(rerun_root, "runs"),
+        FAIR_TIMING_DIR = file.path(rerun_root, "timing_runs")
       ))
     })
   }
@@ -1631,6 +1785,9 @@ rerun_scores <- function(model) {
 run_script("scripts/fair_clip.R", c(FAIR_OUT = file.path(rerun_root, "runs")))
 run_script("scripts/fair_clip.R", c(FAIR_OUT = file.path(rerun_root, "runs"),
                                     FAIR_CLIP_TEXT = "final"))
+# Step 2b: the timing pass.
+run_script("scripts/fair_clip_timing.R",
+           c(FAIR_TIMING_DIR = file.path(rerun_root, "timing_runs")))
 ```
 
 ```{r}
@@ -1661,10 +1818,32 @@ invisible(file.copy(list.files(file.path(saved_root, "scores"), full.names = TRU
 invisible(file.copy(list.files(file.path(rerun_root, "runs"), full.names = TRUE),
                     rerun_scores_dir, overwrite = TRUE))
 
+# The timing files: the saved rows of runs.csv, except the runs that the
+# re-run repeated, then the re-run rows; clip_timing.csv from the re-run if
+# it has one.
+rerun_timing_dir <- file.path(rerun_root, "timing")
+unlink(rerun_timing_dir, recursive = TRUE)
+dir.create(rerun_timing_dir, recursive = TRUE)
+invisible(file.copy(list.files(file.path(saved_root, "timing"), full.names = TRUE),
+                    rerun_timing_dir))
+new_runs_file <- file.path(rerun_root, "timing_runs", "runs.csv")
+if (file.exists(new_runs_file)) {
+  run_keys <- c("model", "description", "k", "dataset", "split", "candidate")
+  new_runs <- read_csv_quiet(new_runs_file)
+  read_csv_quiet(file.path(rerun_timing_dir, "runs.csv")) |>
+    dplyr::anti_join(new_runs, by = run_keys) |>
+    dplyr::bind_rows(new_runs) |>
+    readr::write_csv(file.path(rerun_timing_dir, "runs.csv"))
+}
+invisible(file.copy(list.files(file.path(rerun_root, "timing_runs"),
+                               pattern = "^clip_timing", full.names = TRUE),
+                    rerun_timing_dir, overwrite = TRUE))
+
 # The summaries of these scores.
 run_script("scripts/fair_evaluate.R", c(
   FAIR_SCORES = rerun_scores_dir,
-  FAIR_SUMMARY = file.path(rerun_root, "summary")
+  FAIR_SUMMARY = file.path(rerun_root, "summary"),
+  FAIR_TIMING_DIR = rerun_timing_dir
 ))
 ```
 

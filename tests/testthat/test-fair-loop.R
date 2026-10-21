@@ -658,3 +658,18 @@ test_that("the scorer refuses candidate 7 and a skipped number in check-only mod
   expect_match(run(3), "next candidate")
   expect_match(run(1), "checks passed")
 })
+
+test_that("the design score file keeps elapsed_ms when the scores have it", {
+  s <- withr::local_tempdir()
+  m <- file.path(withr::local_tempdir(), "mirror_loop_log.csv")
+  dir.create(file.path(s, "scores"))
+  write_loop_log(empty_loop_log(), file.path(s, "loop_log.csv"))
+  map <- tibble::tibble(image = c("img_001.png", "img_002.png"), image_path = c("o/1.png", "o/2.png"))
+  scores <- tibble::tibble(dataset = "d", image_path = map$image_path,
+                           defect_type = c("a", "good"),
+                           actual_class = c("defective", "nominal"),
+                           prob_defective = c(.9, .1), elapsed_ms = c(1200, 1300))
+  finish_candidate(s, 1, scores, map, list(normal = "n", defective = "d", reason = "r"), mirror = m)
+  written <- readr::read_csv(file.path(s, "scores", "1.csv"), show_col_types = FALSE)
+  expect_equal(written$elapsed_ms, c(1200, 1300))
+})

@@ -112,3 +112,24 @@ test_that("zero_final cuts long descriptions at 77 tokens and reports the cut", 
   # one-time: a second run stops and keeps the file
   expect_false(run() == 0)
 })
+
+test_that("the timing pass writes per-image times and one run row per variant", {
+  skip_without_clip()
+  tim <- withr::local_tempdir()
+  withr::local_dir(repo_root)
+  withr::local_envvar(FAIR_DATASETS = "pan_images", FAIR_TIMING_N = "3", FAIR_TIMING_DIR = tim)
+  run <- \() system2(file.path(R.home("bin"), "Rscript"), "scripts/fair_clip_timing.R",
+                     stdout = FALSE, stderr = FALSE)
+  expect_equal(run(), 0)
+  timing <- readr::read_csv(file.path(tim, "clip_timing.csv"), show_col_types = FALSE)
+  expect_named(timing, c("variant", "k", "dataset", "image_path", "encode_ms", "score_ms"))
+  expect_equal(nrow(timing), 3 * 5)
+  expect_true(all(timing$encode_ms > 0 & timing$score_ms >= 0))
+  expect_setequal(timing$k[timing$variant == "baseline"], 10)
+  runs <- readr::read_csv(file.path(tim, "runs.csv"), show_col_types = FALSE)
+  expect_equal(nrow(runs), 5)
+  expect_equal(unique(runs$model), "clip")
+  expect_equal(unique(runs$split), "test")
+  # the CLIP score files are not touched, and a second run stops
+  expect_false(run() == 0)
+})

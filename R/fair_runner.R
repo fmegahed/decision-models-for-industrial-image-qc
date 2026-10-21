@@ -5,6 +5,54 @@ fair_record_root <- function() {
   Sys.getenv("FAIR_RECORD_ROOT", unset = "replication_materials")
 }
 
+# Folder of the timing files: runs.csv and the Clef-Flash call log.
+fair_timing_dir <- function() {
+  Sys.getenv("FAIR_TIMING_DIR", unset = "results/fair/timing")
+}
+
+# Call log of a run. Only JEV runs use the TypeSafe log, which the budget
+# counts. Clef-Flash calls go to their own log.
+call_log_path <- function(model, record_root = fair_record_root(),
+                          timing_dir = fair_timing_dir()) {
+  if (model == "jev") {
+    file.path(record_root, "calls", "typesafe-calls.csv")
+  } else {
+    file.path(timing_dir, "clef-calls.csv")
+  }
+}
+
+# Name of the local GPU, or "local GPU" when nvidia-smi fails.
+gpu_name <- function() {
+  name <- tryCatch(
+    suppressWarnings(system2("nvidia-smi", c("--query-gpu=name", "--format=csv,noheader"),
+                             stdout = TRUE, stderr = FALSE)),
+    error = \(e) character()
+  )
+  name <- stringr::str_trim(name)
+  if (length(name) == 0L || !nzchar(name[[1]])) "local GPU" else name[[1]]
+}
+
+run_hardware <- function(model) {
+  if (model == "jev") "TypeSafe API" else gpu_name()
+}
+
+# Adds one row to runs.csv: one scoring run. `candidate` is the loop
+# candidate for a design run, NA otherwise.
+append_run <- function(timing_dir, model, description, k, dataset, split, n_images,
+                       start, end, candidate = NA_integer_, hardware = run_hardware(model)) {
+  utc <- \(x) format(x, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+  dir.create(timing_dir, recursive = TRUE, showWarnings = FALSE)
+  file <- file.path(timing_dir, "runs.csv")
+  tibble::tibble(
+    model = model, description = description_label(description), k = k,
+    dataset = dataset, split = split, candidate = as.integer(candidate),
+    n_images = n_images, start_utc = utc(start), end_utc = utc(end),
+    seconds = round(as.numeric(difftime(end, start, units = "secs")), 3),
+    hardware = hardware
+  ) |>
+    readr::write_csv(file, append = file.exists(file))
+}
+
 # Model settings, verbatim from the plan.
 model_settings <- function(model) {
   switch(model,
@@ -43,7 +91,8 @@ frozen_description_file <- function(model, dataset, description_dir) {
 }
 
 # Calls left in the "Fair comparison" budget row. The log rows whose purpose
-# starts with the prefix count as used. No such row means no calls left.
+# starts with the prefix and whose model is JEV count as used. Clef-Flash rows
+# never count. No such row means no calls left.
 remaining_calls <- function(purpose_prefix = "fair", record_root = fair_record_root()) {
   readme <- file.path(record_root, "calls", "README.md")
   rows <- if (file.exists(readme)) {
@@ -61,7 +110,8 @@ remaining_calls <- function(purpose_prefix = "fair", record_root = fair_record_r
   if (file.exists(log_file)) {
     used <- readr::read_csv(log_file, show_col_types = FALSE,
                             col_types = readr::cols(.default = "c")) |>
-      dplyr::filter(stringr::str_starts(.data$purpose, purpose_prefix)) |>
+      dplyr::filter(.data$model == model_settings("jev")$model,
+                    stringr::str_starts(.data$purpose, purpose_prefix)) |>
       nrow()
   }
   max_calls - used
@@ -177,13 +227,15 @@ check_run <- function(model, dataset, description, k, split, out, n_images = 0,
 }
 
 # Scores images one at a time and returns the table. The caller writes it.
-# The TypeSafe key goes only to the TypeSafe URL.
+# The TypeSafe key goes only to the TypeSafe URL. elapsed_ms is the wall time
+# of the call for one image, with the image preparation.
 score_images <- function(images, references, criteria, settings, model, description,
                          k, split) {
   typesafe_url <- "https://api.typesafe.ai/v1/systemone"
   api_key <- if (settings$base_url == typesafe_url) Sys.getenv("TYPESAFE_API_KEY") else "local"
   purrr::map_dfr(seq_len(nrow(images)), function(i) {
     item <- images[i, ]
+    started <- as.numeric(Sys.time())
     answer <- classify_image(
       image_path = item$image_path, mode = "binary",
       reference_images = references, criteria = criteria,
@@ -191,23 +243,30 @@ score_images <- function(images, references, criteria, settings, model, descript
       model = settings$model, base_url = settings$base_url,
       api_key = api_key, image_format = settings$image_format
     )
+    elapsed_ms <- round((as.numeric(Sys.time()) - started) * 1000, 1)
     probability <- answer$probability[answer$class == "defective"]
     if (length(probability) != 1L || !is.finite(probability)) stop("Invalid defect probability")
     tibble::tibble(
       dataset = item$dataset, image_path = item$image_path,
       defect_type = item$defect_type, actual_class = item$actual_class,
       prob_defective = probability, model = model,
-      description = description_label(description), k = k, split = split
+      description = description_label(description), k = k, split = split,
+      elapsed_ms = elapsed_ms
     )
   })
 }
 
-# Scores every image, then writes the file. A failure leaves no file.
+# Scores every image, then writes the file and one row to runs.csv. A
+# failure leaves no file.
 score_and_write <- function(images, references, criteria, settings, model,
-                            description, k, split, out, dataset) {
+                            description, k, split, out, dataset,
+                            timing_dir = fair_timing_dir()) {
+  start <- Sys.time()
   scores <- score_images(images, references, criteria, settings, model,
                          description, k, split)
+  end <- Sys.time()
   dir.create(out, recursive = TRUE, showWarnings = FALSE)
   readr::write_csv(scores, file.path(out, score_file_name(model, description, k, dataset, split)))
+  append_run(timing_dir, model, description, k, dataset, split, nrow(scores), start, end)
   invisible(scores)
 }

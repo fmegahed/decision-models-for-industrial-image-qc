@@ -145,9 +145,11 @@ finish_candidate <- function(sandbox, n, scores, map, text, mirror) {
   write_loop_log(log, mirror)
   write_loop_log(log, log_file)
   # The scores file comes after the log row: a failure leaves the slot free.
+  # elapsed_ms (time per image) is kept when the scores have it.
   scores |>
     dplyr::transmute(image = .data$image, class = .data$actual_class,
-                     defect_type = .data$defect_type, prob_defective = .data$prob_defective) |>
+                     defect_type = .data$defect_type, prob_defective = .data$prob_defective,
+                     dplyr::pick(dplyr::any_of("elapsed_ms"))) |>
     readr::write_csv(file.path(sandbox, "scores", paste0(n, ".csv")))
   list(auc = auc, mean_score_by_type = type_text, best = rule$best,
        best_auc = rule$best_auc, kept = rule$kept[[nrow(log)]])

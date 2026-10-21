@@ -173,8 +173,9 @@ test_that("the k-curve has k 0, 1, 2, 4 and CLIP zero as k 0", {
 test_that("the script writes the three summaries", {
   dir <- make_folder()
   out <- withr::local_tempdir()
-  run_fair_evaluation(dir, out, times = 20)
-  expect_setequal(list.files(out), c("metrics.csv", "paired.csv", "k_curve.csv"))
+  run_fair_evaluation(dir, out, times = 20, timing_dir = withr::local_tempdir(),
+                      record_root = withr::local_tempdir())
+  expect_setequal(list.files(out), c("metrics.csv", "paired.csv", "k_curve.csv", "timing.csv"))
   expect_named(readr::read_csv(file.path(out, "metrics.csv"), show_col_types = FALSE),
                c("model", "description", "k", "dataset", "split", "calibration",
                  "in_sample", "metric", "value"))
@@ -188,7 +189,99 @@ test_that("CLIP-only folders give metrics and a CLIP curve but no paired rows", 
   write_scores(dir, "clip", "baseline", 50, "extrusion", "calibration", 1)
   write_scores(dir, "clip", "baseline", 50, "extrusion", "test", 1)
   out <- withr::local_tempdir()
-  res <- run_fair_evaluation(dir, out, times = 20)
+  res <- run_fair_evaluation(dir, out, times = 20, timing_dir = withr::local_tempdir(),
+                             record_root = withr::local_tempdir())
   expect_equal(nrow(res$paired), 0)
   expect_gt(nrow(res$metrics), 0)
+})
+
+test_that("read_fair_scores reads only calibration and test score files", {
+  dir <- withr::local_tempdir()
+  write_scores(dir, "clip", "zero", 0, "extrusion", "test", 1)
+  write_scores(dir, "clip", "zero", 0, "extrusion", "calibration", 1)
+  writeLines(c("a,b", "1,2"), file.path(dir, "clip_truncation.csv"))
+  writeLines(c("a,b", "1,2"), file.path(dir, "notes.csv"))
+  scores <- read_fair_scores(dir)
+  expect_false("a" %in% names(scores))
+  expect_equal(nrow(scores), 24)
+})
+
+test_that("calibrate_all names every configuration that it drops", {
+  dir <- withr::local_tempdir()
+  write_scores(dir, "clip", "zero", 0, "extrusion", "test", 1)
+  write_scores(dir, "clip", "zero", 0, "extrusion", "calibration", 1)
+  write_scores(dir, "clip", "refs", 1, "extrusion", "calibration", 1) # no test rows
+  write_scores(dir, "clip", "refs", 2, "extrusion", "test", 1)
+  write_scores(dir, "clip", "refs", 2, "extrusion", "calibration", 1)
+  scores <- read_fair_scores(dir)
+  # one class in the calibration rows of k = 2
+  scores$actual_class[scores$k == 2 & scores$split == "calibration"] <- "defective"
+  expect_message(calibrated <- calibrate_all(scores), "clip refs k1 extrusion")
+  expect_message(calibrate_all(scores), "clip refs k2 extrusion")
+  expect_equal(unique(calibrated$k), 0)
+})
+
+# A timing folder, a call log and score files with and without elapsed_ms.
+make_timing <- function() {
+  scores <- withr::local_tempdir(.local_envir = parent.frame())
+  timing <- withr::local_tempdir(.local_envir = parent.frame())
+  record <- withr::local_tempdir(.local_envir = parent.frame())
+  dir.create(file.path(record, "calls"))
+  write_scores(scores, "clip", "zero", 0, "extrusion", "test", 1, n = 4)
+  write_scores(scores, "jev", "final", 2, "extrusion", "test", 1, n = 4)
+  write_scores(scores, "clip", "zero", 0, "extrusion", "calibration", 1, n = 4)
+  write_scores(scores, "jev", "final", 2, "extrusion", "calibration", 1, n = 4)
+  f <- file.path(scores, "jev_final_k2_extrusion_test.csv")
+  readr::read_csv(f, show_col_types = FALSE) |>
+    dplyr::mutate(elapsed_ms = c(1000, 2000, 3000, 4000)) |>
+    readr::write_csv(f)
+  tibble::tibble(variant = "zero", k = 0, dataset = "extrusion",
+                 image_path = paste0("e/", 1:4), encode_ms = c(10, 20, 30, 40),
+                 score_ms = c(1, 1, 1, 1)) |>
+    readr::write_csv(file.path(timing, "clip_timing.csv"))
+  tibble::tibble(
+    model = c("jev", "clip"), description = c("final", "zero"), k = c(2, 0),
+    dataset = "extrusion", split = "test", candidate = NA_real_, n_images = 4,
+    start_utc = "2026-10-21T10:00:00Z", end_utc = "2026-10-21T10:00:10Z",
+    seconds = c(10, 2), hardware = c("TypeSafe API", "NVIDIA X")) |>
+    readr::write_csv(file.path(timing, "runs.csv"))
+  tibble::tibble(
+    purpose = c(rep("fair test jev final k2 extrusion", 4), "fair test clef final k2 extrusion"),
+    model = c(rep("jev-1.13.0", 4), "Cloudflare/clef-flash"),
+    input_tokens = c(100, 200, 300, 400, 999), output_tokens = 10,
+    cost_usd = c(100, 200, 300, 400, NA) * 0.042 / 1e6) |>
+    readr::write_csv(file.path(record, "calls", "typesafe-calls.csv"))
+  list(scores = scores, timing = timing, record = record)
+}
+
+test_that("timing_table reads files with and without elapsed_ms", {
+  f <- make_timing()
+  tab <- timing_table(read_fair_scores(f$scores), f$timing, f$record)
+  jev <- dplyr::filter(tab, model == "jev")
+  expect_equal(jev$median_ms, 2500)
+  expect_equal(jev$q25_ms, stats::quantile(c(1000, 2000, 3000, 4000), 0.25, names = FALSE))
+  expect_equal(jev$total_seconds, 10)
+  expect_equal(jev$n_calls, 4)
+  expect_equal(jev$input_tokens, 1000)
+  expect_equal(jev$output_tokens, 40)
+  expect_equal(jev$cost_usd, 1000 * 0.042 / 1e6)
+  clip <- dplyr::filter(tab, model == "clip")
+  expect_equal(clip$median_ms, 26) # encode + score: 11, 21, 31, 41
+  expect_equal(clip$total_seconds, 2)
+  expect_true(is.na(clip$n_calls))
+  expect_named(tab, c("model", "description", "k", "dataset", "split", "n_images",
+                      "median_ms", "q25_ms", "q75_ms", "total_seconds", "n_calls",
+                      "input_tokens", "output_tokens", "cost_usd"))
+})
+
+test_that("the evaluation writes timing.csv and works without timing files", {
+  f <- make_timing()
+  out <- withr::local_tempdir()
+  run_fair_evaluation(f$scores, out, times = 20, timing_dir = f$timing, record_root = f$record)
+  expect_true(file.exists(file.path(out, "timing.csv")))
+  none <- withr::local_tempdir()
+  out2 <- withr::local_tempdir()
+  run_fair_evaluation(f$scores, out2, times = 20, timing_dir = none, record_root = none)
+  tab <- readr::read_csv(file.path(out2, "timing.csv"), show_col_types = FALSE)
+  expect_true(all(is.na(tab$total_seconds)))
 })

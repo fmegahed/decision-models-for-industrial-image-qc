@@ -1,0 +1,16 @@
+Dataset,Method,Hardware,Images,Median,Q1,Q3
+Metallic pans,CLIP baseline,NVIDIA RTX 5000 Ada Generation,78,97.9,65.5,110.9
+Metallic pans,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,78,113.3,107.1,128.1
+Metallic pans,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,78,124.1,118.2,129.3
+Extrusion,CLIP baseline,NVIDIA RTX 5000 Ada Generation,200,10.5,9.7,13.8
+Extrusion,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,200,13.3,10.6,14.7
+Extrusion,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,200,15.9,14.8,19.6
+Textiles,CLIP baseline,NVIDIA RTX 5000 Ada Generation,200,10.7,9.8,13
+Textiles,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,200,10.4,9.7,12.9
+Textiles,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,200,16.5,15.2,20.8
+Pipe staple,CLIP baseline,NVIDIA RTX 5000 Ada Generation,100,13.2,12.9,14.2
+Pipe staple,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,100,13.2,12.7,14.1
+Pipe staple,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,100,18.2,17.8,19
+Microstructure,CLIP baseline,NVIDIA RTX 5000 Ada Generation,450,13.2,10.9,15.2
+Microstructure,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,450,10.3,10.1,10.7
+Microstructure,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,450,15.9,15.5,16.6
