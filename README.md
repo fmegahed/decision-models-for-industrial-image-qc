@@ -18,9 +18,25 @@ The fair comparison (branch `fair-comparison`, design in `replication_materials/
 4. Calibrate every method (JEV, Clef-Flash and CLIP) with Platt scaling on C, and decide at 0.5.
 5. Score each configuration once on the test images, and compare the methods with paired tests on the same images.
 
+## Results (fair comparison)
+
+Test balanced accuracy after Platt scaling on the calibration set C, with the decision at 0.5. JEV and Clef-Flash use the final description of their loop and 2 reference images per class (pans: the generic description). The CLIP baseline learns from 50 images per class (pans: 10).
+
+| Dataset | Test images | JEV, k = 2 | Clef-Flash, k = 2 | CLIP baseline |
+|---|---|---|---|---|
+| Microstructure | 450 | 0.902 | 0.867 | 0.933 |
+| Textiles (simulated) | 200 | 0.965 | 0.840 | 0.975 |
+| Extrusion | 200 | 0.750 | 0.710 | 0.715 |
+| Pipe staple (AutoVI) | 100 | 0.940 | 0.990 | 0.570 |
+| Metallic pans | 78 | 1.000 | 0.885 | 0.641 |
+
+Source: `results/fair/summary/metrics.csv` (split test, calibration platt, metric bal_accuracy) and `results/fair/summary/paired.csv` (comparison P1).
+
+Against the CLIP baseline (comparison P1, paired on the same test images), both decision models are higher on pipe staple and pans, equal on extrusion, and equal or lower on textiles and microstructure. On pans, the CLIP baseline ranks the test images almost perfectly (AUC 0.999), but Platt scaling on the leave-one-out scores of its 10 + 10 learning images puts its cut too high; with the raw rule of the CLIP paper, its balanced accuracy is 0.910. The pans difference thus comes from the calibration of CLIP on very few images, not from its ranking. With isotonic regression in place of Platt scaling, P1 and P2 hold, but the size of P3 (two references per class against none) changes on pans and pipe staple. The [analysis document](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/beyond_clip_analysis.html) gives all metrics, the paired tests with their intervals, the reference curve, the calibration, the time and the cost.
+
 ## Results (v0.0.1)
 
-The table below gives the results of the first version, tag [`v0.0.1`](https://github.com/fmegahed/decision-models-for-industrial-image-qc/tree/v0.0.1). The fair comparison replaces them: its results appear in the analysis document after the decision-model runs. Section "v0.0.1" of the analysis document lists the five weak points of v0.0.1 and what changed.
+The table below gives the results of the first version, tag [`v0.0.1`](https://github.com/fmegahed/decision-models-for-industrial-image-qc/tree/v0.0.1). The fair comparison replaces them (section "Results (fair comparison)" above). Section "v0.0.1" of the analysis document lists the five weak points of v0.0.1 and what changed.
 
 Balanced accuracy at a threshold chosen on validation. JEV is the hosted TypeSafe model (`jev-1.13.0`); Clef-Flash is an open-weight 9B model run locally. CLIP is ViT-L/14.
 
@@ -42,8 +58,8 @@ Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.2
 |---|---|
 | `beyond_clip_analysis.qmd` | The replication document of the fair comparison: data, methods, description loop, main results, paired comparisons, reference curve, calibration, a short v0.0.1 section, appendix and re-run steps. It makes every table and figure of the paper from the saved results; switches re-run the paid and GPU steps |
 | `beyond_clip_analysis.html` | The rendered document (self-contained), for readers who do not run it; also on the record website |
-| `figs/` | Figures of the document: F1 reference images (k = 2), F2 description loop, F3 to F5 paired comparisons P1 to P3, F6 reference curve, F7 reliability diagrams. Each as PNG, PDF and SVG, in one-column and two-column sizes. F2 to F5 appear after the decision-model runs |
-| `tables/` | Tables of the document (CSV and LaTeX): T1 sets, T2 label budget, T3 calibration draw, T4 description loop, T5 main results, T6 paired comparisons, T7 calibration; appendix A1 isotonic calibration, A2 loop candidates, A3 CLIP variants. T4, T6 and A2 appear after the decision-model runs. `T4_test_results_long.csv` and `validation_size.csv` are v0.0.1 outputs: they stay because the replication record (results H6 to H8) names them as sources |
+| `figs/` | Figures of the document: F1 reference images (k = 2), F2 description loop, F3 to F5 paired comparisons P1 to P3, F6 reference curve, F7 reliability diagrams. Each as PNG, PDF and SVG, in one-column and two-column sizes |
+| `tables/` | Tables of the document (CSV and LaTeX): T1 sets, T2 label budget, T3 calibration draw, T4 description loop, T5 main results, T6 paired comparisons, T7 calibration, T8 time per image, T9 total time, T10 JEV cost; appendix A1 isotonic calibration, A2 loop candidates, A3 CLIP variants. `T4_test_results_long.csv` and `validation_size.csv` are v0.0.1 outputs: they stay because the replication record (results H6 to H8) names them as sources |
 | `fonts/` | Outfit and Cabin (SIL Open Font License), used by the figures |
 | `references.bib`, `apa.csl` | References of the document, in APA style |
 | `replication_materials/` | The replication record: decisions, process, plans, releases, results and paid-call budget (website above) |
@@ -70,7 +86,7 @@ The images are not in this repository. Copy the folders of [fmegahed/qe_genai/da
 
 Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr, readr, stringr, withr, yardstick, ggplot2 and testthat. Run every script from the repository root.
 
-- Exact R package versions: `renv.lock` (renv 1.2.3; 103 CRAN packages with their dependencies). To install them in a project library: `install.packages("renv")`, then `renv::restore()` and choose to activate the project. The lockfile records the versions only: this repository does not activate renv. The Python versions for CLIP are in `results/clip/python_environment.txt`.
+- Exact R package versions: `renv.lock` (renv 1.2.3; 113 CRAN packages with their dependencies). To install them in a project library: `install.packages("renv")`, then `renv::restore()` and choose to activate the project. The lockfile records the versions only: this repository does not activate renv. The Python versions for CLIP are in `results/clip/python_environment.txt`.
 - All tables and figures of the paper: `quarto render beyond_clip_analysis.qmd` (Quarto 1.9; the first chunk installs the missing R packages). It reads the saved results in `results/fair/`, needs `imgs/`, makes no API call, and takes a few minutes. Its switches (`run_evaluate`, `run_clip`, `run_clef`, `run_jev`) re-run steps into `results/rerun/fair/`, and a second render with `use_rerun <- TRUE` builds every table and figure from the re-run; section "Re-run steps" of the document lists all steps.
 - Tests, no paid call: `Rscript -e "testthat::test_dir('tests/testthat')"`.
 

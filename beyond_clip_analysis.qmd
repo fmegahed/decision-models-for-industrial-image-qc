@@ -45,7 +45,7 @@ This document reproduces every table and figure of the paper from the saved resu
 
 The study asks if structured decision models (JEV and Clef-Flash) can detect manufacturing defects as well as few-shot CLIP [@radford2021clip; @megahed2026clip], with fewer images in the prompt, and give calibrated probabilities. A structured decision model returns a probability for each allowed answer to a question about an image. In this design, every method gets the same labeled images, every method is calibrated on the same calibration images, and every comparison is paired on the same test images. @sec-v001 tells what changed from the first version, v0.0.1.
 
-The runs of the decision models (the description loops, and the calibration and test runs) come after this version of the document. Task 10 of the plan `replication_materials/plans/2026-10-20-fair-comparison-plan.md` makes them. Until then, the sections that need them show a note, and they show the CLIP results that exist.
+This document holds the results of all runs: the eight description loops, and the calibration and test runs of every configuration. A section shows a note only when a re-run lacks one of its results. With `use_rerun`, the numbers in the tables, figures and text come from the re-run, but the words describe the saved results.
 
 # Setup
 
@@ -388,8 +388,8 @@ manifest <- read_csv_quiet("results/image_split_manifest.csv")
 test_set <- dplyr::filter(manifest, split == "test")
 
 # Score files and summaries of scripts/fair_evaluate.R, both from
-# results_root: every table and figure then uses the same scores. Before the
-# decision-model runs they hold CLIP rows only, and paired.csv has its header
+# results_root: every table and figure then uses the same scores. A re-run
+# can lack the rows of the decision models; paired.csv then has its header
 # only.
 scores_dir <- file.path(results_root, "scores")
 summary_dir <- file.path(results_root, "summary")
@@ -434,18 +434,39 @@ if (nrow(loops) > 0) {
 }
 
 # What exists decides which sections run. The guards look at the rows, not
-# at the files: metrics.csv already exists with CLIP rows.
+# at the files: metrics.csv can exist with CLIP rows only.
 has_decision <- any(metrics$model %in% c("jev", "clef"))
 has_loop <- nrow(loops) > 0
 has_paired <- nrow(paired) > 0
 has_comparison <- function(id) any(paired$comparison == id)
-placeholder <- "Results appear after the runs of Task 10."
+placeholder <- "This result needs the runs of the decision models (@sec-rerun)."
 
 # A note in place of a section, or of its decision-model part.
 note <- function(show, text = "") {
   if (show) {
     cat("\n::: {.callout-note}\n", placeholder, " ", text, "\n:::\n\n", sep = "")
   }
+}
+
+# Marks of the configurations whose Platt fit does not keep the order of the
+# raw scores, from the column platt_slope: a negative slope reverses it
+# (decision D82), and an undefined slope (NA) gives 0.5 to every image
+# (decision D89).
+slopes <- dplyr::distinct(metrics, model, description, k, dataset, platt_slope)
+slope_of <- function(m, desc, kk, ds) {
+  slopes$platt_slope[slopes$model == m & slopes$description == desc &
+                       slopes$k == kk & slopes$dataset == ds]
+}
+slope_mark <- function(slope) {
+  dplyr::case_when(is.na(slope) ~ " ‡", slope < 0 ~ " †", .default = "")
+}
+mark_text <- c(
+  " †" = "† Negative Platt slope: Platt reverses the order of the raw scores (decision D82).",
+  " ‡" = "‡ Platt slope not defined: all C scores are above the clamp of 0.995, so Platt gives 0.5 to every image (decision D89)."
+)
+# The meaning of the marks that a table shows, for its caption.
+mark_caption <- function(marks) {
+  stringr::str_c(" ", mark_text[intersect(names(mark_text), marks)], collapse = "")
 }
 
 # Table of what exists now.
@@ -737,7 +758,7 @@ A description is the pair of texts that tells the model what a nominal and a def
 - The loop is blind: the instructions carry no dataset knowledge from the researchers (decision D74). The researchers approve the instructions before the loop starts, and they do not edit a description during the loop.
 - `scripts/fair_close_loop.R` audits the transcript of the agent. It flags every tool call outside the sandbox and every read of the scoring script, then freezes the final description.
 
-`scripts/fair_run_loop.sh <model> <dataset>` starts each agent as a separate, isolated Claude Code process, with the sandbox as its working folder. The process reads no user, project or local settings, and it loads no CLAUDE.md, skills, plugins, hooks, MCP servers or slash commands. It has only the tools Read, Write, Edit, Glob, Grep, Bash and TodoWrite. The agent reads with the Read, Glob and Grep tools, which stay in the sandbox; reads outside the sandbox are refused, also for the read-only shell commands that Claude Code runs without a prompt. Bash runs without a prompt only for the scoring command. Writes run without a prompt only for `candidates/*.csv`, and writes to `score.sh`, `LOOP.md`, `labels.csv`, `loop_log.csv` and `generic_description.csv` are denied. The permission mode is pinned (`dontAsk`), so the process denies any other call. The model is pinned too. Each loop gets a new session ID, so the path of its transcript is known. The command:
+`scripts/fair_run_loop.sh <model> <dataset>` starts each agent as a separate, isolated Claude Code process, with the sandbox as its working folder. The process reads no user, project or local settings, and it loads no CLAUDE.md, skills, plugins, hooks, MCP servers or slash commands. It has only the tools Read, Write, Edit, Glob, Grep, Bash and TodoWrite. The agent reads with the Read, Glob and Grep tools, which stay in the sandbox; reads outside the sandbox are refused. Bash runs without a prompt for the scoring command and for the read-only commands that Claude Code allows by default, which also stay in the sandbox. Writes run without a prompt only for `candidates/*.csv`, and writes to `score.sh`, `LOOP.md`, `labels.csv`, `loop_log.csv` and `generic_description.csv` are denied. The permission mode is pinned (`dontAsk`), so the process denies every other shell command and every other call. The model is pinned too. Each loop gets a new session ID, so the path of its transcript is known. The command:
 
 ```bash
 claude -p "Read LOOP.md and follow it." --restricted --safe-mode --strict-mcp-config --settings '{"permissions":{"blockReadsOutsideWorkingDirectories":true}}' --tools Read,Write,Edit,Glob,Grep,Bash,TodoWrite --allowedTools Read Glob Grep TodoWrite "Edit(./candidates/*.csv)" "Bash(bash score.sh:*)" "Bash(./score.sh:*)" --disallowedTools "Edit(./score.sh)" "Edit(./LOOP.md)" "Edit(./labels.csv)" "Edit(./loop_log.csv)" "Edit(./generic_description.csv)" --disable-slash-commands --permission-mode dontAsk --permission-prompts none --model claude-opus-5-5 --session-id <new UUID>
@@ -747,7 +768,7 @@ The launcher refuses to start when the sandbox does not exist, when a loop log f
 
 The design AUC of the final description is optimistic, because the loop chose on these images. Its AUC on C is not, because C chose nothing. Pans have no loop: 20 images cannot give references, design images and calibration images. JEV and Clef-Flash use the generic description on pans.
 
-## Calibration and decision
+## Calibration and decision {#sec-calibration-methods}
 
 Each configuration scores C once, and then the test set once. `scripts/fair_score.R` refuses a second run, and a test run before the calibration run. Platt scaling [@platt1999probabilistic], fitted on the C scores of the same configuration, gives the calibrated probability. It uses the smoothed targets of Platt, so a C that separates perfectly still gives a finite fit. Platt keeps the order of the scores only when its slope is positive; a negative slope reverses the order. `metrics.csv` reports the slope of each configuration (column `platt_slope`). The decision is defective when the calibrated probability is 0.5 or more. No method tunes a threshold. C is balanced, so this rule aims at balanced accuracy. Isotonic regression [@zadrozny2002transforming], fitted on C, is a sensitivity analysis (@sec-isotonic).
 
@@ -855,15 +876,7 @@ The evaluation of all configurations (`R/fair_evaluate.R`, run by `scripts/fair_
 For each dataset and model, the loop log keeps every candidate: its texts, its design AUC, the mean score per defect type, the reason that the agent gave and the transcript of the agent. @sec-loop-candidates shows all candidates.
 
 ```{r}
-#| label: loop-note
-#| echo: false
-#| results: asis
-note(!has_loop)
-```
-
-```{r}
-#| label: tbl-loop
-#| tbl-cap: "Description loop: the candidates of each dataset and model, the design AUC of the generic and of the final description (optimistic: the loop chose on these images), and their AUC on C at k = 2 (not optimistic). Audit: tool calls of the agent outside the sandbox."
+#| label: loop-numbers
 #| eval: !expr has_loop
 # AUC on C of the generic and final descriptions at k = 2 (raw scores, which
 # are not in sample). Platt keeps the order only when its slope is positive;
@@ -893,6 +906,30 @@ loop_summary <- loops |>
   dplyr::left_join(auc_on_c, by = c("model", "dataset")) |>
   dplyr::left_join(audit_summary, by = c("model", "dataset"))
 
+# Numbers for the text below: the loops that kept a new description, with
+# the change from the generic to the final description.
+changed <- loop_summary |>
+  dplyr::filter(final > 1) |>
+  dplyr::mutate(design_gain = design_final - design_generic, c_gain = c_final - c_generic)
+loop_row <- \(m, ds) dplyr::filter(loop_summary, model == m, dataset == ds)
+```
+
+Each loop scored `r min(loop_summary$candidates)` to `r max(loop_summary$candidates)` candidates, the generic description included (@tbl-loop). Of the `r nrow(loop_summary)` loops, `r nrow(changed)` kept a new description, and their design AUC rose by `r fmt(min(changed$design_gain), 3)` to `r fmt(max(changed$design_gain), 3)`. On C, which chose nothing, the final description has a higher AUC than the generic one in `r sum(changed$c_gain > 0)` of these `r nrow(changed)` loops. For Clef-Flash on extrusion, it is lower (`r fmt(loop_row("clef", "extrusion")$c_final, 3)` against `r fmt(loop_row("clef", "extrusion")$c_generic, 3)`).
+
+The largest gain is that of Clef-Flash on pipe staple: the AUC rose from `r fmt(loop_row("clef", "pipe_staple")$design_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$design_final, 3)` on the design images, and from `r fmt(loop_row("clef", "pipe_staple")$c_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$c_final, 3)` on C. JEV on pipe staple kept the generic description: its design AUC was already `r fmt(loop_row("jev", "pipe_staple")$design_generic, 3)`, so no candidate could pass the margin of 0.02. The audits of the `r nrow(loop_summary)` loops flagged `r sum(loop_summary$flagged)` tool calls outside the sandbox.
+
+```{r}
+#| label: loop-note
+#| echo: false
+#| results: asis
+note(!has_loop)
+```
+
+```{r}
+#| label: tbl-loop
+#| tbl-cap: "Description loop: the candidates of each dataset and model, the design AUC of the generic and of the final description (optimistic: the loop chose on these images), and their AUC on C at k = 2 (not optimistic). Audit: tool calls of the agent outside the sandbox."
+#| eval: !expr has_loop
+#| include: !expr has_loop
 # Table T4.
 t4 <- loop_summary |>
   dplyr::arrange(match(dataset, dataset_order), match(model, names(model_labels))) |>
@@ -917,6 +954,7 @@ save_table(t4, "T4_description_loop", "Description loop: candidates and AUC.",
 #| fig-width: 7
 #| fig-height: 4.2
 #| eval: !expr has_loop
+#| include: !expr has_loop
 # The current best after each candidate (the AUC of the last kept one).
 loop_steps <- loops |>
   dplyr::arrange(model, dataset, candidate) |>
@@ -952,7 +990,8 @@ fig_loop <- function(layout) {
     ggplot2::coord_cartesian(xlim = c(0.7, 6.3), ylim = c(0.45, 1.02)) +
     ggplot2::facet_grid(rows = ggplot2::vars(model), cols = ggplot2::vars(dataset)) +
     ggplot2::labs(
-      title = headline("Design AUC of the candidate descriptions", layout),
+      title = headline(stringr::str_c(nrow(changed), " of ", nrow(loop_summary),
+                                      " loops kept a new description"), layout),
       subtitle = subline(
         layout,
         "Candidates of ", paint("JEV", model_colors[["JEV"]]), " and ",
@@ -969,20 +1008,12 @@ save_figure(fig_loop, "F2_description_loop",
             height = c("one-column" = 4.2, "two-column" = 4.2))
 ```
 
-# Main results
+# Main results {#sec-main}
 
 @tbl-main gives all metrics on the test set for the five methods of the main comparison. All use Platt scaling on C and the decision at 0.5. JEV and Clef-Flash use the final description of their loop at k = 2 (pans: the generic description). On this page, the chart column shows the balanced accuracy of each method on an axis from 0.4 to 1, with a dashed line at the CLIP baseline of the same dataset. The rows of one dataset thus form a dot chart. The glyphs compare each method with the CLIP baseline (★): ▲ at least 0.02 higher, ● within 0.02, ▼ at least 0.02 lower. Point at a glyph or a dot for the values.
 
 ```{r}
-#| label: main-note
-#| echo: false
-#| results: asis
-note(!has_decision, "Until then, the table shows the three CLIP methods.")
-```
-
-```{r}
-#| label: tbl-main
-#| tbl-cap: "Main results on the test sets: all metrics, after Platt scaling on C, decision at 0.5. Chart: balanced accuracy on an axis from 0.4 to 1 (dashed: CLIP baseline). Glyphs against the CLIP baseline (★): ▲ at least 0.02 higher, ● within 0.02, ▼ at least 0.02 lower."
+#| label: main-numbers
 # The five methods of the main comparison, with their mark in the chart.
 main_methods <- tibble::tribble(
   ~method,                        ~model, ~description, ~k, ~mark,
@@ -995,12 +1026,16 @@ main_methods <- tibble::tribble(
 benchmark <- "CLIP baseline"
 # The configuration of each method on each dataset. Pans: the decision
 # models use the generic description, and the CLIP baseline has k = 10.
+# `flag` marks a reversed or undefined Platt fit.
 main_configs <- tidyr::expand_grid(main_methods, dataset = dataset_order) |>
   dplyr::mutate(
     description = dplyr::if_else(model != "clip" & dataset == "pan_images",
                                  "generic", description),
     k = dplyr::if_else(description == "baseline" & dataset == "pan_images", 10, k)
-  )
+  ) |>
+  dplyr::left_join(slopes, by = c("model", "description", "k", "dataset")) |>
+  dplyr::mutate(flag = slope_mark(platt_slope)) |>
+  dplyr::select(-platt_slope)
 
 # Test metrics of one calibration ("platt", "raw" or "isotonic"), one row per
 # configuration and dataset, one column per metric.
@@ -1010,14 +1045,58 @@ test_metrics <- function(cal) {
     dplyr::select(model, description, k, dataset, metric, value) |>
     tidyr::pivot_wider(names_from = metric, values_from = value)
 }
+# One metric of one configuration (default: test set, after Platt).
+metric_value <- function(m, desc, kk, ds, name, cal = "platt", set = "test") {
+  metrics$value[metrics$model == m & metrics$description == desc & metrics$k == kk &
+                  metrics$dataset == ds & metrics$split == set &
+                  metrics$calibration == cal & metrics$metric == name]
+}
 main <- main_configs |>
   dplyr::inner_join(test_metrics("platt"),
                     by = c("model", "description", "k", "dataset")) |>
   dplyr::arrange(match(dataset, dataset_order), match(method, main_methods$method))
 
+# Numbers for the text below: the balanced accuracy of a decision model or
+# of the CLIP baseline, as in the table.
+ba_main <- function(m, ds) {
+  d <- dplyr::filter(main, model == m, dataset == ds,
+                     method %in% c("JEV, k = 2", "Clef-Flash, k = 2", benchmark))
+  fmt(d$bal_accuracy, 3)
+}
+# The CLIP baseline on pans: the leave-one-out scores in L (its calibration
+# file), the test scores, the score where its Platt fit reaches 0.5, and the
+# raw rule of the CLIP paper (score 0.5 or more).
+pan_clip <- list.files(scores_dir, "^clip_baseline_k10_pan_images_(calibration|test)\\.csv$",
+                       full.names = TRUE) |>
+  purrr::map(read_csv_quiet) |>
+  purrr::list_rbind()
+pan_l <- dplyr::filter(pan_clip, split == "calibration")
+pan_test <- dplyr::filter(pan_clip, split == "test")
+pan_fit <- fair$platt(pan_l$prob_defective, as.integer(pan_l$actual_class == "defective"))
+pan_cut <- stats::uniroot(\(p) pan_fit(p) - 0.5, c(0.01, 0.99), tol = 1e-9)$root
+median_defective <- \(d) stats::median(d$prob_defective[d$actual_class == "defective"])
+pan_platt <- dplyr::filter(main, method == benchmark, dataset == "pan_images")
+pan_raw <- dplyr::filter(test_metrics("raw"), model == "clip", description == "baseline",
+                         dataset == "pan_images")
+```
+
+On pipe staple and pans, both decision models are well above the CLIP baseline. On pipe staple, JEV has a balanced accuracy of `r ba_main("jev", "pipe_staple")` and Clef-Flash `r ba_main("clef", "pipe_staple")`, against `r ba_main("clip", "pipe_staple")`. On pans, JEV has `r ba_main("jev", "pan_images")` and Clef-Flash `r ba_main("clef", "pan_images")`, against `r ba_main("clip", "pan_images")`. On extrusion, the three are close: JEV `r ba_main("jev", "extrusion")`, Clef-Flash `r ba_main("clef", "extrusion")` and the CLIP baseline `r ba_main("clip", "extrusion")`. On textiles, JEV is close to the CLIP baseline (`r ba_main("jev", "textiles")` against `r ba_main("clip", "textiles")`), and Clef-Flash is lower (`r ba_main("clef", "textiles")`). On microstructure, the CLIP baseline is the highest (`r ba_main("clip", "microstructure")`), with JEV at `r ba_main("jev", "microstructure")` and Clef-Flash at `r ba_main("clef", "microstructure")`. @sec-paired tells which differences the test images support.
+
+**Pans.** The CLIP baseline ranks the pans test images almost perfectly (AUC `r fmt(pan_platt$roc_auc, 3)`), but its scores lie in a narrow band around 0.5, from `r fmt(min(pan_test$prob_defective), 3)` to `r fmt(max(pan_test$prob_defective), 3)`. Platt scaling, fitted on the leave-one-out scores of the 10 + 10 images in L, puts the cut (the score where the calibrated probability reaches 0.5) at `r fmt(pan_cut, 3)`. The median score of the defective images is `r fmt(median_defective(pan_l), 3)` in L, but only `r fmt(median_defective(pan_test), 3)` in the test set. Thus the cut is too high for most test defectives: after Platt, the CLIP baseline has a sensitivity of `r fmt(pan_platt$sens, 3)` and a balanced accuracy of `r fmt(pan_platt$bal_accuracy, 3)`. With the raw rule of the CLIP paper (row "CLIP baseline, paper rule" of @tbl-clip), its balanced accuracy is `r fmt(pan_raw$bal_accuracy, 3)`. So the pans difference against the CLIP baseline comes from the calibration of CLIP on very few, near-identical images (@sec-calibration-methods says that these scores are optimistic), not from its ranking.
+
+```{r}
+#| label: main-note
+#| echo: false
+#| results: asis
+note(!has_decision, "Without them, the table shows the three CLIP methods.")
+```
+
+```{r}
+#| label: tbl-main
+#| tbl-cap: !expr 'stringr::str_c("Main results on the test sets: all metrics, after Platt scaling on C, decision at 0.5. Chart: balanced accuracy on an axis from 0.4 to 1 (dashed: CLIP baseline). Glyphs against the CLIP baseline (★): ▲ at least 0.02 higher, ● within 0.02, ▼ at least 0.02 lower.", mark_caption(main_configs$flag))'
 # Table T5 (CSV and LaTeX: values only).
 t5 <- main |>
-  dplyr::transmute(Dataset = dataset_labels[dataset], Method = method,
+  dplyr::transmute(Dataset = dataset_labels[dataset], Method = stringr::str_c(method, flag),
                    dplyr::across(dplyr::all_of(names(metric_labels)))) |>
   dplyr::rename_with(\(x) unname(metric_labels[x]), dplyr::all_of(names(metric_labels)))
 
@@ -1084,7 +1163,8 @@ t5_display <- main |>
       stringr::str_c(glyph(ba_diff, tip),
                      " ", fmt(bal_accuracy, 3))
     ),
-    Method = paint_html(method, unname(model_text_colors[model_labels[model]]))
+    Method = paint_html(stringr::str_c(method, flag),
+                        unname(model_text_colors[model_labels[model]]))
   ) |>
   dplyr::transmute(
     Dataset = dataset_labels[dataset], Method,
@@ -1095,11 +1175,12 @@ t5_display <- main |>
   dplyr::rename_with(\(x) unname(metric_labels[x]),
                      dplyr::all_of(setdiff(names(metric_labels), "bal_accuracy")))
 save_table(t5, "T5_main_results",
-           "Main results on the test sets: all metrics, after Platt scaling on C.",
+           stringr::str_c("Main results on the test sets: all metrics, after Platt scaling on C.",
+                          mark_caption(main_configs$flag)),
            digits = 3, display = t5_display, page_length = 25, group = "Dataset")
 ```
 
-# Paired comparisons
+# Paired comparisons {#sec-paired}
 
 The paired comparisons P1 to P3 (@sec-paired-methods) use the Platt probabilities and the decision at 0.5 on the same test images. Each figure shows the difference (decision model minus the other side) and its paired 95% bootstrap interval. An interval that does not cross 0 shows a difference that the test images support. The table at the end of this section adds the McNemar p-values, before and after the Holm adjustment.
 
@@ -1108,6 +1189,33 @@ The paired comparisons P1 to P3 (@sec-paired-methods) use the Platt probabilitie
 #| echo: false
 #| results: asis
 note(!has_paired)
+```
+
+```{r}
+#| label: paired-numbers
+# Numbers for the text below: the difference in balanced accuracy of one
+# comparison with its 95% interval, and its McNemar p-values, as in the
+# table. A p-value below 0.001 shows as "< 0.001", not as 0.000.
+fmt_p <- function(p) dplyr::if_else(p < 0.001, "< 0.001", fmt(p, 3))
+ba_row <- function(id, m, ds) {
+  dplyr::filter(paired, comparison == id, model == m, dataset == ds,
+                metric == "bal_accuracy")
+}
+diff_text <- function(id, m, ds) {
+  r <- ba_row(id, m, ds)
+  stringr::str_glue("{signed(r$difference, 3)} ({fmt(r$low, 3)} to {fmt(r$high, 3)})")
+}
+holm_text <- function(id, m, ds) {
+  p <- ba_row(id, m, ds)$holm_p
+  stringr::str_c("Holm p ", dplyr::if_else(p < 0.001, "", "= "), fmt_p(p))
+}
+# The largest Holm p-value of some rows of one comparison (pairs of model
+# and dataset).
+max_holm <- function(id, m, ds) {
+  d <- dplyr::filter(paired, comparison == id, metric == "bal_accuracy",
+                     stringr::str_c(model, ":", dataset) %in% stringr::str_c(m, ":", ds))
+  fmt_p(max(d$holm_p))
+}
 ```
 
 ```{r}
@@ -1162,15 +1270,20 @@ forest_heights <- c("one-column" = 5.6, "two-column" = 3.2)
 
 ## P1: against the CLIP baseline
 
+Both decision models are higher than the CLIP baseline on pipe staple and on pans. On pipe staple, the difference in balanced accuracy is `r diff_text("P1", "jev", "pipe_staple")` for JEV (`r holm_text("P1", "jev", "pipe_staple")`) and `r diff_text("P1", "clef", "pipe_staple")` for Clef-Flash (`r holm_text("P1", "clef", "pipe_staple")`). On pans, it is `r diff_text("P1", "jev", "pan_images")` for JEV (`r holm_text("P1", "jev", "pan_images")`) and `r diff_text("P1", "clef", "pan_images")` for Clef-Flash (`r holm_text("P1", "clef", "pan_images")`). Clef-Flash is lower than the CLIP baseline on textiles and on microstructure: `r diff_text("P1", "clef", "textiles")` and `r diff_text("P1", "clef", "microstructure")`, with `r holm_text("P1", "clef", "textiles")` and `r holm_text("P1", "clef", "microstructure")`. On extrusion, both intervals include 0, and so does the JEV interval on textiles. The pans differences come from the calibration of CLIP, not from its ranking (see Pans in @sec-main).
+
+On microstructure, the JEV difference is `r diff_text("P1", "jev", "microstructure")`. Its interval excludes 0, but the McNemar test is not significant after the Holm adjustment (`r holm_text("P1", "jev", "microstructure")`). The unadjusted McNemar p-value is `r fmt_p(ba_row("P1", "jev", "microstructure")$mcnemar_p)`: the interval is not adjusted for the `r ba_row("P1", "jev", "microstructure")$holm_family_size` McNemar tests of each model, but the Holm p-value is.
+
 ```{r}
 #| label: fig-paired-p1
 #| fig-cap: "P1: the decision models (final description, k = 2) minus the CLIP baseline, both calibrated."
 #| fig-width: 7
 #| fig-height: 3.2
 #| eval: !expr has_comparison("P1")
+#| include: !expr has_comparison("P1")
 # Figure F3.
 save_figure(
-  fig_forest("P1", "P1: decision models against the CLIP baseline",
+  fig_forest("P1", "P1: the decision models lead CLIP on pipe staple and pans",
              "Decision model (final description, k = 2) minus the CLIP baseline; both use Platt scaling on C."),
   "F3_paired_P1", height = forest_heights
 )
@@ -1178,15 +1291,20 @@ save_figure(
 
 ## P2: final against generic description
 
+The final description raises JEV on extrusion by `r diff_text("P2", "jev", "extrusion")`, on textiles by `r diff_text("P2", "jev", "textiles")` and on microstructure by `r diff_text("P2", "jev", "microstructure")`. It raises Clef-Flash on pipe staple by `r diff_text("P2", "clef", "pipe_staple")` and on microstructure by `r diff_text("P2", "clef", "microstructure")`. These five gains survive the Holm adjustment (largest Holm p-value: `r max_holm("P2", c("jev", "jev", "jev", "clef", "clef"), c("extrusion", "textiles", "microstructure", "pipe_staple", "microstructure"))`). For Clef-Flash on textiles, the gain is `r diff_text("P2", "clef", "textiles")`: its interval excludes 0, but the gain does not survive the Holm adjustment (`r holm_text("P2", "clef", "textiles")`). On extrusion, the Clef-Flash interval includes 0.
+
+For JEV on pipe staple, the final description is the generic text (decision D85), so P2 compares two runs of the same prompts. This row thus measures the run-to-run variation of JEV (decision D88): `r diff_text("P2", "jev", "pipe_staple")`. The two runs gave slightly different probabilities. On the test set, the final run has a sensitivity of `r fmt(metric_value("jev", "final", 2, "pipe_staple", "sens"))` and a specificity of `r fmt(metric_value("jev", "final", 2, "pipe_staple", "spec"))`, and the generic run `r fmt(metric_value("jev", "generic", 2, "pipe_staple", "sens"))` and `r fmt(metric_value("jev", "generic", 2, "pipe_staple", "spec"))`.
+
 ```{r}
 #| label: fig-paired-p2
 #| fig-cap: "P2: the final description minus the generic description, both at k = 2. Pans have no P2."
 #| fig-width: 7
 #| fig-height: 3.2
 #| eval: !expr has_comparison("P2")
+#| include: !expr has_comparison("P2")
 # Figure F4.
 save_figure(
-  fig_forest("P2", "P2: final description against the generic description",
+  fig_forest("P2", "P2: the final description helps both models on most datasets",
              "Final minus generic description, both at k = 2. Pans have no loop and no P2."),
   "F4_paired_P2", height = forest_heights
 )
@@ -1194,15 +1312,20 @@ save_figure(
 
 ## P3: two references against none
 
+Two references per class raise the balanced accuracy of JEV on four datasets: extrusion by `r diff_text("P3", "jev", "extrusion")`, textiles by `r diff_text("P3", "jev", "textiles")`, pipe staple by `r diff_text("P3", "jev", "pipe_staple")` and pans by `r diff_text("P3", "jev", "pan_images")`. All four gains survive the Holm adjustment (largest Holm p-value: `r max_holm("P3", "jev", c("extrusion", "textiles", "pipe_staple", "pan_images"))`). Clef-Flash gains on textiles (`r holm_text("P3", "clef", "textiles")`) and on pans (`r holm_text("P3", "clef", "pan_images")`). Its gain on extrusion, `r diff_text("P3", "clef", "extrusion")`, has an interval that excludes 0, but it does not survive the Holm adjustment (`r holm_text("P3", "clef", "extrusion")`). Microstructure gains little: `r diff_text("P3", "jev", "microstructure")` for JEV and `r diff_text("P3", "clef", "microstructure")` for Clef-Flash, with intervals that include 0.
+
+The k = 0 side of JEV on pipe staple has a negative Platt slope (`r fmt(slope_of("jev", "final", 0, "pipe_staple"))`; decision D82). Its raw scores run backwards (raw test AUC `r fmt(metric_value("jev", "final", 0, "pipe_staple", "roc_auc", "raw"), 3)`), and Platt reverses them. Its calibrated result thus comes from the calibration labels, not from the raw ranking. On pans and pipe staple, the size of P3 depends on the calibration method (@sec-isotonic).
+
 ```{r}
 #| label: fig-paired-p3
 #| fig-cap: "P3: k = 2 minus k = 0, both with the final description (pans: generic)."
 #| fig-width: 7
 #| fig-height: 3.2
 #| eval: !expr has_comparison("P3")
+#| include: !expr has_comparison("P3")
 # Figure F5.
 save_figure(
-  fig_forest("P3", "P3: two references per class against none",
+  fig_forest("P3", "P3: two references per class help, least on microstructure",
              "k = 2 minus k = 0, both with the final description (pans: generic)."),
   "F5_paired_P3", height = forest_heights
 )
@@ -1211,28 +1334,56 @@ save_figure(
 ## Table of the comparisons
 
 ```{r}
+#| label: paired-marks
+# The mark of each comparison: the mark of a side whose Platt fit reverses
+# the raw order or is not defined. The sides come from the plan of
+# R/fair_evaluate.R; the CLIP baseline of P1 has one k per dataset.
+plan <- c("jev", "clef") |>
+  purrr::map(\(m) dplyr::mutate(fair$comparison_plan(m, dataset_order), model = m)) |>
+  purrr::list_rbind()
+side_a <- plan |>
+  dplyr::inner_join(dplyr::filter(slopes, k == k_main),
+                    by = c("model", final = "description", "dataset"))
+side_b <- plan |>
+  dplyr::inner_join(dplyr::rename(slopes, b_model = model, b_desc = description),
+                    by = c("b_model", "b_desc", "dataset"), relationship = "many-to-many") |>
+  dplyr::filter(is.na(b_k) | k == b_k)
+comparison_flags <- dplyr::bind_rows(side_a, side_b) |>
+  dplyr::summarise(flag = stringr::str_c(unique(slope_mark(platt_slope)), collapse = ""),
+                   .by = c(comparison, model, dataset))
+# The meaning of the marks, for the caption of the table.
+paired_marks <- ""
+if (any(comparison_flags$flag != "")) {
+  paired_marks <- stringr::str_c(" A mark on a comparison applies to one of its two sides.",
+                                 mark_caption(comparison_flags$flag))
+}
+```
+
+```{r}
 #| label: tbl-paired
-#| tbl-cap: "Paired comparisons on the test sets: difference (95% paired bootstrap interval) for balanced accuracy, MCC and AUC, and the exact McNemar p-value, before and after the Holm adjustment within each model."
+#| tbl-cap: !expr 'stringr::str_c("Paired comparisons on the test sets: difference (95% paired bootstrap interval) for balanced accuracy, MCC and AUC, and the exact McNemar p-value, before and after the Holm adjustment within each model.", paired_marks)'
 #| eval: !expr has_paired
-# Table T6: one row per comparison, model and dataset. A p-value below
-# 0.001 shows as "< 0.001", not as 0.000.
-fmt_p <- function(p) dplyr::if_else(p < 0.001, "< 0.001", fmt(p, 3))
+#| include: !expr has_paired
+# Table T6: one row per comparison, model and dataset.
 t6 <- paired |>
-  dplyr::mutate(cell = stringr::str_glue("{signed(difference)} ({fmt(low)} to {fmt(high)})")) |>
-  dplyr::select(comparison, model, dataset, metric, cell, mcnemar_p, holm_p,
+  dplyr::left_join(comparison_flags, by = c("comparison", "model", "dataset")) |>
+  dplyr::mutate(cell = stringr::str_glue("{signed(difference, 3)} ({fmt(low, 3)} to {fmt(high, 3)})")) |>
+  dplyr::select(comparison, flag, model, dataset, metric, cell, mcnemar_p, holm_p,
                 holm_family_size) |>
   tidyr::pivot_wider(names_from = metric, values_from = cell) |>
   dplyr::arrange(match(dataset, dataset_order), comparison,
                  match(model, names(model_labels))) |>
   dplyr::transmute(
-    Dataset = dataset_labels[dataset], Comparison = comparison,
+    Dataset = dataset_labels[dataset],
+    Comparison = stringr::str_c(comparison, dplyr::coalesce(flag, "")),
     Model = model_labels[model],
     `Balanced accuracy` = as.character(bal_accuracy), MCC = as.character(mcc),
     AUC = as.character(roc_auc),
     `McNemar p` = fmt_p(mcnemar_p), `Holm p` = fmt_p(holm_p),
     `Holm tests` = holm_family_size
   )
-save_table(t6, "T6_paired_comparisons", "Paired comparisons on the test sets.",
+save_table(t6, "T6_paired_comparisons",
+           stringr::str_c("Paired comparisons on the test sets.", paired_marks),
            digits = 3, page_length = 30, group = "Dataset")
 ```
 
@@ -1241,15 +1392,56 @@ save_table(t6, "T6_paired_comparisons", "Paired comparisons on the test sets.",
 @fig-reference-curve shows the test balanced accuracy and AUC against the number of references per class, k = 0, 1, 2 and 4. The decision models use the final description (pans: generic) at every k, so only the references change. For CLIP, k = 0 is zero-shot, and k > 0 uses the same references as the decision models. All values use Platt scaling on C. The bars give the paired 95% interval of the change from k = 0, placed at the value: a bar that does not reach the value at k = 0 shows a change that the test images support. A bar stops at 0 and 1, the limits of both metrics.
 
 ```{r}
+#| label: curve-numbers
+# Numbers for the text below: the balanced accuracy of one model at one k,
+# and the change from k = 2 to k = 4.
+curve_ba <- function(m, ds, kk) {
+  k_curve$value[k_curve$model == m & k_curve$dataset == ds & k_curve$k == kk &
+                  k_curve$metric == "bal_accuracy"]
+}
+change_2_to_4 <- k_curve |>
+  dplyr::filter(metric == "bal_accuracy", k %in% c(2, 4)) |>
+  dplyr::summarise(change = value[k == 4] - value[k == 2], .by = c(model, dataset))
+max_change <- function(m, datasets = dataset_order) {
+  fmt(max(abs(change_2_to_4$change[change_2_to_4$model == m &
+                                     change_2_to_4$dataset %in% datasets])), 3)
+}
+# The k = 0 points whose Platt fit has a negative slope (decision D82): the
+# decision models with the description of the curve, and CLIP zero-shot.
+reversed_k0 <- k_curve |>
+  dplyr::filter(k == 0, metric == "bal_accuracy") |>
+  dplyr::mutate(description = dplyr::case_when(model == "clip" ~ "zero",
+                                               dataset == "pan_images" ~ "generic",
+                                               .default = "final")) |>
+  dplyr::inner_join(slopes, by = c("model", "description", "k", "dataset")) |>
+  dplyr::filter(platt_slope < 0) |>
+  dplyr::arrange(match(model, names(model_labels)), match(dataset, dataset_order)) |>
+  dplyr::mutate(label = stringr::str_c(
+    dplyr::if_else(model == "clip", "CLIP zero-shot", model_labels[model]), " on ",
+    stringr::str_to_lower(dataset_labels[dataset])
+  ))
+reversed_k0_text <- as.character(knitr::combine_words(reversed_k0$label, oxford_comma = FALSE))
+reversed_k0_caption <- ""
+if (nrow(reversed_k0) > 0) {
+  reversed_k0_caption <- stringr::str_c(
+    " At k = 0, the Platt fit has a negative slope and reverses the raw scores ",
+    "(decision D82) for ", reversed_k0_text, "."
+  )
+}
+```
+
+The decision models get most of their gain from the first references. From k = 2 to k = 4, the balanced accuracy of JEV changes by `r max_change("jev")` or less; the largest change is on microstructure, from `r fmt(curve_ba("jev", "microstructure", 2), 3)` to `r fmt(curve_ba("jev", "microstructure", 4), 3)`. On extrusion, textiles, pipe staple and pans, most of the JEV gain comes at k = 1: from k = 0 to k = 1, JEV gains `r fmt(curve_ba("jev", "pipe_staple", 1) - curve_ba("jev", "pipe_staple", 0), 3)` on pipe staple and `r fmt(curve_ba("jev", "pan_images", 1) - curve_ba("jev", "pan_images", 0), 3)` on pans. From k = 2 to k = 4, Clef-Flash changes by `r max_change("clef", setdiff(dataset_order, "pan_images"))` or less, except on pans, where it drops from `r fmt(curve_ba("clef", "pan_images", 2), 3)` to `r fmt(curve_ba("clef", "pan_images", 4), 3)`. CLIP with the same references gains more slowly: on textiles, it has `r fmt(curve_ba("clip", "textiles", 2), 3)` at k = 2 and `r fmt(curve_ba("clip", "textiles", 4), 3)` at k = 4. At k = 0, the Platt fit reverses the raw scores (negative slope; decision D82) for `r reversed_k0_text`.
+
+```{r}
 #| label: curve-note
 #| echo: false
 #| results: asis
-note(!has_decision, "Until then, the figure shows CLIP only.")
+note(!has_decision, "Without them, the figure shows CLIP only.")
 ```
 
 ```{r}
 #| label: fig-reference-curve
-#| fig-cap: "Test balanced accuracy and AUC against the number of references per class (Platt scaling on C). Bars: paired 95% interval of the change from k = 0, placed at the value and cut at the limits of the metric (0 and 1)."
+#| fig-cap: !expr 'stringr::str_c("Test balanced accuracy and AUC against the number of references per class (Platt scaling on C). Bars: paired 95% interval of the change from k = 0, placed at the value and cut at the limits of the metric (0 and 1).", reversed_k0_caption)'
 #| fig-width: 7
 #| fig-height: 3.8
 # Values and intervals; the interval of the change from k = 0 is moved to the
@@ -1290,7 +1482,7 @@ fig_curve <- function(layout) {
     ggplot2::coord_cartesian(ylim = c(0.3, 1.02)) +
     facets +
     ggplot2::labs(
-      title = headline("Test results against the number of references per class", layout),
+      title = headline("Beyond two references, the decision models gain little", layout),
       subtitle = subline(
         layout,
         stringr::str_c(model_text, collapse = ", "),
@@ -1310,40 +1502,58 @@ save_figure(fig_curve, "F6_reference_curve",
 Raw scores are not probabilities that a quality engineer can trust. @tbl-calibration gives the ECE, the Brier score and the log loss on the test set before (raw) and after Platt scaling on C. @fig-reliability shows the reliability diagrams of the decision models and of the CLIP baseline. The raw CLIP scores are the softmax of two cosine similarities, which differ little, so they stay near 0.5.
 
 ```{r}
-#| label: calibration-note
-#| echo: false
-#| results: asis
-note(!has_decision, "Until then, the table and the figure show CLIP only.")
-```
-
-```{r}
-#| label: tbl-calibration
-#| tbl-cap: "Calibration on the test sets: ECE, Brier score and log loss of the raw scores and after Platt scaling on C."
+#| label: calibration-numbers
 # Raw and Platt metrics of the main methods.
 calibration_rows <- c("raw", "platt") |>
   purrr::map(\(cal) dplyr::mutate(test_metrics(cal), calibration = cal)) |>
   purrr::list_rbind() |>
   dplyr::inner_join(main_configs, by = c("model", "description", "k", "dataset")) |>
-  dplyr::select(method, dataset, calibration, ece, brier_class, mn_log_loss) |>
+  dplyr::select(method, flag, dataset, calibration, ece, brier_class, mn_log_loss) |>
   tidyr::pivot_wider(names_from = calibration,
                      values_from = c(ece, brier_class, mn_log_loss)) |>
   dplyr::arrange(match(dataset, dataset_order), match(method, main_methods$method))
 
+# Numbers for the text below: the test ECE of the two decision models and
+# the CLIP baseline, the methods of the reliability diagrams.
+reliability_methods <- c("JEV, k = 2", "Clef-Flash, k = 2", "CLIP baseline")
+ece_rows <- calibration_rows |>
+  dplyr::filter(method %in% reliability_methods) |>
+  dplyr::mutate(drop = ece_raw - ece_platt)
+ece_of <- function(meth, ds, cal) {
+  fmt(ece_rows[[stringr::str_c("ece_", cal)]][ece_rows$method == meth & ece_rows$dataset == ds], 3)
+}
+pan_ece <- ece_rows$ece_platt[ece_rows$dataset == "pan_images"]
+other_ece <- ece_rows$ece_platt[ece_rows$dataset != "pan_images"]
+```
+
+Platt scaling lowers the test ECE most where the raw scores are far from calibrated. The largest drop is that of the CLIP baseline on textiles, from `r ece_of("CLIP baseline", "textiles", "raw")` to `r ece_of("CLIP baseline", "textiles", "platt")`. Outside pans, the ECE after Platt is `r fmt(min(other_ece), 3)` to `r fmt(max(other_ece), 3)` for the two decision models and the CLIP baseline. Platt does not lower the ECE everywhere: it raises it in `r sum(ece_rows$drop < 0)` of the `r nrow(ece_rows)` cases, for both decision models on extrusion and pans, and for the CLIP baseline on pipe staple. Pans have the highest ECE after Platt, `r fmt(min(pan_ece), 3)` to `r fmt(max(pan_ece), 3)`. The test ECE uses 10 equal bins, so with `r sum(test_set$dataset == "pan_images")` pan images it is noisy.
+
+```{r}
+#| label: calibration-note
+#| echo: false
+#| results: asis
+note(!has_decision, "Without them, the table and the figure show CLIP only.")
+```
+
+```{r}
+#| label: tbl-calibration
+#| tbl-cap: !expr 'stringr::str_c("Calibration on the test sets: ECE, Brier score and log loss of the raw scores and after Platt scaling on C.", mark_caption(calibration_rows$flag))'
 # Table T7.
 t7 <- calibration_rows |>
   dplyr::transmute(
-    Dataset = dataset_labels[dataset], Method = method,
+    Dataset = dataset_labels[dataset], Method = stringr::str_c(method, flag),
     `ECE raw` = ece_raw, `ECE Platt` = ece_platt,
     `Brier raw` = brier_class_raw, `Brier Platt` = brier_class_platt,
     `Log loss raw` = mn_log_loss_raw, `Log loss Platt` = mn_log_loss_platt
   )
-save_table(t7, "T7_calibration", "Calibration on the test sets.", digits = 3,
-           page_length = 25, group = "Dataset")
+save_table(t7, "T7_calibration",
+           stringr::str_c("Calibration on the test sets.", mark_caption(calibration_rows$flag)),
+           digits = 3, page_length = 25, group = "Dataset")
 
 # The reliability figure below has one panel per method and dataset, for
-# the two decision models and the CLIP baseline. Its height follows the
-# number of panels (five per row; three in the one-column size).
-reliability_methods <- c("JEV, k = 2", "Clef-Flash, k = 2", "CLIP baseline")
+# the two decision models and the CLIP baseline (reliability_methods). Its
+# height follows the number of panels (five per row; three in the
+# one-column size).
 n_panels <- sum(calibration_rows$method %in% reliability_methods)
 reliability_heights <- c(
   "one-column" = 1.5 + 1.5 * ceiling(n_panels / 3),
@@ -1413,7 +1623,7 @@ fig_reliability <- function(layout) {
     ggplot2::scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.5, 1)) +
     ggplot2::facet_wrap(ggplot2::vars(strip), ncol = if (layout == "one-column") 3 else 5) +
     ggplot2::labs(
-      title = headline("Reliability of the test probabilities before and after Platt scaling", layout),
+      title = headline("Platt scaling fixes the worst raw scores, except on pans", layout),
       subtitle = subline(
         layout,
         paint("Raw", calibration_colors[["raw"]]), " scores and ",
@@ -1459,6 +1669,27 @@ clip_pan_ms <- clip_base$median_ms[clip_base$dataset == "pan_images"]
 clip_other_ms <- mean(clip_base$median_ms[clip_base$dataset != "pan_images"])
 if (length(clip_pan_ms) == 0) clip_pan_ms <- clip_other_ms <- NA_real_
 
+# Median time of the decision models at k = 2 (final description; pans:
+# generic): the range over the other datasets, and pans.
+decision_ms <- dplyr::filter(timing, model %in% c("jev", "clef"), split == "test", k == k_main,
+                             description == dplyr::if_else(dataset == "pan_images",
+                                                           "generic", "final"))
+ms_range <- function(m) {
+  ms <- decision_ms$median_ms[decision_ms$model == m & decision_ms$dataset != "pan_images"]
+  stringr::str_c(fmt(min(ms), 0), " to ", fmt(max(ms), 0))
+}
+ms_pan <- \(m) fmt(decision_ms$median_ms[decision_ms$model == m & decision_ms$dataset == "pan_images"], 0)
+
+# Calls and estimated cost of JEV: the test runs, and all runs with a cost.
+jev_calls <- dplyr::filter(timing, !is.na(n_calls))
+jev_test_calls <- dplyr::filter(jev_calls, split == "test")
+no_cost <- sum(is.na(jev_calls$cost_usd))
+cost_note <- ""
+if (no_cost > 0) {
+  cost_note <- stringr::str_c(" The call log has no cost for ", no_cost,
+                              " configurations; the total does not include them.")
+}
+
 # One sentence that names the hardware of each method.
 hardware_text <- hardware |>
   dplyr::mutate(label = model_labels[model]) |>
@@ -1473,19 +1704,20 @@ The times come from different hardware: `r hardware_text`. JEV time includes the
 
 ## Time per image
 
-@tbl-time gives the median and the interquartile range (Q1 to Q3) of the time per image on the test set. The CLIP time is the time of the timing pass, after one warm-up call. The CLIP baseline needs a median of `r fmt(clip_pan_ms, 0)` ms for a pan image and `r fmt(clip_other_ms, 0)` ms on average for an image of the other datasets.
+@tbl-time gives the median and the interquartile range (Q1 to Q3) of the time per image on the test set. The CLIP time is the time of the timing pass, after one warm-up call. At k = 2, JEV needs a median of `r ms_range("jev")` ms per image on the four datasets other than pans, and `r ms_pan("jev")` ms on pans. Clef-Flash needs `r ms_range("clef")` ms, and `r ms_pan("clef")` ms on pans. The CLIP baseline needs a median of `r fmt(clip_pan_ms, 0)` ms for a pan image and `r fmt(clip_other_ms, 0)` ms on average for an image of the other datasets.
 
 ```{r}
 #| label: time-note
 #| echo: false
 #| results: asis
-note(!has_decision_time, "Until then, the table shows CLIP only.")
+note(!has_decision_time, "Without them, the table shows CLIP only.")
 ```
 
 ```{r}
 #| label: tbl-time
 #| tbl-cap: "Time per image on the test sets (ms): median and quartiles. JEV and Clef-Flash: the wall time of the call with the image preparation. CLIP: image loading, preparation, encoding and scoring on the local GPU, after one warm-up call. The hardware differs between the methods (see the text)."
 #| eval: !expr has_clip_time || has_decision_time
+#| include: !expr has_clip_time || has_decision_time
 # Test rows of the main methods, with their hardware.
 time_rows <- main_configs |>
   dplyr::inner_join(dplyr::filter(timing, split == "test", !is.na(median_ms)),
@@ -1511,13 +1743,14 @@ save_table(t8, "T8_time_per_image", "Time per image on the test sets (ms).",
 #| label: total-note
 #| echo: false
 #| results: asis
-note(!has_decision_time, "Until then, the table shows CLIP only.")
+note(!has_decision_time, "Without them, the table shows CLIP only.")
 ```
 
 ```{r}
 #| label: tbl-total-time
 #| tbl-cap: "Total time of each step (seconds), summed over the configurations of a method and a dataset. Design: all candidates of the description loop. CLIP: the timing pass on the test images."
 #| eval: !expr any(!is.na(timing$total_seconds))
+#| include: !expr any(!is.na(timing$total_seconds))
 step_labels <- c(design = "Design loop", calibration = "Calibration runs", test = "Test runs")
 total_rows <- timing |>
   dplyr::filter(!is.na(total_seconds)) |>
@@ -1540,19 +1773,22 @@ save_table(t9, "T9_total_time", "Total time of each step (seconds).",
 
 ## JEV cost
 
-The cost of JEV is an estimate: the input tokens of each call times USD 0.042 per million, the price in `R/industrial_defect_classifier.R`. The client logs the tokens of each call in the TypeSafe call log, with the purpose of the call, which names the step and the configuration. The estimate does not include the output tokens. After the runs, the replication record compares the logged total with the usage that the TypeSafe account shows.
+The cost of JEV is an estimate: the input tokens of each call times USD 0.042 per million, the price in `R/industrial_defect_classifier.R`. The client logs the tokens of each call in the TypeSafe call log, with the purpose of the call, which names the step and the configuration. The estimate does not include the output tokens. The researchers can compare the logged total with the usage that the TypeSafe account shows.
+
+The `r fmt(sum(jev_test_calls$n_calls), 0)` JEV calls of the test runs cost about USD `r fmt(sum(jev_test_calls$cost_usd, na.rm = TRUE))`. All `r fmt(sum(jev_calls$n_calls), 0)` JEV calls of the description loops, the calibration runs and the test runs cost about USD `r fmt(sum(jev_calls$cost_usd, na.rm = TRUE))` (@tbl-cost).
 
 ```{r}
 #| label: cost-note
 #| echo: false
 #| results: asis
-note(!has_cost, "Until then, no JEV call has a cost in the log.")
+note(!has_cost, "No JEV call has a cost in the log.")
 ```
 
 ```{r}
 #| label: tbl-cost
-#| tbl-cap: "Calls, tokens and estimated cost of the JEV runs, by configuration. Estimated cost: input tokens times USD 0.042 per million."
+#| tbl-cap: !expr 'stringr::str_c("Calls, tokens and estimated cost of the JEV runs, by configuration. Estimated cost: input tokens times USD 0.042 per million.", cost_note)'
 #| eval: !expr has_cost
+#| include: !expr has_cost
 cost_rows <- timing |>
   dplyr::filter(!is.na(n_calls)) |>
   dplyr::arrange(match(dataset, dataset_order), match(split, names(step_labels)), k)
@@ -1568,11 +1804,13 @@ t10 <- cost_rows |>
   ) |>
   dplyr::bind_rows(tibble::tibble(
     Dataset = "Total", Step = "All", Configuration = "All configurations",
-    Calls = sum(cost_rows$n_calls), `Input tokens` = sum(cost_rows$input_tokens),
-    `Output tokens` = sum(cost_rows$output_tokens),
-    `Estimated cost (USD)` = sum(cost_rows$cost_usd)
+    Calls = sum(cost_rows$n_calls, na.rm = TRUE),
+    `Input tokens` = sum(cost_rows$input_tokens, na.rm = TRUE),
+    `Output tokens` = sum(cost_rows$output_tokens, na.rm = TRUE),
+    `Estimated cost (USD)` = sum(cost_rows$cost_usd, na.rm = TRUE)
   ))
-save_table(t10, "T10_jev_cost", "Calls, tokens and estimated cost of the JEV runs.",
+save_table(t10, "T10_jev_cost",
+           stringr::str_c("Calls, tokens and estimated cost of the JEV runs.", cost_note),
            digits = 4, page_length = 25, group = "Dataset")
 ```
 
@@ -1607,16 +1845,74 @@ The v0.0.1 runs used the test sets once, and this design keeps the same test set
 
 ## Isotonic calibration {#sec-isotonic}
 
+The plan made isotonic regression a sensitivity analysis, because Platt scaling fits 2 parameters and isotonic regression overfits with 25 images per class. @tbl-isotonic gives the test results of every configuration after both. The differences below are point differences of the test balanced accuracy, from `metrics.csv`, because `paired.csv` uses Platt only.
+
+```{r}
+#| label: isotonic-numbers
+# Numbers for the text below. The point differences of P1 to P3 after Platt
+# and after isotonic, with the sides of the plan (chunk paired-marks).
+ba_test <- metrics |>
+  dplyr::filter(split == "test", metric == "bal_accuracy", calibration != "raw") |>
+  dplyr::select(model, description, k, dataset, calibration, value)
+iso_diffs <- plan |>
+  dplyr::mutate(k = k_main) |>
+  dplyr::inner_join(ba_test, by = c("model", final = "description", "k", "dataset"),
+                    relationship = "many-to-many") |>
+  dplyr::inner_join(dplyr::rename(ba_test, b_model = model, b_desc = description,
+                                  b_k_side = k, b_value = value),
+                    by = c("b_model", "b_desc", "dataset", "calibration"),
+                    relationship = "many-to-many") |>
+  dplyr::filter(is.na(b_k) | b_k_side == b_k) |>
+  dplyr::transmute(comparison, model, dataset, calibration, difference = value - b_value)
+iso_diff <- function(id, m, ds, cal) {
+  signed(iso_diffs$difference[iso_diffs$comparison == id & iso_diffs$model == m &
+                                iso_diffs$dataset == ds & iso_diffs$calibration == cal], 3)
+}
+
+# JEV with the generic description at k = 0 on pans: the scores of its
+# calibration images (the 10 + 10 images of L), and the cut of each fit (the
+# score where the calibrated probability reaches 0.5).
+pan_k0 <- read_csv_quiet(file.path(scores_dir, "jev_generic_k0_pan_images_calibration.csv"))
+pan_k0_y <- as.integer(pan_k0$actual_class == "defective")
+pan_k0_cut <- purrr::map_dbl(list(platt = fair$platt, isotonic = fair$isotonic), \(fit) {
+  calibrate <- fit(pan_k0$prob_defective, pan_k0_y)
+  stats::uniroot(\(p) calibrate(p) - 0.5, c(0.01, 0.99), tol = 1e-9)$root
+})
+pan_k0_defective <- sort(pan_k0$prob_defective[pan_k0_y == 1])
+
+# CLIP zero-shot with the final descriptions on textiles: its scores on C.
+zero_final_c <- read_csv_quiet(file.path(scores_dir, "clip_zero_final_k0_textiles_calibration.csv"))
+
+# The configurations with a negative Platt slope, and those of them whose
+# isotonic fit gives 0.5 to every test image (one pooled block).
+config_keys <- c("model", "description", "k", "dataset")
+reversed <- slopes |>
+  dplyr::filter(platt_slope < 0) |>
+  dplyr::inner_join(dplyr::filter(ba_test, calibration == "isotonic"), by = config_keys)
+one_block <- calibrated |>
+  dplyr::filter(split == "test") |>
+  dplyr::summarise(pooled = all(abs(isotonic - 0.5) < 1e-9), .by = dplyr::all_of(config_keys))
+reversed <- dplyr::left_join(reversed, one_block, by = config_keys)
+```
+
+- **P1** keeps its direction for both models on every dataset. The JEV gap on microstructure grows from `r iso_diff("P1", "jev", "microstructure", "platt")` with Platt to `r iso_diff("P1", "jev", "microstructure", "isotonic")` with isotonic. On extrusion, the Clef-Flash difference stays near 0 (`r iso_diff("P1", "clef", "extrusion", "platt")` with Platt, `r iso_diff("P1", "clef", "extrusion", "isotonic")` with isotonic).
+- **P2** mostly holds. The JEV gain on extrusion shrinks from `r iso_diff("P2", "jev", "extrusion", "platt")` to `r iso_diff("P2", "jev", "extrusion", "isotonic")`, and the small Clef-Flash gain on extrusion changes sign (`r iso_diff("P2", "clef", "extrusion", "platt")` to `r iso_diff("P2", "clef", "extrusion", "isotonic")`).
+- **P3** depends on the calibration method on two datasets. *Pipe staple:* the k = 0 side of JEV has a negative Platt slope. Platt reverses its scores (balanced accuracy `r fmt(metric_value("jev", "final", 0, "pipe_staple", "bal_accuracy"), 3)`). Isotonic regression cannot, because it fits a non-decreasing function: all its probabilities pool to 0.5, so every image is called defective (`r fmt(metric_value("jev", "final", 0, "pipe_staple", "bal_accuracy", "isotonic"), 3)`). The JEV gain thus looks about twice as large: `r iso_diff("P3", "jev", "pipe_staple", "isotonic")` with isotonic against `r iso_diff("P3", "jev", "pipe_staple", "platt")` with Platt. *Pans:* the calibration images are the 10 + 10 images of L. For JEV with the generic description at k = 0, the two classes do not overlap on them: the nominal images score `r fmt(max(pan_k0$prob_defective[pan_k0_y == 0]))` or less, the defective images `r fmt(min(pan_k0_defective))` or more. Isotonic regression puts the cut inside this gap (`r fmt(pan_k0_cut[["isotonic"]])`). Platt puts it higher (`r fmt(pan_k0_cut[["platt"]])`), because `r sum(pan_k0_defective >= pan_k0_defective[2])` of the `r length(pan_k0_defective)` defective images score `r fmt(pan_k0_defective[2])` or more. On the test set, Platt thus misses many defective images (sensitivity `r fmt(metric_value("jev", "generic", 0, "pan_images", "sens"), 3)`, against `r fmt(metric_value("jev", "generic", 0, "pan_images", "sens", "isotonic"), 3)` with isotonic), and the pans gain of JEV is `r iso_diff("P3", "jev", "pan_images", "platt")` with Platt but `r iso_diff("P3", "jev", "pan_images", "isotonic")` with isotonic. Clef-Flash shows the same pattern on pans (`r iso_diff("P3", "clef", "pan_images", "platt")` against `r iso_diff("P3", "clef", "pan_images", "isotonic")`). On microstructure, the small JEV gain changes sign (`r iso_diff("P3", "jev", "microstructure", "platt")` to `r iso_diff("P3", "jev", "microstructure", "isotonic")`).
+- **CLIP zero-shot with the final descriptions on textiles** (decision D89): isotonic regression works on the raw scores with no clamp. It thus separates the `r nrow(zero_final_c)` scores of C, all between `r fmt(min(zero_final_c$prob_defective), 3)` and `r fmt(max(zero_final_c$prob_defective), 3)`, and gives a balanced accuracy of `r fmt(metric_value("clip", "zero_final", 0, "textiles", "bal_accuracy", "isotonic"), 3)`. Platt gives 0.5 to every image (`r fmt(metric_value("clip", "zero_final", 0, "textiles", "bal_accuracy"), 3)`).
+- **Negative Platt slopes** (decision D82): with isotonic regression, `r sum(reversed$pooled)` of the `r nrow(reversed)` configurations get one pooled block at 0.5. Every image is then called defective (the rule is 0.5 or more), and the balanced accuracy is `r knitr::combine_words(unique(fmt(reversed$value[reversed$pooled], 3)))`. The other one, Clef-Flash with the generic description at k = 2 on pipe staple, gets `r fmt(reversed$value[!reversed$pooled], 3)`: its raw scores on C are near chance (AUC `r fmt(metric_value("clef", "generic", 2, "pipe_staple", "roc_auc", "raw", "calibration"), 3)`), and isotonic regression finds several blocks.
+
+Thus P1 and P2 do not depend on the calibration method: only differences with a Platt interval that includes 0 change sign. The size of P3 on pans and pipe staple does depend on it.
+
 ```{r}
 #| label: isotonic-note
 #| echo: false
 #| results: asis
-note(!has_decision, "Until then, the table shows the CLIP configurations.")
+note(!has_decision, "Without them, the table shows the CLIP configurations.")
 ```
 
 ```{r}
 #| label: tbl-isotonic
-#| tbl-cap: "Sensitivity analysis: test results of every configuration after Platt scaling and after isotonic regression, both fitted on C. Use the boxes above the columns to filter."
+#| tbl-cap: !expr 'stringr::str_c("Sensitivity analysis: test results of every configuration after Platt scaling and after isotonic regression, both fitted on C. Use the boxes above the columns to filter.", mark_caption(slope_mark(slopes$platt_slope)))'
 # Readable name of a configuration.
 config_label <- function(model, description, k) {
   dplyr::case_when(
@@ -1642,16 +1938,19 @@ a1 <- dplyr::bind_rows(
                 ece, mn_log_loss) |>
   tidyr::pivot_wider(names_from = calibration,
                      values_from = c(bal_accuracy, mcc, ece, mn_log_loss)) |>
+  dplyr::left_join(slopes, by = c("model", "description", "k", "dataset")) |>
   order_configs() |>
   dplyr::transmute(
     Dataset = dataset_labels[dataset],
-    Configuration = config_label(model, description, k),
+    Configuration = stringr::str_c(config_label(model, description, k), slope_mark(platt_slope)),
     `BA Platt` = bal_accuracy_Platt, `BA isotonic` = bal_accuracy_isotonic,
     `MCC Platt` = mcc_Platt, `MCC isotonic` = mcc_isotonic,
     `ECE Platt` = ece_Platt, `ECE isotonic` = ece_isotonic,
     `Log loss Platt` = mn_log_loss_Platt, `Log loss isotonic` = mn_log_loss_isotonic
   )
-save_table(a1, "A1_isotonic", "Test results after Platt scaling and after isotonic regression.",
+save_table(a1, "A1_isotonic",
+           stringr::str_c("Test results after Platt scaling and after isotonic regression.",
+                          mark_caption(slope_mark(slopes$platt_slope))),
            digits = 3, filter = TRUE, group = "Dataset")
 ```
 
@@ -1668,6 +1967,7 @@ note(!has_loop)
 #| label: tbl-candidates
 #| tbl-cap: "All candidates of the description loops, with the reason that the agent gave. Candidate 1 is the generic description. Use the boxes above the columns to filter."
 #| eval: !expr has_loop
+#| include: !expr has_loop
 # Table A2.
 a2 <- loops |>
   dplyr::arrange(match(dataset, dataset_order), match(model, names(model_labels)), candidate) |>
@@ -1688,34 +1988,59 @@ save_table(a2, "A2_loop_candidates", "All candidates of the description loops.",
 The CLIP paper rule is the raw score of the CLIP baseline at 0.5. All other rows use Platt scaling on C.
 
 ```{r}
+#| label: clip-numbers
+# Numbers for the text below: CLIP zero-shot with the final descriptions on
+# textiles, all its scores (C and test).
+zero_final_textiles <- dplyr::filter(calibrated, model == "clip", description == "zero_final",
+                                     dataset == "textiles")
+```
+
+Two marks flag the rows where Platt scaling does not keep the order of the raw scores:
+
+- † CLIP zero-shot on microstructure and on textiles has a negative Platt slope (`r fmt(slope_of("clip", "zero", 0, "microstructure"))` and `r fmt(slope_of("clip", "zero", 0, "textiles"))`; decision D82). Its raw scores run backwards (raw test AUC `r fmt(metric_value("clip", "zero", 0, "microstructure", "roc_auc", "raw"), 3)` and `r fmt(metric_value("clip", "zero", 0, "textiles", "roc_auc", "raw"), 3)`), and Platt reverses them. Its calibrated results (balanced accuracy `r fmt(metric_value("clip", "zero", 0, "microstructure", "bal_accuracy"), 3)` and `r fmt(metric_value("clip", "zero", 0, "textiles", "bal_accuracy"), 3)`) thus come from the calibration labels, not from the raw ranking.
+- ‡ CLIP zero-shot with the final descriptions on textiles (decision D89) gives a probability of `r fmt(min(zero_final_textiles$prob_defective), 3)` or more to every image of C and of the test set. Platt clamps its input to 0.005 to 0.995, so all its inputs are equal, and the slope is not defined. Platt thus gives 0.5 to every image (balanced accuracy `r fmt(metric_value("clip", "zero_final", 0, "textiles", "bal_accuracy"), 3)`). The raw test AUC (`r fmt(metric_value("clip", "zero_final", 0, "textiles", "roc_auc", "raw"), 3)`) shows its ranking. The configuration stays in the results as it is, with this mark. It is not part of P1 to P3.
+
+```{r}
 #| label: tbl-clip
-#| tbl-cap: "All CLIP variants on the test sets. Use the boxes above the columns to filter."
+#| tbl-cap: !expr 'stringr::str_c("All CLIP variants on the test sets. Use the boxes above the columns to filter.", mark_caption(slope_mark(slopes$platt_slope[slopes$model == "clip"])))'
 # Table A3: the CLIP rows after Platt, plus the CLIP baseline with the rule of
-# the CLIP paper (raw score at 0.5).
+# the CLIP paper (raw score at 0.5), which has no Platt fit and no mark.
 a3 <- dplyr::bind_rows(
   dplyr::filter(test_metrics("platt"), model == "clip"),
   test_metrics("raw") |>
     dplyr::filter(model == "clip", description == "baseline") |>
     dplyr::mutate(description = "paper_rule")
 ) |>
+  dplyr::left_join(slopes, by = c("model", "description", "k", "dataset")) |>
   order_configs() |>
   dplyr::transmute(
     Dataset = dataset_labels[dataset],
     Variant = dplyr::if_else(description == "paper_rule", "CLIP baseline, paper rule",
-                             config_label(model, description, k)),
+                             stringr::str_c(config_label(model, description, k),
+                                            slope_mark(platt_slope))),
     dplyr::across(dplyr::all_of(names(metric_labels)))
   ) |>
   dplyr::rename_with(\(x) unname(metric_labels[x]), dplyr::all_of(names(metric_labels)))
-save_table(a3, "A3_clip_variants", "All CLIP variants on the test sets.",
+save_table(a3, "A3_clip_variants",
+           stringr::str_c("All CLIP variants on the test sets.",
+                          mark_caption(slope_mark(slopes$platt_slope[slopes$model == "clip"]))),
            digits = 3, filter = TRUE, group = "Dataset")
+
+# The final JEV descriptions that the CLIP text encoder had to cut at 77
+# tokens (scripts/fair_clip.R writes this file with the zero_final runs).
+truncation_file <- file.path(scores_dir, "clip_truncation.csv")
+has_truncation <- file.exists(truncation_file)
+truncation <- if (has_truncation) read_csv_quiet(truncation_file) else NULL
 ```
 
+The CLIP text encoder takes at most 77 tokens. It cut `r sum(truncation$truncated)` of the `r nrow(truncation)` texts of the final JEV descriptions (@tbl-clip-truncation).
+
 ```{r}
-#| label: clip-truncation
-#| eval: !expr file.exists(file.path(scores_dir, "clip_truncation.csv"))
-# Final descriptions that the CLIP text encoder had to cut at 77 tokens.
-read_csv_quiet(file.path(scores_dir, "clip_truncation.csv")) |>
-  knitr::kable()
+#| label: tbl-clip-truncation
+#| tbl-cap: "Texts of the final JEV descriptions (nominal and defective) that the CLIP text encoder had to cut at 77 tokens, for the zero-shot variant with the final descriptions."
+#| eval: !expr has_truncation
+#| include: !expr has_truncation
+knitr::kable(truncation)
 ```
 
 # Re-run steps {#sec-rerun}
@@ -1748,7 +2073,7 @@ Notes on the steps:
 
 The chunks below run only when their switch in @sec-switches is `TRUE`. They write to `results/rerun/fair/` only, so the saved results never change:
 
-1. The score switches (`run_clip`, `run_clef`, `run_jev`) write the new score files to `results/rerun/fair/runs/`, and their timing files to `results/rerun/fair/timing_runs/`.
+1. The score switches (`run_clip`, `run_clef`, `run_jev`) write the new score files to `results/rerun/fair/runs/`, and their timing files to `results/rerun/fair/timing_runs/`. A re-run of a configuration passes the audit decision of its original run (`runs.csv`, column `audit_decision`) as `FAIR_AUDIT_DECISION`, when the original run has one.
 2. The evaluation runs after any switch. It first fills `results/rerun/fair/scores/` with the saved score files, and puts each re-run file in place of the saved file of the same configuration and split. Thus a partial re-run (for example CLIP only) still gives a full set of scores, and no file mixes the two sources. It makes `results/rerun/fair/timing/` in the same way: the saved timing files, with the re-run rows in place of the saved rows of the same run. It then writes the summaries to `results/rerun/fair/summary/`. A re-run of a decision model must run both splits of a configuration, as `rerun_scores()` does.
 3. Set `use_rerun` to `TRUE` in @sec-switches, with the switches back at `FALSE`, and render again. Every table and figure then comes from `results/rerun/fair/scores/` and `results/rerun/fair/summary/`, and the figure and table files go to `results/rerun/fair/figs/` and `results/rerun/fair/tables/`.
 
@@ -1778,16 +2103,30 @@ score_plan <- tidyr::expand_grid(dataset = dataset_order,
   dplyr::filter(description == "final" | k %in% c(0, 2) | dataset == "pan_images")
 # The calls of a re-run have the purpose prefix "rerun" and count against
 # the "Re-run" budget row (a paid JEV re-run also needs FAIR_RECORD_ROOT).
+# A run of a final description stops when its loop audit flagged a tool
+# call, unless FAIR_AUDIT_DECISION names the decision that accepts it. The
+# re-run passes the decision of the original run of the same configuration
+# (runs.csv, column audit_decision; NA when the audit flagged nothing).
 rerun_scores <- function(model) {
+  saved_runs <- read_csv_quiet(file.path(saved_root, "timing", "runs.csv"),
+                               col_types = readr::cols(.default = "c"))
   for (split in c("calibration", "test")) {
     purrr::pwalk(score_plan, \(dataset, description, k) {
-      run_script("scripts/fair_score.R", c(
+      decision <- saved_runs$audit_decision[
+        saved_runs$model == model & saved_runs$dataset == dataset &
+          saved_runs$description == description & saved_runs$k == as.character(k) &
+          saved_runs$split == split
+      ]
+      decision <- dplyr::first(stats::na.omit(decision), default = NA_character_)
+      vars <- c(
         FAIR_MODEL = model, FAIR_DATASET = dataset, FAIR_DESCRIPTION = description,
         FAIR_K = as.character(k), FAIR_SPLIT = split,
         FAIR_OUT = file.path(rerun_root, "runs"),
         FAIR_TIMING_DIR = file.path(rerun_root, "timing_runs"),
         FAIR_PURPOSE_PREFIX = "rerun"
-      ))
+      )
+      if (!is.na(decision)) vars <- c(vars, FAIR_AUDIT_DECISION = decision)
+      run_script("scripts/fair_score.R", vars)
     })
   }
 }
