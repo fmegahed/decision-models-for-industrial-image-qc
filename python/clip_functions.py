@@ -39,3 +39,16 @@ def clip_few_scores(image_features, normal_features, defective_features):
     logits = logits - logits.max(axis=1, keepdims=True)
     scores = np.exp(logits)
     return scores / scores.sum(axis=1, keepdims=True)
+
+def clip_zero_scores_truncated(image_features, labels):
+    # Same as clip_zero_scores, but a text longer than the 77 tokens of the CLIP
+    # text encoder is cut at 77 tokens instead of raising an error.
+    with torch.no_grad():
+        tokens = clip.tokenize(labels, truncate=True).to(clip_device)
+        text = clip_model.encode_text(tokens).float()
+        text = text / text.norm(dim=-1, keepdim=True)
+        text = text.cpu().numpy()
+    logits = 100.0 * (image_features @ text.T)
+    logits = logits - logits.max(axis=1, keepdims=True)
+    scores = np.exp(logits)
+    return scores / scores.sum(axis=1, keepdims=True)
