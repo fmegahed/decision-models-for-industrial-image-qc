@@ -94,7 +94,11 @@ description_md5 <- if (description == "final") frozen_md5(model, dataset) else N
 cat(model, description_label(description), paste0("k", k), dataset, split,
     "| images", nrow(images), "| references", length(unlist(references)),
     "| checks passed\n")
-if (check_only) quit(save = "no")
+if (check_only) {
+  cat("Check-only: nothing was scored.
+")
+  quit(save = "no")
+}
 
 if (loop_mode) {
   map <- readr::read_csv(file.path(map_dir, paste0(basename(normalizePath(out)), "_image_map.csv")),

@@ -3,10 +3,14 @@ source(file.path(repo_root, "R", "fair_loop.R"))
 
 rscript <- "C:/Program Files/R/R-4.6.1/bin/Rscript.exe"
 
+tool_id_counter <- 0L
+
 tool_line <- function(time, name, input, cwd = NULL, type = "tool_use") {
+  tool_id_counter <<- tool_id_counter + 1L # one id per call, as in a real transcript
   entry <- list(type = "assistant", timestamp = time,
                 message = list(role = "assistant",
-                               content = list(list(type = type, id = "x", name = name,
+                               content = list(list(type = type, id = paste0("toolu_", tool_id_counter),
+                                                   name = name,
                                                    input = input))))
   if (!is.null(cwd)) entry$cwd <- cwd
   as.character(jsonlite::toJSON(entry, auto_unbox = TRUE))
@@ -742,4 +746,53 @@ test_that("the design score file keeps elapsed_ms when the scores have it", {
   finish_candidate(s, 1, scores, map, list(normal = "n", defective = "d", reason = "r"), mirror = m)
   written <- readr::read_csv(file.path(s, "scores", "1.csv"), show_col_types = FALSE)
   expect_equal(written$elapsed_ms, c(1200, 1300))
+})
+
+# Claude Code 2.1.306 shape: each call sits in an assistant entry and again,
+# with the same id, in an api-request-blob entry.
+shaped_entry <- function(entry_type, time, id, name, input) {
+  entry <- list(type = entry_type, timestamp = time,
+                message = list(role = "assistant",
+                               content = list(list(type = "tool_use", id = id, name = name,
+                                                   input = input))))
+  as.character(jsonlite::toJSON(entry, auto_unbox = TRUE))
+}
+
+shaped_transcript <- function(sandbox, duplicates = TRUE, env = parent.frame()) {
+  outside <- file.path(dirname(sandbox), "outside-notes.txt")
+  calls <- list(list("t1", "toolu_1", "Bash", list(command = "bash score.sh 1")),
+                list("t2", "toolu_2", "Bash", list(command = "bash score.sh 1")),
+                list("t3", "toolu_3", "Bash", list(command = "bash score.sh 2")),
+                list("t4", "toolu_4", "Read", list(file_path = outside)))
+  assistant <- purrr::map_chr(calls, \(a) shaped_entry("assistant", a[[1]], a[[2]], a[[3]], a[[4]]))
+  blobs <- if (duplicates) {
+    purrr::map_chr(calls, \(a) shaped_entry("api-request-blob", NA, a[[2]], a[[3]], a[[4]]))
+  } else {
+    character()
+  }
+  tr <- withr::local_tempfile(fileext = ".jsonl", .local_envir = env)
+  writeLines(stats::na.omit(c(assistant[1:2], blobs[1:2], assistant[3:4], blobs[3:4])), tr)
+  tr
+}
+
+test_that("a call repeated in api-request-blob entries counts once", {
+  f <- fake_loop(calls = integer())
+  for (dup in c(TRUE, FALSE)) {
+    tr <- shaped_transcript(f$s, duplicates = dup)
+    expect_equal(scoring_calls(tr, f$s), c(1L, 1L, 2L))
+    audit <- audit_transcript(tr, f$s)
+    expect_equal(sum(audit$target == "repeated scoring call for candidate 1"), 1L)
+    expect_equal(audit$time[audit$target == "repeated scoring call for candidate 1"], "t2")
+    expect_equal(sum(audit$tool == "Read"), 1L)
+    expect_equal(nrow(audit), 2L)
+  }
+})
+
+test_that("closing passes the missing-call check on a transcript with duplicate entries", {
+  f <- fake_loop(calls = integer(), log = tibble::tibble(
+    candidate = 1:2, time_utc = "t", normal = c("n1", "n2"), defective = c("d1", "d2"),
+    auc = c(.8, .85), mean_score_by_type = "a=1", reason = "r", kept = NA))
+  f$tr <- shaped_transcript(f$s)
+  res <- close_fake(f)
+  expect_equal(res$audit_rows, 2L)
 })

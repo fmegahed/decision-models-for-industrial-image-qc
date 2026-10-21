@@ -404,6 +404,30 @@ entry_content <- function(entry) {
   }
 }
 
+# Claude Code 2.1.306 repeats tool blocks, with the same id, in entries such
+# as api-request-blob. This keeps each tool call once: the block of an
+# assistant entry when there is one, else the first block seen. Blocks without
+# an id and tool results stay as they are.
+dedupe_tool_blocks <- function(entries) {
+  has_id <- \(block) is.list(block) && is.character(block$id) && length(block$id) == 1L &&
+    nzchar(block$id) && !identical(block$type, "tool_result")
+  is_assistant <- \(entry) is.list(entry) && identical(entry$type, "assistant")
+  ids_of <- \(entry) purrr::map_chr(Filter(has_id, entry_content(entry)), \(b) b$id)
+  assistant_ids <- purrr::map(Filter(is_assistant, entries), ids_of) |> unlist()
+  seen <- character()
+  purrr::map(entries, function(entry) {
+    if (length(entry_content(entry)) == 0L) return(entry)
+    keep <- purrr::map_lgl(entry_content(entry), function(block) {
+      if (!has_id(block)) return(TRUE)
+      if (block$id %in% seen || (!is_assistant(entry) && block$id %in% assistant_ids)) return(FALSE)
+      seen <<- c(seen, block$id)
+      TRUE
+    })
+    entry$message$content <- entry$message$content[keep]
+    entry
+  })
+}
+
 # The number N when a tool block is a counted scoring call: a Bash call in
 # the foreground, in one of the counted forms. NA otherwise.
 block_score_number <- function(block, sandbox) {
@@ -418,7 +442,7 @@ block_score_number <- function(block, sandbox) {
 scoring_calls <- function(transcript, sandbox) {
   sandbox <- normalizePath(sandbox, winslash = "/", mustWork = TRUE)
   parsed <- read_transcript(transcript)
-  calls <- purrr::map(parsed$entries, \(entry) purrr::map_int(
+  calls <- purrr::map(dedupe_tool_blocks(parsed$entries), \(entry) purrr::map_int(
     entry_content(entry), block_score_number, sandbox = sandbox)) |>
     unlist()
   as.integer(calls[!is.na(calls)])
@@ -438,7 +462,7 @@ audit_transcript <- function(transcript, sandbox) {
   row <- \(time, tool, target) tibble::tibble(time = time, tool = tool, target = target)
   seen_cwd <- character()
   seen_score <- list()
-  rows <- purrr::map2(parsed$entries, parsed$numbers, function(entry, number) {
+  rows <- purrr::map2(dedupe_tool_blocks(parsed$entries), parsed$numbers, function(entry, number) {
     if (!is.list(entry) || is.null(names(entry))) {
       return(list(row(NA_character_, "transcript", paste("Line", number, "is not JSON"))))
     }
