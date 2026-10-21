@@ -4,11 +4,15 @@
 #   FAIR_SPLIT=calibration JEV_CHECK_ONLY=true Rscript scripts/fair_score.R
 #
 # FAIR_DESCRIPTION: generic, final, or a CSV path (design split only).
-# FAIR_OUT: output folder (default results/fair/scores).
+# FAIR_OUT: output folder (default results/fair/scores). With a candidate CSV,
+# FAIR_OUT is the loop sandbox: candidates/<n>.csv is scored into scores/<n>.csv
+# and one row goes to loop_log.csv (see R/fair_loop.R). FAIR_MAP_DIR: folder of
+# the image map (default results/fair/loop).
 # FAIR_RECORD_ROOT: folder of calls/README.md and calls/typesafe-calls.csv.
 
 source("R/industrial_defect_classifier.R")
 source("R/fair_runner.R")
+source("R/fair_loop.R")
 
 env <- \(name, default = "") Sys.getenv(name, unset = default)
 model <- env("FAIR_MODEL")
@@ -31,6 +35,11 @@ if (model == "jev" && !check_only && !nzchar(env("TYPESAFE_API_KEY"))) {
 }
 
 check_config(model, dataset, description, k, split, out) # clear messages first
+loop_mode <- split == "design" && !description %in% c("generic", "final")
+if (loop_mode) {
+  n <- suppressWarnings(as.integer(tools::file_path_sans_ext(basename(description))))
+  check_candidate_slot(out, n)
+}
 images <- fair_images(dataset, split, k)
 stopifnot(nrow(images) > 0L, all(file.exists(images$image_path)))
 references <- fair_references(dataset, k)
@@ -53,6 +62,19 @@ cat(model, description_label(description), paste0("k", k), dataset, split,
     "| images", nrow(images), "| references", length(unlist(references)),
     "| checks passed\n")
 if (check_only) quit(save = "no")
+
+if (loop_mode) {
+  map_dir <- env("FAIR_MAP_DIR", "results/fair/loop")
+  map <- readr::read_csv(file.path(map_dir, paste0(basename(normalizePath(out)), "_image_map.csv")),
+                         show_col_types = FALSE)
+  scores <- score_images(images, references, criteria, settings, model, description, k, split)
+  result <- finish_candidate(out, n, scores, map, read_candidate(description))
+  cat("Candidate", n, "design AUC:", round(result$auc, 3), "\n")
+  cat("Mean score by defect type:", result$mean_score_by_type, "\n")
+  cat("Kept:", result$kept, "| current best: candidate", result$best,
+      "with AUC", round(result$best_auc, 3), "\n")
+  quit(save = "no")
+}
 
 scores <- score_and_write(images, references, criteria, settings, model, description,
                           k, split, out, dataset)
