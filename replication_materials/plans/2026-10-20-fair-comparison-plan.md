@@ -424,7 +424,7 @@ Run `Rscript scripts/fair_make_sandbox.R <model> <dataset>` for jev and clef, fo
 
 - [ ] **Step 2: Run the loops**
 
-For each model, dispatch one fresh agent. Give it only the sandbox path and the order "Read LOOP.md and follow it." Its working folder is the sandbox. It works through the four datasets in turn. The Clef-Flash server must run for the clef agent, and CLIP must not run at the same time.
+For each model and dataset (8 loops; D81), start one fresh, isolated agent with `bash scripts/fair_run_loop.sh <model> <dataset>`. It runs `claude -p "Read LOOP.md and follow it."` in the sandbox with restricted settings and prints the transcript path. Rehearse once with `JEV_CHECK_ONLY=true` and audit the rehearsal transcript before the first paid loop. Run the loops one at a time, Clef-Flash first (no cost). The Clef-Flash server must run for the clef loops, and CLIP must not run at the same time.
 
 - [ ] **Step 3: Close the loops**
 

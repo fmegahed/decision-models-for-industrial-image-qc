@@ -177,7 +177,7 @@ The loop runs for JEV and for Clef-Flash separately, on all datasets except pans
 - Candidates: at most 6 per dataset and model, including the start. A candidate changes only the two description texts. The references (k = 2), the image size and the crop do not change.
 - Score: ROC AUC on the design images.
 - Keep rule: a candidate replaces the current best if its AUC is at least 0.02 higher. The final description is the last one kept.
-- Agent: a fresh Claude Code agent, one for each model, so that the Clef-Flash agent does not see JEV results. The agent works in a sandbox folder that holds only:
+- Agent: a fresh Claude Code agent for each model and dataset (8 agents; D81), so that the Clef-Flash agents do not see JEV results and each loop is audited and closed on its own. Each agent runs as a separate, isolated Claude Code process in its sandbox (no user settings, plugins, hooks or MCP servers; only the file tools and Bash; model pinned). The sandbox holds only:
   - the design images, with their class and defect type;
   - the generic description;
   - a scoring script;
