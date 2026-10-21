@@ -80,6 +80,7 @@
 | D74 | 2026-10-20 | The description loop is blind: its instructions carry no dataset knowledge from the researchers (not the hypotheses of docs/GOAL.md). | claude | fmm | question | "No: blind (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D75 | 2026-10-20 | The 37 back-filled decision rows (D2 to D38) show with the mark "not checked by a person"; fmm checks them before the tag v0.1.0. | claude | fmm | question | "Show marked, check later (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D76 | 2026-10-20 | Approve the design plans/2026-10-20-fair-comparison-design.md, with the Claude calls of its section 13. | claude | fmm | plan-approval | "I approve" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D77 | 2026-10-20 | Approve the plans plans/2026-10-20-record-additions-plan.md and plans/2026-10-20-fair-comparison-plan.md; run their code tasks subagent-driven, and the gated tasks with fmm in the session. | claude | fmm | plan-approval | "Yes and use the approach" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 
 ## Corrections
 
