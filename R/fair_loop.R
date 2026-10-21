@@ -51,6 +51,16 @@ read_candidate <- function(path) {
   list(normal = d$normal[[1]], defective = d$defective[[1]], reason = d$reason[[1]])
 }
 
+# Candidate 1 must be the generic description, word for word.
+check_candidate_text <- function(n, text) {
+  generic <- generic_description()
+  if (n == 1L && !(identical(text$normal, generic$normal) &&
+                   identical(text$defective, generic$defective))) {
+    stop("Candidate 1 must be the generic description")
+  }
+  invisible(TRUE)
+}
+
 empty_loop_log <- function() {
   tibble::tibble(candidate = integer(), time_utc = character(), normal = character(),
                  defective = character(), auc = double(), mean_score_by_type = character(),
@@ -84,7 +94,7 @@ check_candidate_slot <- function(sandbox, n) {
 
 # Writes the scores file (neutral image names), appends the log row, and
 # recomputes the kept column over all rows. scores has the original paths.
-finish_candidate <- function(sandbox, n, scores, map, text) {
+finish_candidate <- function(sandbox, n, scores, map, text, mirror = NULL) {
   scores <- dplyr::left_join(scores, map, by = "image_path")
   stopifnot(!anyNA(scores$image))
   truth <- factor(scores$actual_class, levels = c("defective", "nominal"))
@@ -103,6 +113,7 @@ finish_candidate <- function(sandbox, n, scores, map, text) {
   rule <- apply_keep_rule(log)
   log$kept <- rule$kept
   write_loop_log(log, log_file)
+  if (!is.null(mirror)) write_loop_log(log, mirror) # outside the sandbox
   # The scores file comes after the log row: a failure leaves the slot free.
   scores |>
     dplyr::transmute(image = .data$image, class = .data$actual_class,
@@ -144,6 +155,30 @@ path_inside <- function(path, folder) {
 }
 
 fair_default_rscript <- "C:/Program Files/R/R-4.6.1/bin/Rscript.exe"
+
+# The lines of score.sh. A pure helper: it writes nothing. FAIR_MAP_DIR appears
+# only when the map folder is not the default results/fair/loop.
+score_script_lines <- function(repo, model, dataset, sandbox_abs, record_root, map_dir,
+                               rscript = fair_default_rscript) {
+  default_map <- file.path(repo, "results", "fair", "loop")
+  map_line <- if (identical(clean_path(map_dir), clean_path(default_map))) {
+    ""
+  } else {
+    paste0(" FAIR_MAP_DIR=\"", map_dir, "\"")
+  }
+  c("#!/usr/bin/env bash",
+    "# Scores one candidate on the design images. Usage: bash score.sh N",
+    "set -e",
+    "case \"$1\" in [1-6]) ;; *) echo \"Usage: bash score.sh N (N from 1 to 6)\"; exit 1 ;; esac",
+    paste0("cd \"", repo, "\""),
+    paste0("FAIR_MODEL=", model, " FAIR_DATASET=", dataset,
+           " FAIR_K=2 FAIR_SPLIT=design",
+           " FAIR_DESCRIPTION=\"", sandbox_abs, "/candidates/$1.csv\"",
+           " FAIR_OUT=\"", sandbox_abs, "\"",
+           " FAIR_RECORD_ROOT=\"", record_root, "\"",
+           map_line,
+           " \"", rscript, "\" scripts/fair_score.R"))
+}
 
 # Builds <sandbox_root>/<model>-<dataset>/ and the image map outside it.
 # Returns the sandbox folder. All paths in design.csv are relative to repo.
@@ -203,27 +238,9 @@ make_sandbox <- function(model, dataset, sandbox_root, repo = ".",
   write_loop_log(empty_loop_log(), file.path(sandbox, "loop_log.csv"))
 
   sandbox_abs <- normalizePath(sandbox, winslash = "/")
-  default_map <- file.path(repo, "results", "fair", "loop")
-  map_line <- if (identical(clean_path(normalizePath(map_dir, winslash = "/")),
-                            clean_path(default_map))) {
-    ""
-  } else {
-    paste0(" FAIR_MAP_DIR=\"", normalizePath(map_dir, winslash = "/"), "\"")
-  }
-  readr::write_lines(c(
-    "#!/usr/bin/env bash",
-    "# Scores one candidate on the design images. Usage: bash score.sh N",
-    "set -e",
-    "case \"$1\" in [1-6]) ;; *) echo \"Usage: bash score.sh N (N from 1 to 6)\"; exit 1 ;; esac",
-    paste0("cd \"", repo, "\""),
-    paste0("FAIR_MODEL=", model, " FAIR_DATASET=", dataset,
-           " FAIR_K=2 FAIR_SPLIT=design",
-           " FAIR_DESCRIPTION=\"", sandbox_abs, "/candidates/$1.csv\"",
-           " FAIR_OUT=\"", sandbox_abs, "\"",
-           " FAIR_RECORD_ROOT=\"", record_root, "\"",
-           map_line,
-           " \"", rscript, "\" scripts/fair_score.R")
-  ), file.path(sandbox, "score.sh"))
+  readr::write_lines(score_script_lines(repo, model, dataset, sandbox_abs, record_root,
+                                        normalizePath(map_dir, winslash = "/"), rscript),
+                     file.path(sandbox, "score.sh"))
   # The md5 of score.sh goes outside the sandbox. close_loop() checks it.
   writeLines(unname(tools::md5sum(file.path(sandbox, "score.sh"))),
              file.path(map_dir, paste0(model, "-", dataset, "_score_sh.md5")))
@@ -258,54 +275,117 @@ inside_sandbox <- function(p, sandbox, top) {
   stringr::str_extract(cleaned, "^[^/]+") %in% top
 }
 
-# Tools that the loop agent may use. Any other tool is flagged (default deny).
-# PowerShell goes through the same checks as Bash. TodoWrite reads no file.
-allowed_tools <- c("Read", "Write", "Edit", "Glob", "Grep", "Bash", "PowerShell", "TodoWrite")
+# Tools that the loop agent may use (default deny: any other tool is flagged).
+# PowerShell is not on the list: LOOP.md allows Bash only. TodoWrite reads no file.
+allowed_tools <- c("Read", "Write", "Edit", "Glob", "Grep", "Bash", "TodoWrite")
 
 home_token <- "^(\\$\\{?(HOME|USERPROFILE|OLDPWD|HOMEPATH)|\\$env:|~|%(USERPROFILE|HOMEPATH|HOMEDRIVE)%)"
 
+# Words that change the folder or compute a path. A command with one is flagged.
+deny_words <- c("cd", "pushd", "popd", "chdir", "sl", "set-location", "push-location",
+                "pop-location", "dirname", "split-path", "realpath", "resolve-path",
+                "convert-path", "readlink", "get-location")
+
+# The number N of the scoring command, or NA when the command is not one of
+# the allowed forms: bash score.sh N, ./score.sh N, the absolute score.sh
+# path, each with an optional leading "cd <sandbox or .> &&".
+score_command_number <- function(command, sandbox) {
+  sb <- clean_path(sandbox)
+  plain <- stringr::str_replace_all(command, "\\\\", "/")
+  cd_form <- paste0("^\\s*cd\\s+[\"']?(\\.|", stringr::str_escape(sb), ")/?[\"']?\\s*&&\\s*")
+  plain <- stringr::str_remove(plain, stringr::regex(cd_form, ignore_case = TRUE))
+  plain <- stringr::str_remove(plain, stringr::regex(
+    paste0("(?<=^|\\s|[\"'])", stringr::str_escape(sb), "/"), ignore_case = TRUE))
+  pattern <- "^\\s*(bash\\s+|sh\\s+)?[\"']?(\\./)?score\\.sh[\"']?\\s+([1-6])\\s*$"
+  m <- stringr::str_match(plain, pattern)
+  as.integer(m[, 4])
+}
+
 bash_flagged <- function(command, sandbox, top) {
-  # The only allowed command: bash score.sh N (also ./score.sh N, or the absolute path).
-  plain <- stringr::str_replace_all(command, "\\\\", "/") |>
-    stringr::str_remove(stringr::fixed(paste0(clean_path(sandbox), "/")))
-  pattern <- "^\\s*(bash\\s+|sh\\s+)?[\"']?(\\./)?score\\.sh[\"']?\\s+[1-6]\\s*$"
-  if (stringr::str_detect(plain, pattern)) {
-    return(FALSE)
-  }
-  tokens <- stringr::str_split(command, "[\\s\"'`;|&<>=()]+")[[1]]
+  if (!is.na(score_command_number(command, sandbox))) return(FALSE)
+  # Default deny: expansions, folder changes, path calls and drive-relative names.
+  if (stringr::str_detect(command, "\\$|%[A-Za-z_]+%|::")) return(TRUE)
+  tokens <- stringr::str_split(command, "[\\s\"'`;|&<>=(){}]+")[[1]]
   tokens <- tokens[nzchar(tokens)]
+  if (any(stringr::str_to_lower(tokens) %in% deny_words)) return(TRUE)
   if (any(stringr::str_detect(tokens, stringr::regex(home_token, ignore_case = TRUE)))) {
     return(TRUE)
   }
+  if (any(stringr::str_detect(tokens, "^[A-Za-z]:(?![/\\\\])"))) return(TRUE)
   paths <- tokens[is_absolute_path(tokens) | stringr::str_detect(tokens, "\\.\\.") |
                     stringr::str_detect(tokens, "[/\\\\]")]
   !all(purrr::map_lgl(paths, inside_sandbox, sandbox = sandbox, top = top))
 }
 
-# A write is allowed only to candidates/<n>.csv in the sandbox.
+# A write is allowed only to candidates/<2-6>.csv in the sandbox.
 write_flagged <- function(p, sandbox, top) {
   if (!inside_sandbox(p, sandbox, top)) return(TRUE)
   resolved <- if (is_absolute_path(p)) clean_path(p) else clean_path(file.path(sandbox, p))
   relative <- substring(resolved, nchar(clean_path(sandbox)) + 2L)
-  !stringr::str_detect(relative, "^candidates/[1-6]\\.csv$")
+  !stringr::str_detect(relative, "^candidates/[2-6]\\.csv$")
+}
+
+# Parses the transcript. Returns a list of entries (NULL for a bad line) and
+# the bad line numbers.
+read_transcript <- function(transcript) {
+  lines <- readLines(transcript, warn = FALSE, encoding = "UTF-8")
+  keep <- nzchar(stringr::str_trim(lines))
+  numbers <- which(keep)
+  entries <- purrr::map(lines[keep], \(l) tryCatch(
+    jsonlite::fromJSON(l, simplifyVector = FALSE), error = \(e) NULL))
+  list(entries = entries, numbers = numbers)
+}
+
+# Numbers N of the scoring commands (score.sh N) that the transcript holds.
+scoring_calls <- function(transcript, sandbox) {
+  sandbox <- normalizePath(sandbox, winslash = "/", mustWork = TRUE)
+  parsed <- read_transcript(transcript)
+  purrr::map(parsed$entries, function(entry) {
+    purrr::map(if (is.list(entry$message$content)) entry$message$content else list(),
+               function(block) {
+                 if (identical(block$type, "tool_use") && identical(block$name, "Bash")) {
+                   score_command_number(block$input$command %||% "", sandbox)
+                 }
+               })
+  }) |>
+    unlist()
 }
 
 # Flags every tool call of a Claude Code JSONL transcript that uses a tool
 # off the allow-list, names a path outside the sandbox, or writes any file
-# other than a candidate file. An empty table means the loop was blind.
+# other than candidates 2 to 6. It also flags a line that is not JSON, a
+# tool call of another block type, and an entry whose cwd is not the sandbox.
+# An empty table means the loop was blind.
 audit_transcript <- function(transcript, sandbox) {
   sandbox <- normalizePath(sandbox, winslash = "/", mustWork = TRUE)
   top <- c(".", list.files(sandbox, all.files = FALSE))
   empty <- tibble::tibble(time = character(), tool = character(), target = character())
-  lines <- readLines(transcript, warn = FALSE, encoding = "UTF-8")
-  lines <- lines[nzchar(stringr::str_trim(lines))]
-  rows <- purrr::map(lines, function(line) {
-    entry <- tryCatch(jsonlite::fromJSON(line, simplifyVector = FALSE), error = \(e) NULL)
-    content <- entry$message$content
-    if (!is.list(content)) return(NULL)
+  parsed <- read_transcript(transcript)
+  row <- \(time, tool, target) tibble::tibble(time = time, tool = tool, target = target)
+  seen_cwd <- character()
+  rows <- purrr::map2(parsed$entries, parsed$numbers, function(entry, number) {
+    if (is.null(entry) || !is.list(entry)) {
+      return(list(row(NA_character_, "transcript", paste("Line", number, "is not JSON"))))
+    }
     time <- as.character(entry$timestamp %||% NA_character_)
-    purrr::map(content, function(block) {
-      if (!identical(block$type, "tool_use")) return(NULL)
+    out <- list()
+    cwd <- entry$cwd
+    if (is.character(cwd) && length(cwd) == 1L &&
+        clean_path(stringr::str_to_lower(cwd)) != clean_path(stringr::str_to_lower(sandbox)) &&
+        !cwd %in% seen_cwd) {
+      seen_cwd <<- c(seen_cwd, cwd)
+      out <- c(out, list(row(time, "cwd", cwd)))
+    }
+    content <- entry$message$content
+    if (!is.list(content)) return(out)
+    blocks <- purrr::map(content, function(block) {
+      type <- as.character(block$type %||% "")
+      if (type != "tool_use") {
+        if (stringr::str_detect(type, "tool") && type != "tool_result") {
+          return(row(time, type, as.character(jsonlite::toJSON(block, auto_unbox = TRUE))))
+        }
+        return(NULL)
+      }
       input <- block$input
       tool <- as.character(block$name %||% "unknown")
       reads <- switch(tool,
@@ -315,7 +395,7 @@ audit_transcript <- function(transcript, sandbox) {
         NULL)
       flagged <- if (!tool %in% allowed_tools) {
         paste(tool, as.character(jsonlite::toJSON(input, auto_unbox = TRUE)))
-      } else if (tool %in% c("Bash", "PowerShell")) {
+      } else if (tool == "Bash") {
         if (bash_flagged(input$command %||% "", sandbox, top)) input$command else character()
       } else if (tool %in% c("Write", "Edit")) {
         p <- input$file_path %||% ""
@@ -325,8 +405,9 @@ audit_transcript <- function(transcript, sandbox) {
         reads[!purrr::map_lgl(reads, inside_sandbox, sandbox = sandbox, top = top)]
       }
       if (length(flagged) == 0L) return(NULL)
-      tibble::tibble(time = time, tool = tool, target = flagged)
+      row(time, tool, flagged)
     })
+    c(out, blocks)
   })
   out <- dplyr::bind_rows(purrr::list_flatten(rows))
   if (nrow(out) == 0L) empty else out
@@ -340,8 +421,10 @@ glob_prefix <- function(pattern) {
 }
 
 # Closing step: audit, copy of the log, freeze of the best candidate.
-# Refuses to overwrite a frozen file, and stops when score.sh changed; it
-# checks both first so nothing is half done. map_dir holds the md5 of score.sh.
+# It stops, before it writes anything, when: the description is frozen;
+# score.sh changed; the sandbox log differs from the mirror outside the
+# sandbox; or the transcript lacks a scoring call for a logged candidate.
+# map_dir holds the md5 of score.sh and the mirror of the log.
 close_loop <- function(model, dataset, transcript, sandbox,
                        loop_dir = "results/fair/loop",
                        description_dir = "results/fair/descriptions",
@@ -354,22 +437,42 @@ close_loop <- function(model, dataset, transcript, sandbox,
   if (!identical(md5_now, readLines(md5_file, warn = FALSE)[[1]])) {
     stop("score.sh changed after the sandbox was made. The loop is not valid.")
   }
-  log <- read_loop_log(file.path(sandbox, "loop_log.csv"))
+  mirror_file <- file.path(map_dir, paste0(model, "-", dataset, "_loop_log.csv"))
+  if (!file.exists(mirror_file)) stop("No mirror of the loop log: ", mirror_file)
+  log <- read_loop_log(mirror_file)
+  if (!isTRUE(all.equal(log, read_loop_log(file.path(sandbox, "loop_log.csv")),
+                        check.attributes = FALSE))) {
+    stop("The loop log in the sandbox differs from the mirror. The loop is not valid.")
+  }
   if (nrow(log) == 0L) stop("The loop log has no candidate")
+  called <- scoring_calls(transcript, sandbox)
+  missing <- setdiff(log$candidate, called)
+  if (length(missing) > 0L) {
+    stop("The transcript has no scoring call for candidate ", paste(missing, collapse = ", "))
+  }
   rule <- apply_keep_rule(log)
   log$kept <- rule$kept
-  audit <- audit_transcript(transcript, sandbox) |>
-    dplyr::mutate(transcript = basename(transcript))
+  flagged <- audit_transcript(transcript, sandbox)
+  info <- list(transcript = basename(transcript),
+               transcript_md5 = unname(tools::md5sum(transcript)))
+  audit <- if (nrow(flagged) == 0L) {
+    tibble::tibble(time = NA_character_, tool = "none",
+                   target = "No call outside the sandbox. The loop was blind.")
+  } else {
+    flagged
+  }
+  audit <- dplyr::mutate(audit, transcript = info$transcript, transcript_md5 = info$transcript_md5)
   dir.create(loop_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(description_dir, recursive = TRUE, showWarnings = FALSE)
   stem <- file.path(loop_dir, paste0(model, "-", dataset))
   log |>
     dplyr::select(dplyr::all_of(loop_columns)) |>
-    dplyr::mutate(transcript = basename(transcript)) |>
+    dplyr::mutate(transcript = info$transcript, transcript_md5 = info$transcript_md5) |>
     readr::write_csv(paste0(stem, "_log.csv"))
   readr::write_csv(audit, paste0(stem, "_audit.csv"))
   best <- log[log$candidate == rule$best, ]
   tibble::tibble(normal = best$normal[[1]], defective = best$defective[[1]]) |>
     readr::write_csv(frozen)
-  list(best = rule$best, best_auc = rule$best_auc, audit_rows = nrow(audit))
+  list(best = rule$best, best_auc = rule$best_auc, audit_rows = nrow(flagged))
 }
+

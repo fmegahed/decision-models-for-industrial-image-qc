@@ -60,4 +60,5 @@ You have at most 6 candidates, including candidate 1. Stop after you score candi
 - Do not run any command other than the scoring command and simple commands that list or read files in this folder.
 - If the scoring command fails, report the error in your last message and stop. Do not retry more than once.
 - Use only the Read, Write, Edit, Glob, Grep and Bash tools. Do not start subagents. Write only to the `candidates/N.csv` file of the next candidate.
-- Do not use `~`, `$HOME` or any path outside this folder in a command.
+- Do not use `~`, `$HOME`, any other variable, `cd`, or any path outside this folder in a command. Do not use PowerShell.
+- Inside a text, write a quote as two quotes ("").
