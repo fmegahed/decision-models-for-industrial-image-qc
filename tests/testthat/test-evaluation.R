@@ -67,3 +67,23 @@ test_that("paired_bootstrap() is reproducible and sane", {
   auc <- paired_bootstrap(a, b, "roc_auc", times = 200)
   expect_gt(auc$difference, 0)
 })
+
+test_that("undefined MCC counts as 0 and the bootstrap does not fail", {
+  d <- tibble::tibble(
+    actual_class = rep(c("defective", "nominal"), each = 10),
+    prob_defective = rep(0.1, 20) # predicts nominal only
+  )
+  # yardstick warns that precision is undefined when nothing is predicted defective
+  expect_equal(suppressWarnings(class_metrics(d))$mcc, 0)
+  r <- paired_bootstrap(d, d, "mcc", times = 50)
+  expect_false(anyNA(r))
+  expect_equal(r$difference, 0)
+})
+
+test_that("paired_bootstrap() leaves the global random state alone", {
+  set.seed(5)
+  before <- .Random.seed
+  d <- toy
+  paired_bootstrap(d, d, "bal_accuracy", times = 20)
+  expect_identical(.Random.seed, before)
+})

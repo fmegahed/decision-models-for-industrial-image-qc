@@ -39,12 +39,15 @@ class_metrics <- function(data, threshold = 0.5) {
   soft <- yardstick::metric_set(
     yardstick::roc_auc, yardstick::brier_class, yardstick::mn_log_loss
   )
-  dplyr::bind_rows(
+  out <- dplyr::bind_rows(
     hard(data, truth = truth, estimate = estimate),
     soft(data, truth = truth, prob_defective)
   ) |>
     dplyr::select(.metric, .estimate) |>
-    tidyr::pivot_wider(names_from = .metric, values_from = .estimate) |>
+    tidyr::pivot_wider(names_from = .metric, values_from = .estimate)
+  # MCC is NaN when a class is never predicted or present: count it as 0.
+  out |>
+    dplyr::mutate(mcc = tidyr::replace_na(mcc, 0)) |>
     dplyr::mutate(ece = ece(data$prob_defective,
                             as.integer(data$truth == "defective")))
 }
@@ -70,16 +73,16 @@ paired_bootstrap <- function(a, b, metric, times = 2000, seed = 202612) {
     d <- add_classes(d[i, ], 0.5)
     switch(metric,
       bal_accuracy = yardstick::bal_accuracy_vec(d$truth, d$estimate),
-      mcc = yardstick::mcc_vec(d$truth, d$estimate),
+      mcc = tidyr::replace_na(yardstick::mcc_vec(d$truth, d$estimate), 0),
       roc_auc = yardstick::roc_auc_vec(d$truth, d$prob_defective)
     )
   }
   diff_at <- function(i) score(a, i) - score(b, i)
   by_class <- split(seq_len(nrow(a)), a$actual_class)
-  set.seed(seed)
-  boot <- purrr::map_dbl(seq_len(times), \(r) {
+  # with_seed leaves the global random state untouched.
+  boot <- withr::with_seed(seed, purrr::map_dbl(seq_len(times), \(r) {
     diff_at(unlist(purrr::map(by_class, \(i) sample(i, length(i), replace = TRUE))))
-  })
+  }))
   ci <- stats::quantile(boot, c(0.025, 0.975), names = FALSE)
   tibble::tibble(difference = diff_at(seq_len(nrow(a))), low = ci[1], high = ci[2])
 }
