@@ -410,3 +410,14 @@ Git rules (Claude call, from the builder check). CLAUDE.md and the skill do not 
 - From the builder check: the exclusion of near-copies from C (4.3); the calibration of the CLIP variants on pans (4.4); the check of 9 images per call (5.6); the Holm family of 14 tests (6.3); the time and the ID range for the timeline (B1, B5); no list of branches on the Home page (B7); the git rules (section 11).
 
 Decided by fmm after the builder check: the loop is blind (D74), and the back-filled rows show with a mark until a person checks them (D75).
+
+## 14. Addendum: execution time (D78)
+
+fmm asked on 2026-10-21 to record execution time. Before this addendum, only the paid JEV calls had a time (latency in the call log), and the loop log had a time stamp for each candidate. CLIP had no timing, and the score files had no time.
+
+- Each decision-model score file gets a column `elapsed_ms`: the wall time of the call for that image, with image preparation.
+- Each scoring run (design, calibration, test) adds one row to `results/fair/timing/runs.csv`: model, description, k, dataset, split, number of images, start and end (UTC), seconds and hardware ("TypeSafe API" or the local GPU name).
+- Clef-Flash calls go to their own log, `results/fair/timing/clef-calls.csv`, not to the TypeSafe call log. The budget counts only JEV rows. (Before this change, Clef-Flash calls went into the TypeSafe log and counted against the JEV budget: a bug found while answering D78.)
+- CLIP: a separate timing run on the test images measures the time per image of each variant (encoding and scoring) on the local GPU. It writes `results/fair/timing/clip_timing.csv` and does not change the CLIP score files (they are one-time).
+- `scripts/fair_evaluate.R` writes `results/fair/summary/timing.csv`: the median and the 25th and 75th percentiles of the time per image, for each method and dataset, and the total time of each step.
+- The analysis document gets a section "Time and cost": time per image for each method, the total time of each step, and the JEV calls and cost from the call log. The times come from different hardware, so the document names the hardware and does not rank the methods on time alone.

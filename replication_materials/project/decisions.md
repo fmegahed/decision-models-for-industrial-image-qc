@@ -81,6 +81,7 @@
 | D75 | 2026-10-20 | The 37 back-filled decision rows (D2 to D38) show with the mark "not checked by a person"; fmm checks them before the tag v0.1.0. | claude | fmm | question | "Show marked, check later (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | - | Record and process | - | - |
 | D76 | 2026-10-20 | Approve the design plans/2026-10-20-fair-comparison-design.md, with the Claude calls of its section 13. | claude | fmm | plan-approval | "I approve" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | - | Record and process | - | - |
 | D77 | 2026-10-20 | Approve the plans plans/2026-10-20-record-additions-plan.md and plans/2026-10-20-fair-comparison-plan.md; run their code tasks subagent-driven, and the gated tasks with fmm in the session. | claude | fmm | plan-approval | "Yes and use the approach" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | - | Record and process | - | - |
+| D78 | 2026-10-21 | Record the execution time of every scoring run (per image and per run, for JEV, Clef-Flash and CLIP) and report time per image for each method in the analysis document. | fmm | fmm | chat | "A question are we capturing execution time as well. If not can we add this in?" (2026-10-21) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 04:36 | Metrics and reporting | The paper can compare the methods on time as well as on accuracy; the times are observed on different hardware (TypeSafe API, local GPU) and are reported with it. | - |
 
 ## Topics
 
