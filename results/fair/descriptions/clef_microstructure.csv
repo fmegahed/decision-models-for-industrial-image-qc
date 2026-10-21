@@ -1,0 +1,2 @@
+normal,defective
+"A grain map where grain colors are random and varied everywhere: neighboring grains have unrelated hues spread over the full color wheel, and no part of the map has a patch of touching grains in the same color family.","A grain map where grain colors are not fully random: either many grains across the map share one or two color families, or one part of the map holds a patch of several touching grains in the same color family (for example a cluster of red and orange grains) while the rest looks varied."

@@ -223,3 +223,37 @@ Notes:
 - Calibration error with isotonic at 10 images per class: microstructure 0.07, textiles 0.09, pipe_staple 0.01, pan 0.03 (at 5 to 8 per class). Extrusion is the exception: Platt is better at every size (0.07 against 0.17).
 - Platt needs more images than isotonic on these data: its soft targets pull the probabilities toward 0.5 when the subset is small (pipe_staple ECE 0.16 at 5 per class, 0.03 at 50).
 - So, for the threshold and calibration step, about 10 to 20 labeled validation images per class were enough here; with 2 to 4 references, about 25 to 45 labeled images in total.
+
+## Fair comparison (v0.1.0)
+
+Design: `replication_materials/plans/2026-10-20-fair-comparison-design.md`. Plan: `replication_materials/plans/2026-10-20-fair-comparison-plan.md`. Code on branch `fair-comparison`.
+
+### Checks before the runs (2026-10-21)
+
+- fmm approved the loop instructions (D83) and a budget row of 50,000 JEV calls and USD 20 (D84).
+- Nine-image check: JEV and Clef-Flash both accept 9 images in one call (k = 4). JEV: 2,236 input tokens, 439 ms. Clef-Flash: 1,415 ms (first call).
+- Latency at k = 2 (extrusion image): JEV 383, 372 and 603 ms (1,404 input tokens, about USD 0.00006 per call); Clef-Flash 296, 316 and 283 ms, with the same probability three times (deterministic).
+- Check-only rehearsal of the loop launcher (`scripts/fair_run_loop.sh`) in a throwaway Clef-Flash textiles sandbox, Claude Code 2.1.306: all isolation flags accepted; 8 tool calls, all inside the sandbox, none denied. It found two defects, both fixed and reviewed before the loops: the audit counted each tool call twice, because 2.1.306 transcripts repeat tool_use blocks in api-request-blob entries (fix 7dcb698); and `scripts/fair_make_sandbox.R` ignored FAIR_MAP_DIR (fix dbf77fd).
+- Paid calls of the checks: 4 JEV calls (purpose "fair check jev k4" and "k2").
+
+### Description loops (2026-10-21)
+
+One fresh, isolated Claude Code agent (Opus 5.5) for each model and dataset (D81), started by `scripts/fair_run_loop.sh` in its sandbox; closed with `scripts/fair_close_loop.R` (audit, mirror check, freeze). Design AUC is on the 48 + 48 design images that chose the description, so it is optimistic; the AUC on C follows in the calibration runs.
+
+| Model | Dataset | Candidates | Generic design AUC | Frozen candidate | Frozen design AUC | Paid calls | Audit |
+|---|---|---|---|---|---|---|---|
+| Clef-Flash | extrusion | 6 | 0.708 | 2 | 0.764 | 0 (local) | blind |
+| Clef-Flash | textiles | 5 | 0.855 | 4 | 0.928 | 0 (local) | blind |
+| Clef-Flash | pipe_staple | 2 | 0.569 | 2 | 0.997 | 0 (local) | blind |
+| Clef-Flash | microstructure | 5 | 0.886 | 3 | 0.936 | 0 (local) | blind |
+| JEV | extrusion | 6 | 0.585 | 3 | 0.783 | 576 | blind |
+| JEV | textiles | 2 | 0.917 | 2 | 0.991 | 192 | blind |
+| JEV | pipe_staple | 1 | 0.994 | 1 (generic) | 0.994 | 96 | blind |
+| JEV | microstructure | 4 | 0.770 | 2 | 0.945 | 384 | blind |
+
+- Every audit has only the row "No call outside the sandbox. The loop was blind." No loop needed a retry.
+- The agents stopped early when no candidate could pass the +0.02 rule (pipe staple, JEV textiles) or when they had no further idea that they expected to help (Clef-Flash textiles and microstructure, JEV microstructure).
+- What the loops found: naming over- and under-extrusion (extrusion); describing the whole-surface texture, and saying that fine grain is normal (textiles); naming the bright clip that is missing (pipe staple, Clef-Flash); describing the color distribution of the grain map, random against one or two dominant hue families or same-hue patches (microstructure). JEV ranked pipe staple almost perfectly with the generic description, so its final description is the generic one, and its P2 difference is zero by construction.
+- Low-severity microstructure defects (Bimodal_low, Band_low) stay hard for both models; the agents said that these images look random to them too.
+- Records: `results/fair/loop/` (log copies, mirrors, audits, image maps, score.sh md5), `results/fair/descriptions/` (frozen texts). The 8 transcripts are kept outside git in `../fair-loop-sandbox/transcripts/`; their names and md5 are in the audit files.
+- Paid calls of the loops: 1,248 JEV calls (purpose "fair design jev ..."), no failed call.

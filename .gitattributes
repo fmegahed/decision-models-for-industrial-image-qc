@@ -3,3 +3,5 @@
 *.png binary
 *.jpg binary
 *.JPG binary
+# Records of the fair comparison: stored byte for byte (their md5 values are checked).
+results/fair/** -text
