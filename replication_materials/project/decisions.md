@@ -79,6 +79,7 @@
 | D73 | 2026-10-20 | The record is an honest guide to the co-work with Claude Code and shows the intellectual contributions and decisions of the researchers. | fmm | fmm | chat | "I want this to be our honest guide of how we co-worked with Claude Code while highlighting the intellectual contributions" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D74 | 2026-10-20 | The description loop is blind: its instructions carry no dataset knowledge from the researchers (not the hypotheses of docs/GOAL.md). | claude | fmm | question | "No: blind (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 | D75 | 2026-10-20 | The 37 back-filled decision rows (D2 to D38) show with the mark "not checked by a person"; fmm checks them before the tag v0.1.0. | claude | fmm | question | "Show marked, check later (Recommended)" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
+| D76 | 2026-10-20 | Approve the design plans/2026-10-20-fair-comparison-design.md, with the Claude calls of its section 13. | claude | fmm | plan-approval | "I approve" (2026-10-20) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 |
 
 ## Corrections
 
