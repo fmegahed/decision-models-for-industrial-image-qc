@@ -1,4 +1,4 @@
-// replication-materials 1.1.0
+// replication-materials 1.2.0
 // Builds the static site from the markdown record: node build-site.mjs --root . --out _site
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";

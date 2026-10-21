@@ -1,7 +1,7 @@
 // Miami theme, HTML escaping and the shared page shell.
 import { posix } from "node:path";
 
-export const VERSION = "1.1.0";
+export const VERSION = "1.2.0";
 
 export const DEFAULT_TOKENS = {
   bg: "#FAF9F7",
@@ -118,21 +118,30 @@ img, svg { max-width: 100%; height: auto; }
 `;
 }
 
+// One ordered list of the record pages. A page with a third item shows only when it returns true.
 const NAV = [
   ["Home", "index.html"],
   ["Records", "records/index.html"],
   ["Decisions", "decisions/index.html"],
+  ["Contributions", "contributions/index.html"],
+  ["Timeline", "timeline/index.html"],
+  ["Releases", "releases/index.html", (m) => m.recordFiles?.releases],
+  ["Results", "results/index.html", (m) => m.recordFiles?.results],
   ["Progress", "progress/index.html"],
   ["Process", "process/index.html"],
 ];
+
+// The nav items that show for this record, then the extra pages of site.config.json.
+export function navItems(model) {
+  const extra = (model.config.pages ?? []).map((p) => [p.title, p.path]);
+  return [...NAV.filter(([, , show]) => !show || show(model)).map(([label, target]) => [label, target]), ...extra];
+}
 
 export function pageShell({ path, title, body, model, head = "", scripts = "" }) {
   const project = model.config.project;
   const repo = model.config.repository;
   const tokens = { ...DEFAULT_TOKENS, ...(model.config.theme || {}) };
-  // The extra pages of site.config.json follow the record pages.
-  const extra = (model.config.pages ?? []).map((p) => [p.title, p.path]);
-  const items = [...NAV, ...extra].map(([label, target]) => {
+  const items = navItems(model).map(([label, target]) => {
     const current = target === path ? ' aria-current="page"' : "";
     return `<li><a href="${escapeHtml(rel(path, target))}"${current}>${escapeHtml(label)}</a></li>`;
   });

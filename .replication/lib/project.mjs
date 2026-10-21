@@ -6,8 +6,9 @@ import { join } from "node:path";
 import { parseTables, findTable, readMeta, RecordFormatError } from "./tables.mjs";
 import { DEFAULT_TOKENS } from "./html.mjs";
 import {
-  readPeople, readDecisions, readRulings, readCorrectionsTable, applyCorrections,
+  readPeople, readDecisions, readRulings, readCorrectionsTable, applyCorrections, readTopics, readChecksTable, applyChecks,
 } from "./decisions.mjs";
+import { readReleases, readResults, checkReleaseResults } from "./releases.mjs";
 
 export const FORMAT_VERSION = 1;
 export const MILESTONE_COLUMNS = ["ID", "Milestone", "State", "Plan", "Ledger"];
@@ -195,12 +196,33 @@ function readAllDecisions(base, people) {
   const rows = readDecisions(text, file, people).sort((a, b) => dNum(a) - dNum(b));
   const rulings = listMd(base, "plans").filter((f) => f.endsWith("-ledger.md"))
     .flatMap((f) => readRulings(readFileSync(join(base, f), "utf8"), f));
-  return applyCorrections([...rows, ...rulings], readCorrectionsTable(text, file), people, file);
+  const corrected = applyCorrections([...rows, ...rulings], readCorrectionsTable(text, file), people, file);
+  return {
+    decisions: applyChecks(corrected, readChecksTable(text, file), people, file),
+    topics: readTopics(text, file),
+  };
+}
+
+// Releases and results are optional. Releases come first because each result names the tag of its release.
+function readReleasesAndResults(root, base, decisionIds) {
+  const [releasesFile, resultsFile] = ["project/releases.md", "project/results.md"];
+  const read = (rel) => (existsSync(join(base, rel)) ? readFileSync(join(base, rel), "utf8") : null);
+  const releasesText = read(releasesFile);
+  const resultsText = read(resultsFile);
+  const releases = releasesText === null ? [] : readReleases(releasesText, releasesFile, decisionIds);
+  const results = resultsText === null ? []
+    : readResults(resultsText, resultsFile, { root, releaseTags: releases.map((r) => r.tag), decisionIds });
+  checkReleaseResults(releases, results, releasesFile, resultsFile);
+  // Newest first. On the same date and time, the later row is the newer release: the file is append-only.
+  const when = (r) => r.date + (r.time ?? "");
+  releases.sort((a, b) => (when(a) < when(b) ? 1 : when(a) > when(b) ? -1 : b.line - a.line));
+  return { releases, results, files: { releases: releasesText !== null, results: resultsText !== null } };
 }
 
 function docKind(rel) {
   const suffix = rel.match(/-([a-z]+)\.md$/)?.[1];
   if (DOC_KINDS.includes(suffix)) return suffix;
+  if (rel === "project/contributions.md") return "contributions";
   if (rel.startsWith("probes/")) return "probes";
   if (rel.startsWith("calls/")) return "calls";
   if (rel.startsWith("findings/")) return "findings";
@@ -208,22 +230,41 @@ function docKind(rel) {
   return "readme";
 }
 
-function readDocuments(base) {
+// A plan shows its task count. A ledger shows its finished tasks and its rulings.
+function docSize(path, kind, text, decisions) {
+  const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  if (kind === "plan") {
+    const n = [...text.matchAll(/^### Task \d+/gm)].length;
+    return n ? count(n, "task", "tasks") : null;
+  }
+  if (kind === "ledger") {
+    const done = new Set([...text.matchAll(/^Task (\d+): complete\b/gm)].map((m) => m[1])).size;
+    const rulings = decisions.filter((d) => d.file === path).length;
+    return `${count(done, "task", "tasks")} complete; ${count(rulings, "ruling", "rulings")}`;
+  }
+  return null;
+}
+
+function readDocuments(base, milestones, decisions) {
   const probes = existsSync(join(base, "probes"))
     ? readdirSync(join(base, "probes"), { recursive: true })
         .map((p) => p.replaceAll("\\", "/")).filter((p) => p.endsWith("/README.md")).sort()
         .map((p) => `probes/${p}`)
     : [];
-  const paths = ["README.md", ...listMd(base, "plans"), ...listMd(base, "findings"), ...probes, "calls/README.md"]
+  const paths = ["README.md", ...listMd(base, "plans"), ...listMd(base, "findings"), ...probes, "calls/README.md", "project/contributions.md"]
     .filter((p) => existsSync(join(base, p)));
   return paths.map((path) => {
     const text = readFileSync(join(base, path), "utf8");
     const { title, meta } = readMeta(text, path);
     const parts = path.split("/");
     const datedName = path.startsWith("probes/") ? parts[1] : parts[parts.length - 1];
+    const kind = docKind(path);
+    const milestone = milestones.find((m) => m.plan === path || m.ledger === path)?.id ?? null;
     return {
-      path, title: title ?? parts[parts.length - 1], kind: docKind(path),
+      path, title: title ?? parts[parts.length - 1], kind,
       date: datedName.match(DATE_PREFIX)?.[1] ?? null, status: meta.Status ?? null, text,
+      writtenBy: meta["Written by"] ?? null, approvedBy: meta["Approved by"] ?? null,
+      milestone, size: docSize(path, kind, text, decisions),
     };
   }).sort((a, b) => (a.date === b.date ? 0 : a.date === null ? 1 : b.date === null ? -1 : a.date < b.date ? -1 : 1)
     || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
@@ -295,7 +336,8 @@ export function loadProject(root, opts = {}) {
   const openItems = findTable(roadmapTables, "Open items", OPEN_ITEM_COLUMNS, roadmapFile).rows.map(({ cells: c }) => ({
     id: c.ID, item: c.Item, blocks: c.Blocks, owner: c.Owner,
   }));
-  const decisions = readAllDecisions(base, people);
+  const { decisions, topics } = readAllDecisions(base, people);
+  const { releases, results, files: recordFiles } = readReleasesAndResults(root, base, decisions.map((d) => d.id));
   const tally = new Map();
   for (const d of decisions) for (const id of d.decidedBy) tally.set(id, (tally.get(id) ?? 0) + 1);
   const byDecider = [...tally].map(([id, count]) => ({ id, name: people.get(id).name, count }))
@@ -307,8 +349,12 @@ export function loadProject(root, opts = {}) {
       next: milestones.find((m) => m.state === "next") ?? null,
     },
     decisions,
+    topics,
+    releases,
+    results,
+    recordFiles,
     events: readEvents(readRequired(base, "project/process.md"), "project/process.md"),
-    documents: readDocuments(base),
+    documents: readDocuments(base, milestones, decisions),
     calls: readCalls(base),
     counts: { byDecider },
     build: { sha: opts.gitSha ?? gitSha(root), date: opts.buildDate ?? new Date().toISOString().slice(0, 10) },
