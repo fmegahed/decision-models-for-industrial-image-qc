@@ -54,20 +54,23 @@ The runs of the decision models (the description loops, and the calibration and 
 ```{r}
 #| label: switches
 # Re-run switches. FALSE reads the saved results. Each switch runs one step
-# of the section "Re-run steps".
-run_evaluate <- FALSE # metrics, paired tests and k-curve (no cost)
+# of the section "Re-run steps"; a score switch also runs the evaluation.
+run_evaluate <- FALSE # metrics, paired tests and k-curve of the re-run (no cost)
 run_clip     <- FALSE # CLIP variants on a local GPU (set RETICULATE_PYTHON first)
 run_clef     <- FALSE # Clef-Flash calibration and test runs (local SGLang server)
 run_jev      <- FALSE # JEV calibration and test runs (paid TypeSafe API)
+# TRUE builds every table and figure from the re-run (render again after
+# the render that ran the switches).
+use_rerun    <- FALSE
 
 # Folders. The sets, the loop logs and the frozen descriptions always come
-# from saved_root. To build this document from re-run scores and summaries,
-# set results_root to rerun_root.
+# from saved_root. The re-run writes to rerun_root only; with use_rerun, the
+# scores, summaries, figures and tables all come from rerun_root.
 saved_root   <- "results/fair"
-results_root <- "results/fair"
 rerun_root   <- "results/rerun/fair"
-figs_dir     <- "figs"
-tables_dir   <- "tables"
+results_root <- if (use_rerun) rerun_root else saved_root
+figs_dir     <- if (use_rerun) file.path(rerun_root, "figs") else "figs"
+tables_dir   <- if (use_rerun) file.path(rerun_root, "tables") else "tables"
 ```
 
 ## Packages
@@ -383,10 +386,16 @@ sets <- c("learning", "calibration", "references", "design", "draw_report") |>
 manifest <- read_csv_quiet("results/image_split_manifest.csv")
 test_set <- dplyr::filter(manifest, split == "test")
 
-# Summaries of scripts/fair_evaluate.R. Before the decision-model runs they
-# hold CLIP rows only, and paired.csv has its header only.
+# Score files and summaries of scripts/fair_evaluate.R, both from
+# results_root: every table and figure then uses the same scores. Before the
+# decision-model runs they hold CLIP rows only, and paired.csv has its header
+# only.
 scores_dir <- file.path(results_root, "scores")
 summary_dir <- file.path(results_root, "summary")
+if (!file.exists(file.path(summary_dir, "metrics.csv"))) {
+  stop("No summaries in ", summary_dir, ". Render once with a re-run switch ",
+       "on, then set use_rerun to TRUE and render again.", call. = FALSE)
+}
 metrics <- read_csv_quiet(file.path(summary_dir, "metrics.csv"))
 paired <- read_csv_quiet(
   file.path(summary_dir, "paired.csv"),
@@ -469,7 +478,7 @@ The five datasets of @megahed2026clip are copies of [fmegahed/qe_genai/data](htt
 
 ```{r}
 #| label: tbl-sets
-#| tbl-cap: "Datasets and sets (images, nominal + defective). Pans have no calibration set C: they calibrate on the images of L that are not references."
+#| tbl-cap: "Datasets and sets (images, nominal + defective). Pans have no calibration set C: JEV, Clef-Flash and CLIP with the same references calibrate on the images of L that are not references, the CLIP baseline on leave-one-out scores in L, and CLIP zero-shot on all of L."
 # Defect types of each dataset, from all its images, with readable names for
 # three datasets.
 named_types <- c(
@@ -1189,7 +1198,9 @@ save_figure(
 #| label: tbl-paired
 #| tbl-cap: "Paired comparisons on the test sets: difference (95% paired bootstrap interval) for balanced accuracy, MCC and AUC, and the exact McNemar p-value, before and after the Holm adjustment within each model."
 #| eval: !expr has_paired
-# Table T6: one row per comparison, model and dataset.
+# Table T6: one row per comparison, model and dataset. A p-value below
+# 0.001 shows as "< 0.001", not as 0.000.
+fmt_p <- function(p) dplyr::if_else(p < 0.001, "< 0.001", fmt(p, 3))
 t6 <- paired |>
   dplyr::mutate(cell = stringr::str_glue("{signed(difference)} ({fmt(low)} to {fmt(high)})")) |>
   dplyr::select(comparison, model, dataset, metric, cell, mcnemar_p, holm_p,
@@ -1202,7 +1213,8 @@ t6 <- paired |>
     Model = model_labels[model],
     `Balanced accuracy` = as.character(bal_accuracy), MCC = as.character(mcc),
     AUC = as.character(roc_auc),
-    `McNemar p` = mcnemar_p, `Holm p` = holm_p, `Holm tests` = holm_family_size
+    `McNemar p` = fmt_p(mcnemar_p), `Holm p` = fmt_p(holm_p),
+    `Holm tests` = holm_family_size
   )
 save_table(t6, "T6_paired_comparisons", "Paired comparisons on the test sets.",
            digits = 3, page_length = 30, group = "Dataset")
@@ -1210,7 +1222,7 @@ save_table(t6, "T6_paired_comparisons", "Paired comparisons on the test sets.",
 
 # Reference curve
 
-@fig-reference-curve shows the test balanced accuracy and AUC against the number of references per class, k = 0, 1, 2 and 4. The decision models use the final description (pans: generic) at every k, so only the references change. For CLIP, k = 0 is zero-shot, and k > 0 uses the same references as the decision models. All values use Platt scaling on C. The bars give the paired 95% interval of the change from k = 0, placed at the value: a bar that does not reach the value at k = 0 shows a change that the test images support.
+@fig-reference-curve shows the test balanced accuracy and AUC against the number of references per class, k = 0, 1, 2 and 4. The decision models use the final description (pans: generic) at every k, so only the references change. For CLIP, k = 0 is zero-shot, and k > 0 uses the same references as the decision models. All values use Platt scaling on C. The bars give the paired 95% interval of the change from k = 0, placed at the value: a bar that does not reach the value at k = 0 shows a change that the test images support. A bar stops at 0 and 1, the limits of both metrics.
 
 ```{r}
 #| label: curve-note
@@ -1221,16 +1233,17 @@ note(!has_decision, "Until then, the figure shows CLIP only.")
 
 ```{r}
 #| label: fig-reference-curve
-#| fig-cap: "Test balanced accuracy and AUC against the number of references per class (Platt scaling on C). Bars: paired 95% interval of the change from k = 0."
+#| fig-cap: "Test balanced accuracy and AUC against the number of references per class (Platt scaling on C). Bars: paired 95% interval of the change from k = 0, placed at the value and cut at the limits of the metric (0 and 1)."
 #| fig-width: 7
 #| fig-height: 3.8
 # Values and intervals; the interval of the change from k = 0 is moved to the
-# value at k (value at k = 0 plus the bounds). Models side by side at each k.
+# value at k (value at k = 0 plus the bounds) and cut at 0 and 1, the limits
+# of balanced accuracy and AUC. Models side by side at each k.
 curve <- k_curve |>
   dplyr::filter(metric %in% c("bal_accuracy", "roc_auc")) |>
   dplyr::mutate(k0 = value[k == 0], .by = c(model, dataset, metric)) |>
   dplyr::mutate(
-    low_value = k0 + low, high_value = k0 + high,
+    low_value = pmax(k0 + low, 0), high_value = pmin(k0 + high, 1),
     x = k + unname(c(jev = -0.12, clef = 0, clip = 0.12)[model]),
     model = factor(model_labels[model], names(model_colors)),
     metric = factor(metric_labels[metric], metric_labels[c("bal_accuracy", "roc_auc")]),
@@ -1266,7 +1279,7 @@ fig_curve <- function(layout) {
         layout,
         stringr::str_c(model_text, collapse = ", "),
         " after Platt scaling on C. CLIP at k = 0 is zero-shot. Bars: paired ",
-        "95% interval of the change from k = 0, placed at the value."
+        "95% interval of the change from k = 0, placed at the value and cut at 0 and 1."
       ),
       x = "References per class (k)", y = NULL
     ) +
@@ -1565,9 +1578,15 @@ Notes on the steps:
 - Step 2 needs a Python 3.12 environment with torch 2.8.0 and OpenAI CLIP (`results/clip/python_environment.txt`). After the loops, `FAIR_CLIP_TEXT=final` adds the zero-shot variant with the final descriptions. Run CLIP when no other process uses the GPU.
 - Steps 3 to 5 run once for each model (jev, clef) and dataset (extrusion, textiles, pipe_staple, microstructure). The researchers approve `LOOP.md` before step 4. Run the agent as a separate `claude -p` process with the sandbox as its working folder, so that it gets no project instructions and no project memory. Step 5 refuses to overwrite a frozen description.
 - Step 6 runs the configurations of @sec-configurations. Clef-Flash needs its local server: `docker run --gpus all -p 30000:30000 lmsysorg/sglang:dev-clef sglang serve --model-path Cloudflare/clef-flash --host 0.0.0.0 --port 30000`.
-- `FAIR_OUT`, `FAIR_SCORES` and `FAIR_SUMMARY` send the outputs to another folder. The chunks below write to `results/rerun/fair/`, so the saved results never change. To build this document from the re-run outputs, set `results_root` to `rerun_root` in @sec-switches and render again.
+- `FAIR_OUT`, `FAIR_SCORES` and `FAIR_SUMMARY` send the outputs to another folder.
 
-The chunks below run only when their switch in @sec-switches is `TRUE`.
+The chunks below run only when their switch in @sec-switches is `TRUE`. They write to `results/rerun/fair/` only, so the saved results never change:
+
+1. The score switches (`run_clip`, `run_clef`, `run_jev`) write the new score files to `results/rerun/fair/runs/`.
+2. The evaluation runs after any switch. It first fills `results/rerun/fair/scores/` with the saved score files, and puts each re-run file in place of the saved file of the same configuration and split. Thus a partial re-run (for example CLIP only) still gives a full set of scores, and no file mixes the two sources. It then writes the summaries to `results/rerun/fair/summary/`. A re-run of a decision model must run both splits of a configuration, as `rerun_scores()` does.
+3. Set `use_rerun` to `TRUE` in @sec-switches, with the switches back at `FALSE`, and render again. Every table and figure then comes from `results/rerun/fair/scores/` and `results/rerun/fair/summary/`, and the figure and table files go to `results/rerun/fair/figs/` and `results/rerun/fair/tables/`.
+
+The same steps from the command line: run the scripts with `FAIR_OUT=results/rerun/fair/runs`; make `results/rerun/fair/scores/` as in item 2; run `FAIR_SCORES=results/rerun/fair/scores FAIR_SUMMARY=results/rerun/fair/summary Rscript scripts/fair_evaluate.R`; then render with `use_rerun <- TRUE`.
 
 ```{r}
 #| label: rerun-helpers
@@ -1597,7 +1616,7 @@ rerun_scores <- function(model) {
       run_script("scripts/fair_score.R", c(
         FAIR_MODEL = model, FAIR_DATASET = dataset, FAIR_DESCRIPTION = description,
         FAIR_K = as.character(k), FAIR_SPLIT = split,
-        FAIR_OUT = file.path(rerun_root, "scores")
+        FAIR_OUT = file.path(rerun_root, "runs")
       ))
     })
   }
@@ -1609,8 +1628,8 @@ rerun_scores <- function(model) {
 #| eval: !expr run_clip
 # Step 2: the CLIP variants, then the zero-shot variant with the final
 # descriptions.
-run_script("scripts/fair_clip.R", c(FAIR_OUT = file.path(rerun_root, "scores")))
-run_script("scripts/fair_clip.R", c(FAIR_OUT = file.path(rerun_root, "scores"),
+run_script("scripts/fair_clip.R", c(FAIR_OUT = file.path(rerun_root, "runs")))
+run_script("scripts/fair_clip.R", c(FAIR_OUT = file.path(rerun_root, "runs"),
                                     FAIR_CLIP_TEXT = "final"))
 ```
 
@@ -1630,10 +1649,21 @@ rerun_scores("jev")
 
 ```{r}
 #| label: rerun-evaluate
-#| eval: !expr run_evaluate
-# Step 7: the summaries of the scores in results_root, written to rerun_root.
+#| eval: !expr run_evaluate || run_clip || run_clef || run_jev
+# Step 7. The scores of the re-run: the saved score files, each replaced by
+# the re-run file of the same name (same configuration and split). The
+# folder is made again at each evaluation.
+rerun_scores_dir <- file.path(rerun_root, "scores")
+unlink(rerun_scores_dir, recursive = TRUE)
+dir.create(rerun_scores_dir, recursive = TRUE)
+invisible(file.copy(list.files(file.path(saved_root, "scores"), full.names = TRUE),
+                    rerun_scores_dir))
+invisible(file.copy(list.files(file.path(rerun_root, "runs"), full.names = TRUE),
+                    rerun_scores_dir, overwrite = TRUE))
+
+# The summaries of these scores.
 run_script("scripts/fair_evaluate.R", c(
-  FAIR_SCORES = file.path(results_root, "scores"),
+  FAIR_SCORES = rerun_scores_dir,
   FAIR_SUMMARY = file.path(rerun_root, "summary")
 ))
 ```

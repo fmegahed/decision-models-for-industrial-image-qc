@@ -71,7 +71,7 @@ The images are not in this repository. Copy the folders of [fmegahed/qe_genai/da
 Requirements: R 4.6.1 with httr2, magick, base64enc, tibble, purrr, dplyr, tidyr, readr, stringr, withr, yardstick, ggplot2 and testthat. Run every script from the repository root.
 
 - Exact R package versions: `renv.lock` (renv 1.2.3; 103 CRAN packages with their dependencies). To install them in a project library: `install.packages("renv")`, then `renv::restore()` and choose to activate the project. The lockfile records the versions only: this repository does not activate renv. The Python versions for CLIP are in `results/clip/python_environment.txt`.
-- All tables and figures of the paper: `quarto render beyond_clip_analysis.qmd` (Quarto 1.9; the first chunk installs the missing R packages). It reads the saved results in `results/fair/`, needs `imgs/`, makes no API call, and takes a few minutes. Its switches (`run_evaluate`, `run_clip`, `run_clef`, `run_jev`) re-run steps into `results/rerun/fair/`; section "Re-run steps" of the document lists all steps.
+- All tables and figures of the paper: `quarto render beyond_clip_analysis.qmd` (Quarto 1.9; the first chunk installs the missing R packages). It reads the saved results in `results/fair/`, needs `imgs/`, makes no API call, and takes a few minutes. Its switches (`run_evaluate`, `run_clip`, `run_clef`, `run_jev`) re-run steps into `results/rerun/fair/`, and a second render with `use_rerun <- TRUE` builds every table and figure from the re-run; section "Re-run steps" of the document lists all steps.
 - Tests, no paid call: `Rscript -e "testthat::test_dir('tests/testthat')"`.
 
 Fair comparison (scripts `scripts/fair_*.R`, in this order):
