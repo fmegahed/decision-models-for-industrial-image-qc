@@ -342,6 +342,16 @@ test_that("LOOP.md gives one rule for a failed scoring run", {
   expect_match(text, "a person reviews it", fixed = TRUE)
 })
 
+test_that("LOOP.md says which tool reads, which runs and which file is written", {
+  text <- readLines(file.path(repo_root, "scripts", "fair_loop_instructions.md")) |>
+    paste(collapse = "
+")
+  expect_match(text, "Read and list files with the Read, Glob and Grep tools.", fixed = TRUE)
+  expect_match(text, "Use Bash only for the scoring command.", fixed = TRUE)
+  expect_match(text, "Write only `candidates/N.csv`", fixed = TRUE)
+  expect_false(stringr::str_detect(text, "simple commands that list or read files"))
+})
+
 test_that("LOOP.md bans the dollar sign in commands", {
   text <- readLines(file.path(repo_root, "scripts", "fair_loop_instructions.md")) |>
     paste(collapse = "\n")

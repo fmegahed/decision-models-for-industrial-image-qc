@@ -20,12 +20,23 @@
 #     the working folder; no code-running tool unless --tools names it.
 #   --safe-mode: no CLAUDE.md, skills, plugins, hooks, MCP servers or agents.
 #   --strict-mcp-config (with no --mcp-config): no MCP server.
+#   --settings blockReadsOutsideWorkingDirectories: the file tools refuse
+#     reads outside the sandbox, and the read-only shell commands that Claude
+#     Code runs without a prompt (cat, ls, head, grep ...) prompt for a path
+#     outside it, so they are denied.
 #   --tools: only Read, Write, Edit, Glob, Grep, Bash and TodoWrite.
-#   --allowedTools: the file tools, and Bash only for the scoring command and
-#     simple read commands. --permission-prompts none denies any other call.
+#   --allowedTools: Read, Glob, Grep and TodoWrite; writes only to
+#     candidates/*.csv (an Edit rule also covers the Write tool); Bash only
+#     for the scoring forms.
+#   --disallowedTools: no write to score.sh, LOOP.md, labels.csv,
+#     loop_log.csv or generic_description.csv.
+#   --permission-mode dontAsk and --permission-prompts none: any other call
+#     is denied, whatever the default mode of this Claude Code version.
 #   --disable-slash-commands, the pinned model, and a new session ID, so the
 #     path of the transcript is known. The script prints that path at the end
 #     (for scripts/fair_close_loop.R).
+# The md5 check of score.sh and the audit of the transcript stay as a second
+# layer. The agent runs on this machine, not in a container or a VM.
 set -euo pipefail
 
 usage="Usage: bash scripts/fair_run_loop.sh [--dry-run] MODEL DATASET"
@@ -73,17 +84,21 @@ transcript="$config_dir/projects/$slug/$session_id.jsonl"
 
 cmd=(claude -p "Read LOOP.md and follow it."
   --restricted --safe-mode --strict-mcp-config
+  --settings '{"permissions":{"blockReadsOutsideWorkingDirectories":true}}'
   --tools "Read,Write,Edit,Glob,Grep,Bash,TodoWrite"
-  --allowedTools Read Glob Grep TodoWrite Write Edit
-  "Bash(bash score.sh:*)" "Bash(./score.sh:*)" "Bash(ls:*)" "Bash(head:*)" "Bash(tail:*)"
-  "Bash(cat:*)" "Bash(wc:*)" "Bash(sort:*)" "Bash(cut:*)" "Bash(grep:*)"
-  --disable-slash-commands --permission-prompts none
+  --allowedTools Read Glob Grep TodoWrite "Edit(./candidates/*.csv)"
+  "Bash(bash score.sh:*)" "Bash(./score.sh:*)"
+  --disallowedTools "Edit(./score.sh)" "Edit(./LOOP.md)" "Edit(./labels.csv)"
+  "Edit(./loop_log.csv)" "Edit(./generic_description.csv)"
+  --disable-slash-commands --permission-mode dontAsk --permission-prompts none
   --model claude-opus-5-5
   --session-id "$session_id")
 
-# Print an argument as a shell word: in double quotes when it needs them.
+# Print an argument as a shell word: in single quotes when it holds a double
+# quote, in double quotes when it needs quotes, else as it is.
 quote() {
   case "$1" in
+    *\"*) printf "'%s'" "$1" ;;
     *[!A-Za-z0-9_./:=,@%+-]*) printf '"%s"' "$1" ;;
     *) printf '%s' "$1" ;;
   esac

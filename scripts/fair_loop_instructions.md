@@ -1,6 +1,6 @@
 <!--
 Note for the reader: scripts/fair_run_loop.sh starts the agent of this loop in this folder, as a fresh and isolated Claude Code process, with this command:
-claude -p "Read LOOP.md and follow it." --restricted --safe-mode --strict-mcp-config --tools Read,Write,Edit,Glob,Grep,Bash,TodoWrite --allowedTools Read Glob Grep TodoWrite Write Edit "Bash(bash score.sh:*)" "Bash(./score.sh:*)" "Bash(ls:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(cat:*)" "Bash(wc:*)" "Bash(sort:*)" "Bash(cut:*)" "Bash(grep:*)" --disable-slash-commands --permission-prompts none --model claude-opus-5-5 --session-id <new UUID>
+claude -p "Read LOOP.md and follow it." --restricted --safe-mode --strict-mcp-config --settings '{"permissions":{"blockReadsOutsideWorkingDirectories":true}}' --tools Read,Write,Edit,Glob,Grep,Bash,TodoWrite --allowedTools Read Glob Grep TodoWrite "Edit(./candidates/*.csv)" "Bash(bash score.sh:*)" "Bash(./score.sh:*)" --disallowedTools "Edit(./score.sh)" "Edit(./LOOP.md)" "Edit(./labels.csv)" "Edit(./loop_log.csv)" "Edit(./generic_description.csv)" --disable-slash-commands --permission-mode dontAsk --permission-prompts none --model claude-opus-5-5 --session-id <new UUID>
 -->
 # Goal: Improve the design AUC of {{model}} on {{dataset}} images
 
@@ -61,8 +61,8 @@ You have at most 6 candidates, including candidate 1. Stop after you score candi
 
 - Do not guess the labels of images from their file names. The names carry no information.
 - Do not try to read the scoring code (`score.sh`) or the model settings. The audit flags a read of `score.sh`.
-- Do not run any command other than the scoring command and simple commands that list or read files in this folder.
-- Use only the Read, Write, Edit, Glob, Grep and Bash tools. Do not start subagents. Write only to the `candidates/N.csv` file of the next candidate.
+- Read and list files with the Read, Glob and Grep tools. Use Bash only for the scoring command. Other commands are denied.
+- Use only the Read, Write, Edit, Glob, Grep and Bash tools. Do not start subagents. Write only `candidates/N.csv`, the file of the next candidate, with the Write tool. Writes to other files are denied.
 - Do not use `~`, `$HOME`, any other variable, `cd`, or any path outside this folder in a command. Do not use PowerShell.
 - Do not use `$` in a command (for example in awk or R one-liners).
 - Inside a text, write a quote as two quotes ("").

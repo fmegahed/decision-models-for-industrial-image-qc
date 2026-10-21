@@ -23,16 +23,30 @@ run_launcher <- function(args, dirs, vars = character()) {
 
 uuid_pattern <- "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 
-# The flags of decision D81 (brief item I1).
+# The flags of decision D81 (brief item I1), narrowed after the final review:
+# Bash only for the scoring forms, writes only to candidates/*.csv, denied
+# writes to the other sandbox files, reads outside the sandbox refused, and
+# the permission mode pinned.
 expected_command <- paste(
   "claude -p \"Read LOOP.md and follow it.\" --restricted --safe-mode --strict-mcp-config",
+  "--settings '{\"permissions\":{\"blockReadsOutsideWorkingDirectories\":true}}'",
   "--tools Read,Write,Edit,Glob,Grep,Bash,TodoWrite",
-  "--allowedTools Read Glob Grep TodoWrite Write Edit \"Bash(bash score.sh:*)\"",
-  "\"Bash(./score.sh:*)\" \"Bash(ls:*)\" \"Bash(head:*)\" \"Bash(tail:*)\" \"Bash(cat:*)\"",
-  "\"Bash(wc:*)\" \"Bash(sort:*)\" \"Bash(cut:*)\" \"Bash(grep:*)\"",
-  "--disable-slash-commands --permission-prompts none --model claude-opus-5-5",
-  "--session-id <new UUID>"
+  "--allowedTools Read Glob Grep TodoWrite \"Edit(./candidates/*.csv)\"",
+  "\"Bash(bash score.sh:*)\" \"Bash(./score.sh:*)\"",
+  "--disallowedTools \"Edit(./score.sh)\" \"Edit(./LOOP.md)\" \"Edit(./labels.csv)\"",
+  "\"Edit(./loop_log.csv)\" \"Edit(./generic_description.csv)\"",
+  "--disable-slash-commands --permission-mode dontAsk --permission-prompts none",
+  "--model claude-opus-5-5 --session-id <new UUID>"
 )
+
+# The values of one variadic flag in a command line.
+flag_values <- function(command, flag) {
+  words <- stringr::str_match_all(command, "'[^']*'|\"[^\"]*\"|\\S+")[[1]][, 1]
+  words <- stringr::str_remove_all(words, "^[\"']|[\"']$")
+  start <- match(flag, words)
+  rest <- words[-seq_len(start)]
+  rest[seq_len(match(TRUE, stringr::str_starts(rest, "--"), nomatch = length(rest) + 1L) - 1L)]
+}
 
 test_that("the launcher refuses a bad model, pans, a wrong number of arguments and a bad JEV_CHECK_ONLY", {
   skip_without_bash()
@@ -142,4 +156,23 @@ test_that("the analysis document says one fresh agent for each model and dataset
   expect_match(qmd, "one fresh agent for each model and dataset", fixed = TRUE)
   expect_false(stringr::str_detect(qmd, "one agent for each model\\."))
   expect_false(stringr::str_detect(qmd, "one agent per model"))
+})
+
+test_that("the launcher pre-approves Bash only for scoring and writes only to candidates", {
+  allowed <- flag_values(expected_command, "--allowedTools")
+  expect_setequal(allowed, c("Read", "Glob", "Grep", "TodoWrite", "Edit(./candidates/*.csv)",
+                             "Bash(bash score.sh:*)", "Bash(./score.sh:*)"))
+  # No bare Write or Edit, no Write(path) rule (Claude Code never consults it),
+  # and no Bash rule other than the scoring forms.
+  expect_false(any(allowed %in% c("Write", "Edit")))
+  expect_false(any(stringr::str_starts(allowed, stringr::fixed("Write("))))
+  bash <- allowed[stringr::str_starts(allowed, stringr::fixed("Bash("))]
+  expect_setequal(bash, c("Bash(bash score.sh:*)", "Bash(./score.sh:*)"))
+  denied <- flag_values(expected_command, "--disallowedTools")
+  expect_setequal(denied, paste0("Edit(./", c("score.sh", "LOOP.md", "labels.csv", "loop_log.csv",
+                                             "generic_description.csv"), ")"))
+  expect_equal(flag_values(expected_command, "--permission-mode"), "dontAsk")
+  expect_equal(flag_values(expected_command, "--permission-prompts"), "none")
+  settings <- jsonlite::fromJSON(flag_values(expected_command, "--settings"))
+  expect_true(settings$permissions$blockReadsOutsideWorkingDirectories)
 })
