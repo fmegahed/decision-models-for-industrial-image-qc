@@ -4,7 +4,7 @@
 - Branch: `fair-comparison` (from `main` after tag `v0.0.1`)
 - Status: draft, for review by fmm
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D64 to D73
+- Decisions in the record: D64 to D75
 
 This design has two parts. Part A redesigns the experiment so that the comparison with CLIP is fair and easy to follow. Part B adds detail to the replication record: a timeline, the tags, the results and the contributions of the researchers.
 
@@ -184,6 +184,7 @@ The loop runs for JEV and for Clef-Flash separately, on all datasets except pans
   - the loop instructions, in the style of `docs/GOAL.md`.
 
   The agent can look at the design images. It cannot read the test images, C, `results/`, `experiment_log.md`, the v0.0.1 criteria files in `experiments/`, the paper or the analysis document.
+- Knowledge: the loop is blind (D74). The instructions carry no dataset knowledge from the researchers. The agent gets the dataset name, the class and defect-type names (from the folder names), the design images and the generic description. It does not get the hypotheses of `docs/GOAL.md`. Thus goal (b) claims: an automated loop on about 48 images per class finds a better description, without expert input.
 - People: the researchers do not edit a description during the loop. They approve the loop instructions before it starts.
 - Log: for each candidate, the record keeps its text, its AUC, the mean score per defect type, the reason that the agent gave, and the ID of the agent transcript.
 - Report: the design AUC (optimistic, because the loop chose on these images) and the AUC on C (not optimistic) of the final description.
@@ -378,6 +379,7 @@ The site features (B1 to B7) go into the skill in `fmegahed/claude-skills` as ve
 - The record shows the 100 JEV calls that Claude Code made by mistake (`calls/README.md`), and it shows that v0.0.1 used the test sets.
 - A decision of a researcher has the words of the researcher as evidence. Claude Code does not paraphrase it.
 - `project/contributions.md` is not complete until a researcher approves it.
+- Claude Code back-filled 37 decision rows (D2 to D38, How `classified`) from the transcript. No person checked them. The Decisions and Contributions pages show these rows with the mark "not checked by a person" (D75). Claude Code prepares a short checklist. fmm, and yjc if yjc wants, check the rows before the tag `v0.1.0`. Each correction goes in the Corrections table, and the mark goes away for each checked row.
 
 ## 11. Order of work
 
@@ -404,4 +406,7 @@ Git rules (Claude call, from the builder check). CLAUDE.md and the skill do not 
 
 ## 13. Claude calls for fmm to check
 
-The items marked "Claude call" in section 7: X3 to X12 (headline and variant parts), X14 to X17.
+- Section 7: X3 to X10, the headline of X12, the CLIP variants of X11, the scope of X15, and X14, X16 and X17.
+- From the builder check: the exclusion of near-copies from C (4.3); the calibration of the CLIP variants on pans (4.4); the check of 9 images per call (5.6); the Holm family of 14 tests (6.3); the time and the ID range for the timeline (B1, B5); no list of branches on the Home page (B7); the git rules (section 11).
+
+Decided by fmm after the builder check: the loop is blind (D74), and the back-filled rows show with a mark until a person checks them (D75).
