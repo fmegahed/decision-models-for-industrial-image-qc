@@ -3,6 +3,8 @@
 # Rscript scripts/fair_make_sandbox.R jev extrusion
 #
 # FAIR_SANDBOX: folder that holds the sandboxes (default ../fair-loop-sandbox).
+# FAIR_MAP_DIR: folder of the image map and the score.sh md5 (default
+# results/fair/loop), as in fair_run_loop.sh.
 # The folder must be outside the repository. FAIR_RECORD_ROOT is baked into
 # score.sh. A JEV loop makes paid calls, so it needs FAIR_RECORD_ROOT (no
 # fallback), with the "Fair comparison" budget row in its calls/README.md. A
@@ -14,7 +16,8 @@ source("R/fair_loop.R")
 args <- commandArgs(trailingOnly = TRUE)
 stopifnot(length(args) == 2L)
 sandbox_root <- Sys.getenv("FAIR_SANDBOX", unset = "../fair-loop-sandbox")
-sandbox <- make_sandbox(args[[1]], args[[2]], sandbox_root, repo = ".",
+map_dir <- Sys.getenv("FAIR_MAP_DIR", unset = "results/fair/loop")
+sandbox <- make_sandbox(args[[1]], args[[2]], sandbox_root, repo = ".", map_dir = map_dir,
                         record_root = Sys.getenv("FAIR_RECORD_ROOT"))
 cat("Sandbox made:", sandbox, "\n")
 cat("Files:", length(list.files(sandbox, recursive = TRUE)), "\n")

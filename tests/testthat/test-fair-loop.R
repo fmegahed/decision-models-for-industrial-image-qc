@@ -796,3 +796,17 @@ test_that("closing passes the missing-call check on a transcript with duplicate 
   res <- close_fake(f)
   expect_equal(res$audit_rows, 2L)
 })
+
+test_that("fair_make_sandbox.R writes the map and the md5 into FAIR_MAP_DIR", {
+  skip_if_not(file.exists(file.path(repo_root, "results", "fair", "sets")), "no sets folder")
+  root <- withr::local_tempdir()
+  map <- file.path(withr::local_tempdir(), "map")
+  before <- list.files(file.path(repo_root, "results", "fair", "loop"))
+  out <- withr::with_envvar(
+    c(FAIR_SANDBOX = file.path(root, "sandboxes"), FAIR_MAP_DIR = map),
+    withr::with_dir(repo_root, system2(rscript, c("scripts/fair_make_sandbox.R", "clef", "textiles"),
+                                       stdout = TRUE, stderr = TRUE)))
+  expect_true(file.exists(file.path(map, "clef-textiles_score_sh.md5")), info = paste(out, collapse = "\n"))
+  expect_true(any(stringr::str_detect(list.files(map), "image_map")))
+  expect_equal(list.files(file.path(repo_root, "results", "fair", "loop")), before)
+})
