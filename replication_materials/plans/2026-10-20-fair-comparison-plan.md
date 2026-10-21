@@ -376,6 +376,30 @@ git add beyond_clip_analysis.qmd README.md
 git commit -m "Restructure the analysis document for the fair comparison"
 ```
 
+### Task 7b: Execution time (design section 14, D78)
+
+**Files:**
+- Modify: `R/fair_runner.R`, `scripts/fair_score.R`, `R/fair_loop.R` (if it writes score files), `scripts/fair_clip.R` or a new `scripts/fair_clip_timing.R`, `R/fair_evaluate.R`, `scripts/fair_evaluate.R`, `beyond_clip_analysis.qmd`
+- Test: `tests/testthat/test-fair-runner.R`, `tests/testthat/test-fair-evaluate.R`, and a test for the CLIP timing (skipped without RETICULATE_PYTHON)
+
+**Interfaces:**
+- Produces: an `elapsed_ms` column in every new decision-model score file (design, calibration and test); `results/fair/timing/runs.csv` (model, description, k, dataset, split, n_images, start_utc, end_utc, seconds, hardware); `results/fair/timing/clef-calls.csv` for Clef-Flash calls; `results/fair/timing/clip_timing.csv` (variant, k, dataset, image_path, encode_ms, score_ms); `results/fair/summary/timing.csv` (model, description, k, dataset, split, median_ms, q25_ms, q75_ms, n_images, total_seconds).
+- Changes: `JEV_CALL_LOG` is set to the TypeSafe call log only for JEV runs; Clef-Flash runs log to `results/fair/timing/clef-calls.csv`; `remaining_calls()` counts only rows whose model is `jev-1.13.0` and whose purpose starts with "fair".
+
+- [ ] **Step 1: Write the failing tests**
+
+- A stubbed scoring run writes `elapsed_ms` (non-negative) for each image and one row to runs.csv.
+- A Clef-Flash run never writes to the TypeSafe call log, and `remaining_calls()` ignores Clef-Flash rows.
+- The evaluation reads score files with and without `elapsed_ms` (the CLIP files have none) and writes timing.csv.
+
+- [ ] **Step 2: Run the tests to see them fail**
+
+- [ ] **Step 3: Implement**, then run the CLIP timing on the local GPU (no API call).
+
+- [ ] **Step 4: Run the full test suite and render the document**
+
+- [ ] **Step 5: Commit**
+
 ### Task 8: Gates before any paid call (controller with fmm)
 
 This task needs fmm. A subagent does not do it.
@@ -400,7 +424,7 @@ Run `Rscript scripts/fair_make_sandbox.R <model> <dataset>` for jev and clef, fo
 
 - [ ] **Step 2: Run the loops**
 
-For each model, dispatch one fresh agent. Give it only the sandbox path and the order "Read LOOP.md and follow it." Its working folder is the sandbox. It works through the four datasets in turn. The Clef-Flash server must run for the clef agent, and CLIP must not run at the same time.
+For each model and dataset (8 loops; D81), start one fresh, isolated agent with `bash scripts/fair_run_loop.sh <model> <dataset>`. It runs `claude -p "Read LOOP.md and follow it."` in the sandbox with restricted settings and prints the transcript path. Rehearse once with `JEV_CHECK_ONLY=true` and audit the rehearsal transcript before the first paid loop. Run the loops one at a time, Clef-Flash first (no cost). The Clef-Flash server must run for the clef loops, and CLIP must not run at the same time.
 
 - [ ] **Step 3: Close the loops**
 

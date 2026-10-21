@@ -177,7 +177,7 @@ The loop runs for JEV and for Clef-Flash separately, on all datasets except pans
 - Candidates: at most 6 per dataset and model, including the start. A candidate changes only the two description texts. The references (k = 2), the image size and the crop do not change.
 - Score: ROC AUC on the design images.
 - Keep rule: a candidate replaces the current best if its AUC is at least 0.02 higher. The final description is the last one kept.
-- Agent: a fresh Claude Code agent, one for each model, so that the Clef-Flash agent does not see JEV results. The agent works in a sandbox folder that holds only:
+- Agent: a fresh Claude Code agent for each model and dataset (8 agents; D81), so that the Clef-Flash agents do not see JEV results and each loop is audited and closed on its own. Each agent runs as a separate, isolated Claude Code process in its sandbox (no user settings, plugins, hooks or MCP servers; only the file tools and Bash; model pinned). The sandbox holds only:
   - the design images, with their class and defect type;
   - the generic description;
   - a scoring script;
@@ -410,3 +410,15 @@ Git rules (Claude call, from the builder check). CLAUDE.md and the skill do not 
 - From the builder check: the exclusion of near-copies from C (4.3); the calibration of the CLIP variants on pans (4.4); the check of 9 images per call (5.6); the Holm family of 14 tests (6.3); the time and the ID range for the timeline (B1, B5); no list of branches on the Home page (B7); the git rules (section 11).
 
 Decided by fmm after the builder check: the loop is blind (D74), and the back-filled rows show with a mark until a person checks them (D75).
+
+## 14. Addendum: execution time (D78)
+
+fmm asked on 2026-10-21 to record execution time. Before this addendum, only the paid JEV calls had a time (latency in the call log), and the loop log had a time stamp for each candidate. CLIP had no timing, and the score files had no time.
+
+- Each decision-model score file gets a column `elapsed_ms`: the wall time of the call for that image, with image preparation.
+- Each scoring run (design, calibration, test) adds one row to `results/fair/timing/runs.csv`: model, description, k, dataset, split, number of images, start and end (UTC), seconds and hardware ("TypeSafe API" or the local GPU name).
+- Clef-Flash calls go to their own log, `results/fair/timing/clef-calls.csv`, not to the TypeSafe call log. The budget counts only JEV rows. (Before this change, Clef-Flash calls went into the TypeSafe log and counted against the JEV budget: a bug found while answering D78.)
+- CLIP: a separate timing run on the test images measures the time per image of each variant (encoding and scoring) on the local GPU. It writes `results/fair/timing/clip_timing.csv` and does not change the CLIP score files (they are one-time).
+- `scripts/fair_evaluate.R` writes `results/fair/summary/timing.csv`: the median and the 25th and 75th percentiles of the time per image, for each method and dataset, and the total time of each step.
+- The analysis document gets a section "Time and cost": time per image for each method, the total time of each step, and the JEV calls and cost from the call log. The times come from different hardware, so the document names the hardware and does not rank the methods on time alone.
+- Cost (D79): the JEV call log already holds, for each call, the request ID, the input and output tokens, the latency and an estimated cost (input tokens times USD 0.042 per million, the price in `R/industrial_defect_classifier.R`). `results/fair/summary/timing.csv` also gets the number of calls, the tokens and the estimated cost of each JEV configuration (from the purpose of each log row). After the runs, the record compares the logged total with the usage that the TypeSafe account shows.
