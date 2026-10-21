@@ -124,13 +124,16 @@ C has 25 images per class, from the non-test images that are not in L. The defec
 
 No image in C has a byte-identical copy (MD5) in L or in the test set (checked on 2026-10-20). C is balanced, so a threshold of 0.5 on calibrated probabilities aims at balanced accuracy.
 
+Near-copies (Claude call, from the builder check). Extrusion frames come from video, so a C frame can nearly copy an L frame. CLIP scores an image by its highest similarity to L, so such a frame gets a very confident score, and Platt fitted on C becomes too steep for CLIP. Thus the draw of C excludes the near-copies of L and test images. It uses the dHash check of `experiments/check_leakage.R`, with the same distance limit. The draw reports how many images it excluded. Open item O3 (near-copies between L and the test set) stays open. The paper states it as a limitation of the CLIP baseline on extrusion.
+
 ### 4.4 Pans
 
 Pans have only 20 non-test images, and all 20 are in L. Thus pans have no C and no description loop:
 
 - JEV and Clef-Flash use the generic description (section 5.3).
 - They calibrate on the images of L that are not references. These images choose nothing, so the calibration is not optimistic.
-- CLIP calibrates on leave-one-out scores in L. Near-identical pan photos make these scores optimistic (v0.0.1 found this). The paper states it.
+- The CLIP baseline calibrates on leave-one-out scores in L. Near-identical pan photos make these scores optimistic (v0.0.1 found this). The paper states it.
+- CLIP with the same references calibrates on the images of L that are not references, as JEV does. CLIP zero-shot calibrates on all 20 images of L (Claude call).
 
 ### 4.5 Label budget
 
@@ -201,6 +204,7 @@ With 48 design images per class, the error rate of the loop is near the 50-per-c
 - Each configuration scores C once.
 - Platt scaling, fitted on C, gives the calibrated probability.
 - The decision is defective when the calibrated probability is 0.5 or more. No method tunes a threshold.
+- Platt uses the smoothed targets of Platt (1999), as `R/calibration_functions.R` does now, so a C that separates perfectly still gives a finite fit.
 - Sensitivity analysis: isotonic regression, fitted on C.
 - Continuity: the raw probability at 0.5. For CLIP, this is the rule of the CLIP paper.
 
@@ -227,6 +231,8 @@ The CLIP text encoder reads at most 77 tokens. The optional variant must cut lon
 | CLIP | the variants of 5.5 | as in 5.5 | 5 |
 
 Pans have 4 JEV configurations and 4 Clef-Flash configurations, because their only description is the generic one.
+
+At k = 4, a call holds 9 images. Before the runs, a check confirms that the TypeSafe API and the Clef-Flash server accept 9 images in one call. In v0.0.1, JEV accepted 11 (trial 10). If Clef-Flash does not, its curve stops at k = 2, and the paper states it (Claude call).
 
 ## 6. Metrics and paired comparisons
 
@@ -270,7 +276,7 @@ These comparisons are fixed before the test runs. Each one applies to each datas
 Method:
 
 - A paired bootstrap over the test images, stratified by class, 2,000 resamples. It gives the difference and its 95% interval for balanced accuracy, MCC and AUC.
-- An exact McNemar test on the correctness of each image, as a second check. The p-values are Holm-adjusted within each model (3 comparisons by 5 datasets, or 4 for pans).
+- An exact McNemar test on the correctness of each image, as a second check. The p-values are Holm-adjusted within each model: 14 tests (P1 to P3 for 4 datasets, P1 and P3 for pans).
 - The reference curve (k = 0, 1, 2, 4) is a figure, with paired intervals against k = 0.
 - Pans have no P2, because they have no loop.
 
@@ -356,13 +362,13 @@ It has no releases, no results and no split of human and AI contributions.
 
 | ID | Addition | Content | Where |
 |---|---|---|---|
-| B1 | Releases | New record file `project/releases.md`: Tag, Date, Commit, Summary, Results. A Releases page shows each tag, with links to the GitHub tree and to the comparison with the tag before it, and lists the decisions between the two tags. The first row is `v0.0.1`. | skill, and the rows in this record |
+| B1 | Releases | New record file `project/releases.md`: Tag, Date, Commit, Summary, Decisions (an ID range, for example D1 to D63), Results. A Releases page shows each tag, with links to the GitHub tree and to the comparison with the tag before it, and lists the decisions of its range. The build does not read git: the links come from the tag names, and the range comes from the row. The first row is `v0.0.1`. | skill, and the rows in this record |
 | B2 | Results | New record file `project/results.md`: ID, Release, Result, Value, Source (a file in the repository), Decisions, Superseded by. Each headline result has a version. When a later result replaces it, the row stays and names its successor. A reader can then see how the headline results changed, for example from "best CLIP result on the test set" (D58) to "CLIP baseline at 50 per class" (D62), and then to this design. | skill, and the rows in this record |
-| B3 | Timeline | A new page that shows, for each day: the tags, the changes of stage, the milestones, and the decisions. Decisions of the researchers show with their text. Rulings and decisions of Claude Code show as counts. A bar for each stage shows when it started and ended (from `process.md`). | skill |
-| B4 | Contributions | A new page with: a grid of "Proposed by" against "Decided by"; every decision that a researcher proposed, with the quote; every proposal of Claude Code that a researcher accepted, changed or refused; the corrections; and a short text by the researchers in a new optional file `project/contributions.md`. Claude Code can draft that text. The file states who wrote and who approved it. | skill; the text by fmm and yjc |
-| B5 | Decision detail | Three optional columns in `decisions.md`: Topic (a fixed list in `site.config.json`), Impact (what changed because of the decision, or the cost if it is wrong) and Replaces (the ID of an earlier decision). The Decisions page gets the grid by topic and the chart per day. Claude Code fills Topic for D1 to D73; fmm checks it. | skill, and the rows in this record |
+| B3 | Timeline | A new page that shows the events in order of time: the tags, the changes of stage, the milestones and the decisions. Decisions of the researchers show with their text. Rulings and decisions of Claude Code show as counts. A bar for each stage shows when it started and ended (from `process.md`). All 73 decisions of this record have the same date (2026-10-20), so a timeline by day says little. Thus B5 adds a time to each decision. | skill |
+| B4 | Contributions | A new page with: a grid of "Proposed by" against "Decided by"; every decision that a researcher proposed, with the quote; every proposal of Claude Code that a researcher decided; the decisions that a later decision replaced (column Replaces); the corrections; and a short text by the researchers in a new optional file `project/contributions.md`. Claude Code can draft that text. The file states who wrote and who approved it. There is no column for refused proposals: the record has a row only for a decision that was made. | skill; the text by fmm and yjc |
+| B5 | Decision detail | Four optional columns in `decisions.md`: Time (UTC), Topic (a fixed list in `site.config.json`), Impact (what changed because of the decision, or the cost if it is wrong) and Replaces (the ID of an earlier decision). New rows get all four. For D1 to D73, Claude Code fills Time from the time stamp of the chat message that holds the quoted words; when no message matches, Time stays empty. Claude Code also fills Topic; fmm checks it. The Decisions page gets the grid by topic and the chart over time. | skill, and the rows in this record |
 | B6 | Records detail | The Records page shows the milestone, the size (tasks and rulings of ledgers) and links to the file on GitHub. | skill |
-| B7 | Now | The Home page shows the latest tag, the open branches and the open items. | skill |
+| B7 | Now | The Home page shows the latest tag, the milestone at `now` and the open items. It does not show branches: the site builds only at a push to `main`, so a list of branches goes out of date. | skill |
 
 The site features (B1 to B7) go into the skill in `fmegahed/claude-skills` as version 1.2.0, so other projects get them too. The new files and columns are optional. Old records stay valid, and `format_version` stays 1. This project then takes 1.2.0 with the Update procedure of the skill.
 
@@ -380,7 +386,14 @@ The site features (B1 to B7) go into the skill in `fmegahed/claude-skills` as ve
 3. Part A, code with no paid calls: draw C and the references, the sandbox for the loop, yardstick metrics, calibration, paired comparisons, and the guard for the test runs.
 4. fmm approves the loop instructions and the budget row (X17).
 5. The loops (JEV and Clef-Flash), then calibration, then the one test run of each configuration. CLIP runs on the local GPU.
-6. The analysis document, the README and the record. Tag `v0.1.0`.
+6. The analysis document, the README and the record. Merge `fair-comparison` into `main` with a pull request. Tag `v0.1.0` on `main` after the merge.
+
+Git rules (Claude call, from the builder check). CLAUDE.md and the skill do not agree on where records go when code is on a branch. CLAUDE.md is the instruction of the project, so it applies:
+
+- Record-only commits go to `main` and Claude Code pushes them without asking. The record site then always shows the current state. Decision IDs cannot collide between two branches.
+- Code goes to `fair-comparison`. The branch takes the record commits by a merge of `main`.
+- The update of the skill files in this project (`.replication/` and the workflow) is not record-only. Claude Code asks before that push, and before a push to `fmegahed/claude-skills`.
+- Part B goes to `main` before Part A, because it is record and skill work only.
 
 ## 12. Left to the builder
 
