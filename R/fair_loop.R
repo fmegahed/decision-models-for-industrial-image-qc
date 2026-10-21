@@ -77,14 +77,32 @@ write_loop_log <- function(log, path) {
   readr::write_csv(dplyr::select(log, dplyr::all_of(loop_columns)), path)
 }
 
-# Stops when candidate n may not run now: at most 6, the next number only,
-# and the scores file must not exist.
-check_candidate_slot <- function(sandbox, n) {
+# The record of the loop is the mirror, outside the sandbox. The sandbox log
+# is a copy. Returns the mirror rows. Stops when the copy differs from the
+# mirror, or when there is no mirror and the copy has rows.
+read_record <- function(sandbox, mirror) {
+  copy_file <- file.path(sandbox, "loop_log.csv")
+  if (!file.exists(copy_file)) stop("The loop log is missing from the sandbox")
+  copy <- read_loop_log(copy_file)
+  if (!file.exists(mirror)) {
+    if (nrow(copy) > 0L) stop("The sandbox log has rows but there is no mirror. The loop is not valid.")
+    return(empty_loop_log())
+  }
+  record <- read_loop_log(mirror)
+  if (!isTRUE(all.equal(record, copy, check.attributes = FALSE))) {
+    stop("The loop log in the sandbox differs from the mirror. The loop is not valid.")
+  }
+  record
+}
+
+# Stops when candidate n may not run now: at most 6, the next number only
+# (counted in the mirror), and the scores file must not exist.
+check_candidate_slot <- function(sandbox, n, mirror) {
   if (is.na(n) || n < 1L) stop("The candidate number must be 1 or more")
   if (n > max_candidates) stop("Use at most ", max_candidates, " candidates, including the generic one")
-  log <- read_loop_log(file.path(sandbox, "loop_log.csv"))
-  if (n != nrow(log) + 1L) {
-    stop("The next candidate is number ", nrow(log) + 1L, ", not ", n)
+  record <- read_record(sandbox, mirror)
+  if (n != nrow(record) + 1L) {
+    stop("The next candidate is number ", nrow(record) + 1L, ", not ", n)
   }
   if (file.exists(file.path(sandbox, "scores", paste0(n, ".csv")))) {
     stop("The scores file for candidate ", n, " already exists. Each candidate is scored once.")
@@ -94,7 +112,7 @@ check_candidate_slot <- function(sandbox, n) {
 
 # Writes the scores file (neutral image names), appends the log row, and
 # recomputes the kept column over all rows. scores has the original paths.
-finish_candidate <- function(sandbox, n, scores, map, text, mirror = NULL) {
+finish_candidate <- function(sandbox, n, scores, map, text, mirror) {
   scores <- dplyr::left_join(scores, map, by = "image_path")
   stopifnot(!anyNA(scores$image))
   truth <- factor(scores$actual_class, levels = c("defective", "nominal"))
@@ -104,7 +122,7 @@ finish_candidate <- function(sandbox, n, scores, map, text, mirror = NULL) {
     dplyr::mutate(text = paste0(.data$defect_type, "=", round(.data$mean, 3)))
   type_text <- paste(by_type$text, collapse = "; ")
   log_file <- file.path(sandbox, "loop_log.csv")
-  log <- read_loop_log(log_file) |>
+  log <- read_record(sandbox, mirror) |>
     dplyr::bind_rows(tibble::tibble(
       candidate = as.integer(n),
       time_utc = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
@@ -112,8 +130,10 @@ finish_candidate <- function(sandbox, n, scores, map, text, mirror = NULL) {
       mean_score_by_type = type_text, reason = text$reason, kept = NA))
   rule <- apply_keep_rule(log)
   log$kept <- rule$kept
+  # The mirror first, then the copy in the sandbox.
+  dir.create(dirname(mirror), recursive = TRUE, showWarnings = FALSE)
+  write_loop_log(log, mirror)
   write_loop_log(log, log_file)
-  if (!is.null(mirror)) write_loop_log(log, mirror) # outside the sandbox
   # The scores file comes after the log row: a failure leaves the slot free.
   scores |>
     dplyr::transmute(image = .data$image, class = .data$actual_class,
@@ -197,6 +217,10 @@ make_sandbox <- function(model, dataset, sandbox_root, repo = ".",
   sandbox <- file.path(sandbox_root, paste0(model, "-", dataset))
   if (dir.exists(sandbox)) stop("The sandbox folder already exists: ", sandbox)
   settings <- model_settings(model)
+  old_mirror <- file.path(map_dir, paste0(model, "-", dataset, "_loop_log.csv"))
+  if (file.exists(old_mirror)) {
+    stop("A loop log mirror from an earlier attempt exists: ", old_mirror)
+  }
   record_root <- normalizePath(record_root, winslash = "/", mustWork = FALSE)
 
   design <- readr::read_csv(file.path(sets_dir, "design.csv"), show_col_types = FALSE) |>
@@ -283,7 +307,8 @@ home_token <- "^(\\$\\{?(HOME|USERPROFILE|OLDPWD|HOMEPATH)|\\$env:|~|%(USERPROFI
 
 # Words that change the folder or compute a path. A command with one is flagged.
 deny_words <- c("cd", "pushd", "popd", "chdir", "sl", "set-location", "push-location",
-                "pop-location", "dirname", "split-path", "realpath", "resolve-path",
+                "pop-location", "powershell", "powershell.exe", "pwsh", "pwsh.exe", "cmd",
+                "cmd.exe", "dirname", "split-path", "realpath", "resolve-path",
                 "convert-path", "readlink", "get-location")
 
 # The number N of the scoring command, or NA when the command is not one of
@@ -294,6 +319,10 @@ score_command_number <- function(command, sandbox) {
   plain <- stringr::str_replace_all(command, "\\\\", "/")
   cd_form <- paste0("^\\s*cd\\s+[\"']?(\\.|", stringr::str_escape(sb), ")/?[\"']?\\s*&&\\s*")
   plain <- stringr::str_remove(plain, stringr::regex(cd_form, ignore_case = TRUE))
+  # Allowed extras: a timeout prefix, a trailing | head/tail, a trailing 2>&1.
+  plain <- stringr::str_remove(plain, "^\\s*timeout\\s+\\d+[smh]?\\s+")
+  plain <- stringr::str_remove(plain, "\\s*\\|\\s*(head|tail)(\\s+-n\\s*\\d+|\\s+-\\d+)?\\s*$")
+  plain <- stringr::str_remove(plain, "\\s+2>&1\\s*$")
   plain <- stringr::str_remove(plain, stringr::regex(
     paste0("(?<=^|\\s|[\"'])", stringr::str_escape(sb), "/"), ignore_case = TRUE))
   pattern <- "^\\s*(bash\\s+|sh\\s+)?[\"']?(\\./)?score\\.sh[\"']?\\s+([1-6])\\s*$"
@@ -336,14 +365,23 @@ read_transcript <- function(transcript) {
   list(entries = entries, numbers = numbers)
 }
 
+# The content blocks of an entry, or an empty list when the shape is odd.
+entry_content <- function(entry) {
+  if (is.list(entry) && is.list(entry$message) && is.list(entry$message$content)) {
+    entry$message$content
+  } else {
+    list()
+  }
+}
+
 # Numbers N of the scoring commands (score.sh N) that the transcript holds.
 scoring_calls <- function(transcript, sandbox) {
   sandbox <- normalizePath(sandbox, winslash = "/", mustWork = TRUE)
   parsed <- read_transcript(transcript)
   purrr::map(parsed$entries, function(entry) {
-    purrr::map(if (is.list(entry$message$content)) entry$message$content else list(),
+    purrr::map(entry_content(entry),
                function(block) {
-                 if (identical(block$type, "tool_use") && identical(block$name, "Bash")) {
+                 if (is.list(block) && identical(block$type, "tool_use") && identical(block$name, "Bash")) {
                    score_command_number(block$input$command %||% "", sandbox)
                  }
                })
@@ -363,8 +401,9 @@ audit_transcript <- function(transcript, sandbox) {
   parsed <- read_transcript(transcript)
   row <- \(time, tool, target) tibble::tibble(time = time, tool = tool, target = target)
   seen_cwd <- character()
+  seen_score <- list()
   rows <- purrr::map2(parsed$entries, parsed$numbers, function(entry, number) {
-    if (is.null(entry) || !is.list(entry)) {
+    if (!is.list(entry) || is.null(names(entry))) {
       return(list(row(NA_character_, "transcript", paste("Line", number, "is not JSON"))))
     }
     time <- as.character(entry$timestamp %||% NA_character_)
@@ -376,9 +415,9 @@ audit_transcript <- function(transcript, sandbox) {
       seen_cwd <<- c(seen_cwd, cwd)
       out <- c(out, list(row(time, "cwd", cwd)))
     }
-    content <- entry$message$content
-    if (!is.list(content)) return(out)
+    content <- entry_content(entry)
     blocks <- purrr::map(content, function(block) {
+      if (!is.list(block)) return(NULL)
       type <- as.character(block$type %||% "")
       if (type != "tool_use") {
         if (stringr::str_detect(type, "tool") && type != "tool_result") {
@@ -396,7 +435,20 @@ audit_transcript <- function(transcript, sandbox) {
       flagged <- if (!tool %in% allowed_tools) {
         paste(tool, as.character(jsonlite::toJSON(input, auto_unbox = TRUE)))
       } else if (tool == "Bash") {
-        if (bash_flagged(input$command %||% "", sandbox, top)) input$command else character()
+        command <- input$command %||% ""
+        number <- score_command_number(command, sandbox)
+        if (!is.na(number)) {
+          seen_score[[as.character(number)]] <<- (seen_score[[as.character(number)]] %||% 0L) + 1L
+          if (seen_score[[as.character(number)]] > 1L) {
+            paste("repeated scoring call for candidate", number)
+          } else {
+            character()
+          }
+        } else if (bash_flagged(command, sandbox, top)) {
+          command
+        } else {
+          character()
+        }
       } else if (tool %in% c("Write", "Edit")) {
         p <- input$file_path %||% ""
         if (!nzchar(p) || write_flagged(p, sandbox, top)) p else character()

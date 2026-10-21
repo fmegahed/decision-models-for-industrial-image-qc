@@ -38,7 +38,10 @@ check_config(model, dataset, description, k, split, out) # clear messages first
 loop_mode <- split == "design" && !description %in% c("generic", "final")
 if (loop_mode) {
   n <- suppressWarnings(as.integer(tools::file_path_sans_ext(basename(description))))
-  check_candidate_slot(out, n)
+  map_dir <- env("FAIR_MAP_DIR", "results/fair/loop")
+  # The mirror outside the sandbox is the record of the loop.
+  mirror <- file.path(map_dir, paste0(basename(normalizePath(out)), "_loop_log.csv"))
+  check_candidate_slot(out, n, mirror)
   candidate <- read_candidate(description) # a bad file stops here, before any call
   check_candidate_text(n, candidate) # candidate 1 is the generic description
 }
@@ -70,11 +73,9 @@ cat(model, description_label(description), paste0("k", k), dataset, split,
 if (check_only) quit(save = "no")
 
 if (loop_mode) {
-  map_dir <- env("FAIR_MAP_DIR", "results/fair/loop")
   map <- readr::read_csv(file.path(map_dir, paste0(basename(normalizePath(out)), "_image_map.csv")),
                          show_col_types = FALSE)
   scores <- score_images(images, references, criteria, settings, model, description, k, split)
-  mirror <- file.path(map_dir, paste0(basename(normalizePath(out)), "_loop_log.csv"))
   result <- finish_candidate(out, n, scores, map, candidate, mirror = mirror)
   cat("Candidate", n, "design AUC:", round(result$auc, 3), "\n")
   cat("Mean score by defect type:", result$mean_score_by_type, "\n")

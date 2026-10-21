@@ -3,6 +3,20 @@ source(file.path(repo_root, "R", "fair_loop.R"))
 
 rscript <- "C:/Program Files/R/R-4.6.1/bin/Rscript.exe"
 
+tool_line <- function(time, name, input, cwd = NULL, type = "tool_use") {
+  entry <- list(type = "assistant", timestamp = time,
+                message = list(role = "assistant",
+                               content = list(list(type = type, id = "x", name = name,
+                                                   input = input))))
+  if (!is.null(cwd)) entry$cwd <- cwd
+  as.character(jsonlite::toJSON(entry, auto_unbox = TRUE))
+}
+
+bash_line <- function(time, command, name = "Bash") {
+  tool_line(time, name, list(command = command))
+}
+
+
 # One real sandbox for jev / extrusion, in temporary folders only.
 make_test_sandbox <- function(env = parent.frame()) {
   root <- withr::local_tempdir(.local_envir = env)
@@ -104,21 +118,111 @@ test_that("a candidate with a comma, quotes, a pipe and a line break survives", 
 
 test_that("candidate numbers: next number only, at most 6, no repeat", {
   s <- withr::local_tempdir()
+  m <- file.path(withr::local_tempdir(), "mirror.csv")
   dir.create(file.path(s, "scores"))
   write_loop_log(empty_loop_log(), file.path(s, "loop_log.csv"))
-  expect_silent(check_candidate_slot(s, 1))
-  expect_error(check_candidate_slot(s, 2), "next candidate")
+  expect_silent(check_candidate_slot(s, 1, m))
+  expect_error(check_candidate_slot(s, 2, m), "next candidate")
   log <- tibble::tibble(candidate = 1:6, time_utc = "t", normal = "n", defective = "d",
                         auc = 0.5, mean_score_by_type = "a=1", reason = "r", kept = TRUE)
   write_loop_log(log, file.path(s, "loop_log.csv"))
-  expect_error(check_candidate_slot(s, 7), "at most 6")
+  write_loop_log(log, m)
+  expect_error(check_candidate_slot(s, 7, m), "at most 6")
   write_loop_log(log[1:2, ], file.path(s, "loop_log.csv"))
+  write_loop_log(log[1:2, ], m)
   file.create(file.path(s, "scores", "3.csv"))
-  expect_error(check_candidate_slot(s, 3), "already exists")
+  expect_error(check_candidate_slot(s, 3, m), "already exists")
+})
+
+test_that("the mirror is the record: a rewound or edited sandbox log stops the scoring", {
+  s <- withr::local_tempdir()
+  m <- file.path(withr::local_tempdir(), "mirror.csv")
+  dir.create(file.path(s, "scores"))
+  write_loop_log(empty_loop_log(), file.path(s, "loop_log.csv"))
+  map <- tibble::tibble(image = sprintf("img_%03d.png", 1:6),
+                        image_path = sprintf("orig/%d.png", 1:6))
+  images <- tibble::tibble(
+    dataset = "d", image_path = map$image_path,
+    defect_type = c("a", "a", "b", "good", "good", "good"),
+    actual_class = c("defective", "defective", "defective", "nominal", "nominal", "nominal"),
+    prob_defective = c(.9, .8, .7, .3, .2, .1))
+  cand <- list(normal = "n", defective = "d", reason = "r")
+  for (n in 1:3) finish_candidate(s, n, images, map, cand, mirror = m)
+  expect_equal(nrow(read_loop_log(m)), 3L)
+  # Rewind: cut the sandbox log to 2 rows and remove scores/3.csv.
+  log_file <- file.path(s, "loop_log.csv")
+  full <- read_loop_log(log_file)
+  write_loop_log(full[1:2, ], log_file)
+  unlink(file.path(s, "scores", "3.csv"))
+  expect_error(check_candidate_slot(s, 3, m), "differs from the mirror")
+  expect_error(finish_candidate(s, 3, images, map, cand, mirror = m), "differs from the mirror")
+  expect_equal(nrow(read_loop_log(m)), 3L) # the record did not change
+  # The slot is counted in the mirror: 4 is next, and 3 is not free.
+  write_loop_log(full, log_file)
+  expect_error(check_candidate_slot(s, 3, m), "next candidate is number 4")
+  expect_silent(check_candidate_slot(s, 4, m))
+  # No mirror, but rows in the sandbox log.
+  unlink(m)
+  expect_error(check_candidate_slot(s, 1, m), "no mirror")
+})
+
+test_that("a repeated scoring call shows in the audit", {
+  s <- withr::local_tempdir()
+  tr <- withr::local_tempfile(fileext = ".jsonl")
+  writeLines(c(bash_line("a1", "bash score.sh 1"), bash_line("a2", "bash score.sh 2"),
+               bash_line("a3", "bash score.sh 2")), tr)
+  audit <- audit_transcript(tr, s)
+  expect_equal(audit$time, "a3")
+  expect_equal(audit$target, "repeated scoring call for candidate 2")
+})
+
+test_that("ordinary scoring forms count and chains do not", {
+  s <- normalizePath(withr::local_tempdir(), winslash = "/")
+  counted <- c("bash score.sh 1 2>&1", "bash score.sh 2 2>&1 | tail -20",
+               "bash score.sh 2 | head -n 40", "timeout 900 bash score.sh 3",
+               "timeout 900 bash score.sh 4 2>&1 | tail -n 5",
+               paste0("cd ", s, " && timeout 60 bash score.sh 5 2>&1"),
+               "bash score.sh 6 | tail -3")
+  expect_equal(purrr::map_int(counted, score_command_number, sandbox = s), c(1L, 2L, 2L, 3L, 4L, 5L, 6L))
+  chains <- c("bash score.sh 1; echo done", "bash score.sh 1 && echo done",
+              "bash score.sh 1 | cat", "bash score.sh 1 | grep x", "bash score.sh 7")
+  expect_true(all(is.na(purrr::map_int(chains, score_command_number, sandbox = s))))
+  # The audit agrees: a counted form gives no row.
+  tr <- withr::local_tempfile(fileext = ".jsonl")
+  dir.create(file.path(s, "images"))
+  writeLines(purrr::imap_chr(counted, \(cmd, i) bash_line(paste0("c", i), cmd)), tr)
+  audit <- audit_transcript(tr, s)
+  expect_equal(audit$time, "c3") # score.sh 2 appears twice: the repeat is the 3rd line
+  expect_match(audit$target, "repeated scoring call for candidate 2")
+  expect_equal(sort(scoring_calls(tr, s)), c(1L, 2L, 2L, 3L, 4L, 5L, 6L))
+})
+
+test_that("scoring_calls skips odd lines, and powershell, pwsh and cmd are denied", {
+  s <- withr::local_tempdir()
+  tr <- withr::local_tempfile(fileext = ".jsonl")
+  writeLines(c("42", "[1, 2]", "\"text\"", "{\"message\": \"x\"}",
+               "{\"message\": {\"content\": [\"plain\", 1]}}",
+               bash_line("a1", "bash score.sh 1")), tr)
+  expect_equal(scoring_calls(tr, s), 1L)
+  expect_gte(nrow(audit_transcript(tr, s)), 3L)
+  denied <- c("powershell -Command ls", "pwsh -c ls", "cmd /c dir", "powershell.exe ls")
+  tr2 <- withr::local_tempfile(fileext = ".jsonl")
+  writeLines(purrr::imap_chr(denied, \(cmd, i) bash_line(paste0("d", i), cmd)), tr2)
+  expect_equal(nrow(audit_transcript(tr2, s)), length(denied))
+})
+
+test_that("a mirror from an earlier attempt blocks a new sandbox", {
+  root <- withr::local_tempdir()
+  map_dir <- withr::local_tempdir()
+  writeLines("x", file.path(map_dir, "jev-extrusion_loop_log.csv"))
+  expect_error(make_sandbox("jev", "extrusion", root, repo = repo_root, map_dir = map_dir),
+               "earlier attempt")
+  expect_false(dir.exists(file.path(root, "jev-extrusion")))
 })
 
 test_that("finishing a candidate scores, logs and recomputes the kept column", {
   s <- withr::local_tempdir()
+  m <- file.path(withr::local_tempdir(), "mirror.csv")
   dir.create(file.path(s, "scores"))
   write_loop_log(empty_loop_log(), file.path(s, "loop_log.csv"))
   map <- tibble::tibble(image = sprintf("img_%03d.png", 1:6),
@@ -129,11 +233,12 @@ test_that("finishing a candidate scores, logs and recomputes the kept column", {
     actual_class = c("defective", "defective", "defective", "nominal", "nominal", "nominal"))
   mk <- function(p) dplyr::mutate(images, prob_defective = p)
   cand <- list(normal = "n", defective = "d", reason = "r")
-  out1 <- finish_candidate(s, 1, mk(c(.6, .6, .4, .5, .5, .5)), map, cand)
+  out1 <- finish_candidate(s, 1, mk(c(.6, .6, .4, .5, .5, .5)), map, cand, mirror = m)
   expect_equal(out1$auc, 6 / 9)
-  out2 <- finish_candidate(s, 2, mk(c(.9, .8, .7, .3, .2, .1)), map, cand)
+  out2 <- finish_candidate(s, 2, mk(c(.9, .8, .7, .3, .2, .1)), map, cand, mirror = m)
   expect_equal(out2$auc, 1)
   log <- read_loop_log(file.path(s, "loop_log.csv"))
+  expect_equal(log, read_loop_log(m))
   expect_equal(nrow(log), 2L)
   expect_named(log, c("candidate", "time_utc", "normal", "defective", "auc",
                       "mean_score_by_type", "reason", "kept"))
@@ -143,19 +248,6 @@ test_that("finishing a candidate scores, logs and recomputes the kept column", {
   expect_false(any(stringr::str_detect(unlist(scores), "orig/")))
   expect_equal(out2$best, 2L)
 })
-
-tool_line <- function(time, name, input, cwd = NULL, type = "tool_use") {
-  entry <- list(type = "assistant", timestamp = time,
-                message = list(role = "assistant",
-                               content = list(list(type = type, id = "x", name = name,
-                                                   input = input))))
-  if (!is.null(cwd)) entry$cwd <- cwd
-  as.character(jsonlite::toJSON(entry, auto_unbox = TRUE))
-}
-
-bash_line <- function(time, command, name = "Bash") {
-  tool_line(time, name, list(command = command))
-}
 
 test_that("the audit flags a planted read and ignores the scoring command", {
   s <- withr::local_tempdir()
@@ -196,7 +288,7 @@ test_that("the audit flags a planted read and ignores the scoring command", {
   audit <- audit_transcript(tr, s)
   expect_named(audit, c("time", "tool", "target"))
   expect_setequal(audit$time, c("t2", "t6", "t7", "t9", "t12", "t13", "t14", "t15", "t16",
-                                "t17", "t18", "t19", "t20", "t21", "t22", "t23", "t26"))
+                                "t17", "t18", "t19", "t20", "t21", "t22", "t23", "t26", "t27"))
   expect_true("results/final_test/x.csv" %in% audit$target)
   empty <- withr::local_tempfile(fileext = ".jsonl")
   writeLines(tool_line("t1", "Read", list(file_path = file.path(sb, "labels.csv"))), empty)
@@ -229,7 +321,7 @@ test_that("the audit denies commands that change folder or compute a path", {
   tr <- withr::local_tempfile(fileext = ".jsonl")
   dir.create(file.path(s, "images"))
   writeLines(purrr::imap_chr(ok, \(cmd, i) bash_line(paste0("o", i), cmd)), tr)
-  expect_equal(nrow(audit_transcript(tr, s)), 0L)
+  expect_false(any(!stringr::str_detect(audit_transcript(tr, s)$target, "^repeated scoring call")))
 })
 
 test_that("the audit denies a bad line, a server tool block and a foreign cwd", {

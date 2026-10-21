@@ -62,3 +62,4 @@ You have at most 6 candidates, including candidate 1. Stop after you score candi
 - Use only the Read, Write, Edit, Glob, Grep and Bash tools. Do not start subagents. Write only to the `candidates/N.csv` file of the next candidate.
 - Do not use `~`, `$HOME`, any other variable, `cd`, or any path outside this folder in a command. Do not use PowerShell.
 - Inside a text, write a quote as two quotes ("").
+- Run the scoring command exactly as written, with the Bash tool timeout set to 600000 ms, and wait for it to finish. Do not run it in the background.
