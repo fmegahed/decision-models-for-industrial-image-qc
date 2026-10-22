@@ -1,0 +1,66 @@
+Dataset,Method,k,References,Input tokens per call,GFLOPs per test image,One-time GFLOPs,Median (ms),"Cost per 1,000 images (USD)",SD (USD)
+Metallic pans,JEV,0,0,1916,NA,NA,312,0.08,0
+Metallic pans,JEV,1,2,5092,NA,NA,641.1,0.214,0
+Metallic pans,JEV,2,4,8244,NA,NA,969.7,0.346,0
+Metallic pans,JEV,4,8,14548,NA,NA,1710.8,0.611,0
+Metallic pans,Clef-Flash,0,0,742,13964.2,NA,294.1,0,0
+Metallic pans,Clef-Flash,1,2,1920,36133.7,NA,753.4,0,0
+Metallic pans,Clef-Flash,2,4,3084,58039.7,NA,1211.9,0,0
+Metallic pans,Clef-Flash,4,8,5412,101851.8,NA,2121.2,0,0
+Metallic pans,CLIP baseline,10,20,NA,155.5,3110.7,97.9,0,0
+Metallic pans,"CLIP, same references",1,2,NA,155.5,311.1,111.7,0,0
+Metallic pans,"CLIP, same references",2,4,NA,155.5,622.1,113.3,0,0
+Metallic pans,"CLIP, same references",4,8,NA,155.5,1244.3,107.4,0,0
+Metallic pans,"CLIP, zero-shot",0,0,NA,181.7,0,124.1,0,0
+Extrusion,JEV,0,0,627,NA,NA,112.7,0.026,0
+Extrusion,JEV,1,2,1067,NA,NA,128.5,0.045,0
+Extrusion,JEV,2,4,1483,NA,NA,175.1,0.062,0
+Extrusion,JEV,4,8,2315,NA,NA,189.2,0.097,0
+Extrusion,Clef-Flash,0,0,299,5627.1,NA,95,0,0
+Extrusion,Clef-Flash,1,2,487,9165.2,NA,126.7,0,0
+Extrusion,Clef-Flash,2,4,661,12439.8,NA,173.2,0,0
+Extrusion,Clef-Flash,4,8,1009,18989,NA,259.4,0,0
+Extrusion,CLIP baseline,50,100,NA,155.5,15553.3,10.5,0,0
+Extrusion,"CLIP, same references",1,2,NA,155.5,311.1,13.6,0,0
+Extrusion,"CLIP, same references",2,4,NA,155.5,622.1,13.3,0,0
+Extrusion,"CLIP, same references",4,8,NA,155.5,1244.3,10.7,0,0
+Extrusion,"CLIP, zero-shot",0,0,NA,181.7,0,15.9,0,0
+Textiles,JEV,0,0,610,NA,NA,135.8,0.026,0
+Textiles,JEV,1,2,1050,NA,NA,213.7,0.044,0
+Textiles,JEV,2,4,1466,NA,NA,289.5,0.062,0
+Textiles,JEV,4,8,2298,NA,NA,379.4,0.097,0
+Textiles,Clef-Flash,0,0,314,5909.4,NA,97.6,0,0
+Textiles,Clef-Flash,1,2,502,9447.5,NA,135.7,0,0
+Textiles,Clef-Flash,2,4,676,12722.1,NA,193.7,0,0
+Textiles,Clef-Flash,4,8,1024,19271.3,NA,286.3,0,0
+Textiles,CLIP baseline,50,100,NA,155.5,15553.3,10.7,0,0
+Textiles,"CLIP, same references",1,2,NA,155.5,311.1,10.9,0,0
+Textiles,"CLIP, same references",2,4,NA,155.5,622.1,10.4,0,0
+Textiles,"CLIP, same references",4,8,NA,155.5,1244.3,10.6,0,0
+Textiles,"CLIP, zero-shot",0,0,NA,181.7,0,16.5,0,0
+Pipe staple,JEV,0,0,798,NA,NA,137.2,0.034,0
+Pipe staple,JEV,1,2,1738,NA,NA,244.6,0.073,0
+Pipe staple,JEV,2,4,2654,NA,NA,269.4,0.111,0
+Pipe staple,JEV,4,8,4486,NA,NA,389.3,0.188,0
+Pipe staple,Clef-Flash,0,0,356,6699.8,NA,104.3,0,0
+Pipe staple,Clef-Flash,1,2,670,12609.2,NA,182.4,0,0
+Pipe staple,Clef-Flash,2,4,970,18255,NA,257,0,0
+Pipe staple,Clef-Flash,4,8,1570,29546.8,NA,423,0,0
+Pipe staple,CLIP baseline,50,100,NA,155.5,15553.3,13.2,0,0
+Pipe staple,"CLIP, same references",1,2,NA,155.5,311.1,13.2,0,0
+Pipe staple,"CLIP, same references",2,4,NA,155.5,622.1,13.2,0,0
+Pipe staple,"CLIP, same references",4,8,NA,155.5,1244.3,13,0,0
+Pipe staple,"CLIP, zero-shot",0,0,NA,181.7,0,18.2,0,0
+Microstructure,JEV,0,0,861,NA,NA,157.1,0.036,0
+Microstructure,JEV,1,2,1801,NA,NA,266.8,0.076,0
+Microstructure,JEV,2,4,2717,NA,NA,259.6,0.114,0
+Microstructure,JEV,4,8,4549,NA,NA,424.8,0.191,0
+Microstructure,Clef-Flash,0,0,391,7358.5,NA,109.9,0,0
+Microstructure,Clef-Flash,1,2,705,13267.8,NA,186.9,0,0
+Microstructure,Clef-Flash,2,4,1005,18913.7,NA,257.3,0,0
+Microstructure,Clef-Flash,4,8,1605,30205.5,NA,410.8,0,0
+Microstructure,CLIP baseline,50,100,NA,155.5,15553.3,13.2,0,0
+Microstructure,"CLIP, same references",1,2,NA,155.5,311.1,10.5,0,0
+Microstructure,"CLIP, same references",2,4,NA,155.5,622.1,10.3,0,0
+Microstructure,"CLIP, same references",4,8,NA,155.5,1244.3,10.7,0,0
+Microstructure,"CLIP, zero-shot",0,0,NA,181.7,0,15.9,0,0

@@ -1762,7 +1762,8 @@ hardware <- if (file.exists(runs_file)) {
 }
 has_decision_time <- any(timing$model %in% c("jev", "clef") & !is.na(timing$median_ms))
 has_clip_time <- any(timing$model == "clip" & !is.na(timing$median_ms))
-has_cost <- any(!is.na(timing$n_calls))
+# timing.csv also has the calls and tokens of Clef-Flash, with no cost.
+has_cost <- any(timing$model == "jev" & !is.na(timing$n_calls))
 
 # Median time of the CLIP baseline: pans against the other datasets.
 clip_base <- dplyr::filter(timing, model == "clip", description == "baseline", split == "test")
@@ -1782,7 +1783,7 @@ ms_range <- function(m) {
 ms_pan <- \(m) fmt(decision_ms$median_ms[decision_ms$model == m & decision_ms$dataset == "pan_images"], 0)
 
 # Calls and estimated cost of JEV: the test runs, and all runs with a cost.
-jev_calls <- dplyr::filter(timing, !is.na(n_calls))
+jev_calls <- dplyr::filter(timing, model == "jev", !is.na(n_calls))
 jev_test_calls <- dplyr::filter(jev_calls, split == "test")
 no_cost <- sum(is.na(jev_calls$cost_usd))
 cost_note <- ""
@@ -1815,7 +1816,7 @@ The times come from different hardware: `r hardware_text`. JEV time includes the
 
 ## Time per image
 
-@tbl-time gives the median and the interquartile range (Q1 to Q3) of the time per image on the test set. The CLIP time is the time of the timing pass, after one warm-up call. At k = 2, JEV needs a median of `r ms_range("jev")` ms per image on the four datasets other than pans, and `r ms_pan("jev")` ms on pans. Clef-Flash needs `r ms_range("clef")` ms, and `r ms_pan("clef")` ms on pans. The CLIP baseline needs a median of `r fmt(clip_pan_ms, 0)` ms for a pan image and `r fmt(clip_other_ms, 0)` ms on average for an image of the other datasets.
+@tbl-time gives the median, the interquartile range (Q1 to Q3) and the 5th and 95th percentiles (P5 and P95) of the time per image on the test set. The CLIP time is the time of the timing pass, after one warm-up call. At k = 2, JEV needs a median of `r ms_range("jev")` ms per image on the four datasets other than pans, and `r ms_pan("jev")` ms on pans. Clef-Flash needs `r ms_range("clef")` ms, and `r ms_pan("clef")` ms on pans. The CLIP baseline needs a median of `r fmt(clip_pan_ms, 0)` ms for a pan image and `r fmt(clip_other_ms, 0)` ms on average for an image of the other datasets.
 
 ```{r}
 #| label: time-note
@@ -1826,7 +1827,7 @@ note(!has_decision_time, "Without them, the table shows CLIP only.")
 
 ```{r}
 #| label: tbl-time
-#| tbl-cap: "Time per image on the test sets (ms): median and quartiles. JEV and Clef-Flash: the wall time of the call with the image preparation. CLIP: image loading, preparation, encoding and scoring on the local GPU, after one warm-up call. The hardware differs between the methods (see the text)."
+#| tbl-cap: "Time per image on the test sets (ms): median, quartiles (Q1, Q3) and 5th and 95th percentiles (P5, P95). JEV and Clef-Flash: the wall time of the call with the image preparation. CLIP: image loading, preparation, encoding and scoring on the local GPU, after one warm-up call. The hardware differs between the methods (see the text)."
 #| eval: !expr has_clip_time || has_decision_time
 #| include: !expr has_clip_time || has_decision_time
 # Test rows of the main methods, with their hardware.
@@ -1840,7 +1841,7 @@ time_rows <- main_configs |>
 t8 <- time_rows |>
   dplyr::transmute(
     Dataset = dataset_labels[dataset], Method = method, Hardware = hardware,
-    Images = n_images, Median = median_ms, Q1 = q25_ms, Q3 = q75_ms
+    Images = n_images, Median = median_ms, Q1 = q25_ms, Q3 = q75_ms, P5 = p05_ms, P95 = p95_ms
   )
 save_table(t8, "T8_time_per_image", "Time per image on the test sets (ms).",
            digits = 1, page_length = 25, group = "Dataset")
@@ -1901,7 +1902,7 @@ note(!has_cost, "No JEV call has a cost in the log.")
 #| eval: !expr has_cost
 #| include: !expr has_cost
 cost_rows <- timing |>
-  dplyr::filter(!is.na(n_calls)) |>
+  dplyr::filter(model == "jev", !is.na(n_calls)) |>
   dplyr::arrange(match(dataset, dataset_order), match(split, names(step_labels)), k)
 
 # Table T10: one row per configuration, then the total.
@@ -1923,6 +1924,103 @@ t10 <- cost_rows |>
 save_table(t10, "T10_jev_cost",
            stringr::str_c("Calls, tokens and estimated cost of the JEV runs.", cost_note),
            digits = 4, page_length = 25, group = "Dataset")
+```
+
+## Compute {#sec-compute}
+
+`scripts/model_compute.R` measures the size and the work of the two local models and writes `results/fair/timing/model_compute.csv` (no API call). For CLIP ViT-L/14, it counts the parameters and the FLOPs of the matrix products of one image encoding and of one encoding of the two zero-shot prompts (PyTorch `FlopCounterMode`). These FLOPs do not depend on the image or the text: CLIP resizes each image to 224 × 224 pixels, and its text encoder always reads 77 positions. On the GPU, the script measures the memory of the weights and the peak memory while one image is encoded. For Clef-Flash, it reads the number of parameters and their type from the Hugging Face API, at the revision in the file; the model is dense (its `config.json` has no expert setting). The GPU memory of Clef-Flash is that of the SGLang server (@sec-time), which reserves memory for its cache; it is not a minimum. TypeSafe does not publish the size of JEV.
+
+@tbl-compute-size gives the size and the memory of each model. @tbl-compute-work gives the work for one test image. JEV and Clef-Flash read the test image and the 2k reference images in each call. Their FLOPs grow with the input tokens of the call. For Clef-Flash, the table gives an estimate: 2 FLOPs per parameter and input token, the usual estimate for the forward pass of a dense transformer [@kaplan2020scaling]. CLIP encodes the test image once and compares its features with the n stored features of the references: 2 FLOPs per number of each feature vector. It encodes the references once, before the test images (one-time FLOPs), and this time is not in the time per image. CLIP zero-shot encodes its two prompts for each image, as in the scoring run.
+
+```{r}
+#| label: compute-data
+# Size and work of the local models, from the re-run if it has the file.
+compute_file <- purrr::detect(file.path(c(results_root, saved_root), "timing", "model_compute.csv"),
+                              file.exists)
+has_compute <- !is.null(compute_file)
+```
+
+```{r}
+#| label: compute-note
+#| echo: false
+#| results: asis
+note(!has_compute, "Run scripts/model_compute.R to make results/fair/timing/model_compute.csv.")
+```
+
+```{r}
+#| label: tbl-compute-size
+#| tbl-cap: "Size, memory and work units of each model. Weights of Clef-Flash: parameters times 2 bytes; of CLIP: measured on the GPU (a few small tensors stay float32). GPU memory, measured: Clef-Flash, the SGLang server with its cache reserve; CLIP, the peak while one image is encoded. JEV runs on the servers of TypeSafe, which do not publish its size."
+#| eval: !expr has_compute
+#| include: !expr has_compute
+model_compute <- read_csv_quiet(compute_file)
+clip_compute <- dplyr::filter(model_compute, model == "clip")
+clef_parameters <- model_compute$parameters[model_compute$model == "clef"]
+
+# Table T12.
+t12 <- model_compute |>
+  dplyr::arrange(match(model, names(model_labels))) |>
+  dplyr::transmute(
+    Model = c(clef = "Clef-Flash", clip = "CLIP ViT-L/14")[model],
+    `Parameters (billions)` = parameters / 1e9, `Weight type` = dtype_as_run,
+    `Weights (GB)` = weights_gb, `GPU memory, measured (GB)` = gpu_gb_measured,
+    `GFLOPs, one image encoding` = image_flops / 1e9,
+    `GFLOPs, two prompts` = text_flops / 1e9, `Feature length` = embedding_dim,
+    Hardware = hardware
+  ) |>
+  dplyr::bind_rows(tibble::tibble(Model = "JEV", `Weight type` = "not public",
+                                  Hardware = "TypeSafe API"), x = _) |>
+  dplyr::relocate(Model, `Parameters (billions)`, `Weight type`) |>
+  dplyr::relocate(Hardware, .after = dplyr::last_col())
+save_table(t12, "T12_compute_size", "Size, memory and work units of each model.",
+           digits = 2)
+```
+
+```{r}
+#| label: tbl-compute-work
+#| tbl-cap: "Work for one test image. References: the images in each call (JEV and Clef-Flash), or the stored feature vectors (CLIP). GFLOPs of Clef-Flash: 2 times the parameters times the input tokens (an estimate). GFLOPs of CLIP: one image encoding and the comparison with the references (zero-shot: with the encoding of the two prompts). One-time: the encoding of the references of CLIP, before the test images. Cost: JEV, from the call log; the local GPU has no cost per image. SD: the standard deviation of the cost of one call. The time is the median of @tbl-time."
+#| eval: !expr has_compute
+#| include: !expr has_compute
+# The test configurations: JEV and Clef-Flash with the final description (pans:
+# generic) at each k, and each CLIP variant.
+work_rows <- timing |>
+  dplyr::filter(split == "test", !is.na(median_ms),
+                model == "clip" | description == dplyr::if_else(dataset == "pan_images",
+                                                                "generic", "final")) |>
+  dplyr::mutate(
+    method = dplyr::case_when(
+      model == "clip" & description == "baseline" ~ "CLIP baseline",
+      model == "clip" & description == "refs" ~ "CLIP, same references",
+      model == "clip" ~ "CLIP, zero-shot",
+      .default = model_labels[model]
+    ),
+    references = dplyr::if_else(model == "clip" & description == "zero", 0, 2 * k),
+    tokens = input_tokens / n_calls,
+    flops = dplyr::case_when(
+      model == "clef" ~ 2 * clef_parameters * tokens,
+      model == "clip" & description == "zero" ~
+        clip_compute$image_flops + clip_compute$text_flops + 2 * 2 * clip_compute$embedding_dim,
+      model == "clip" ~ clip_compute$image_flops + 2 * references * clip_compute$embedding_dim,
+      .default = NA_real_
+    ),
+    one_time = dplyr::if_else(model == "clip", references * clip_compute$image_flops, NA_real_),
+    cost_1000 = dplyr::if_else(model == "jev", 1000 * cost_usd / n_calls, 0),
+    cost_sd_1000 = dplyr::if_else(model == "jev", 1000 * cost_sd_usd, 0)
+  ) |>
+  dplyr::arrange(match(dataset, dataset_order), match(model, names(model_labels)),
+                 match(description, c("baseline", "refs", "zero")), k)
+
+# Table T13.
+t13 <- work_rows |>
+  dplyr::transmute(
+    Dataset = dataset_labels[dataset], Method = method, k, References = references,
+    `Input tokens per call` = tokens,
+    `GFLOPs per test image` = round_half_up(flops / 1e9, 1),
+    `One-time GFLOPs` = round_half_up(one_time / 1e9, 1),
+    `Median (ms)` = round_half_up(median_ms, 1),
+    `Cost per 1,000 images (USD)` = cost_1000, `SD (USD)` = cost_sd_1000
+  )
+save_table(t13, "T13_compute_work", "Work for one test image.",
+           digits = 3, page_length = 25, group = "Dataset")
 ```
 
 # v0.0.1 {#sec-v001}
@@ -2176,6 +2274,7 @@ These steps make all results of `results/fair/` from the images. Each step is a 
 | 1. Draw L, C, the references and the design images | `Rscript scripts/fair_draw_sets.R` | none |
 | 2. Score the CLIP variants | `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip.R` | local GPU |
 | 2b. Time the CLIP variants on the test images | `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/fair_clip_timing.R` | local GPU |
+| 2c. Measure the size, FLOPs and GPU memory of CLIP; read the size of Clef-Flash (@sec-compute) | `RETICULATE_PYTHON=<env>/python.exe Rscript scripts/model_compute.R` | local GPU; Hugging Face API (free) |
 | 3. Make the sandbox of a loop | `Rscript scripts/fair_make_sandbox.R <model> <dataset>` | none |
 | 4. Run the loop | `bash scripts/fair_run_loop.sh <model> <dataset>` starts one fresh, isolated Claude Code agent in the sandbox. It reads `LOOP.md` and runs `score.sh`, which calls `scripts/fair_score.R` with `FAIR_SPLIT=design` | **paid** for JEV (up to 576 calls per dataset); local GPU for Clef-Flash |
 | 5. Close the loop | `Rscript scripts/fair_close_loop.R <model> <dataset> <transcript>` | none |
