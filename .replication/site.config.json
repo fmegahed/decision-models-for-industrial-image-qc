@@ -3,7 +3,7 @@
   "repository": "https://github.com/fmegahed/decision-models-for-industrial-image-qc",
   "format_version": 1,
   "pages": [
-    { "file": "beyond_clip_analysis.html", "title": "Analysis" },
+    { "file": "beyond_clip_analysis.html", "title": "Analysis notebook" },
     { "file": "description_loops.html", "title": "Description loops" }
   ]
 }

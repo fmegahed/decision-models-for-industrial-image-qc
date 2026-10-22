@@ -85,7 +85,7 @@ pre code { background: none; padding: 0; }
 .skip-link { position: absolute; left: 16px; top: -4rem; background: var(--surface); color: var(--ink); padding: 0.5rem 1rem; z-index: 20; }
 .skip-link:focus { top: 8px; }
 .site-header { background: var(--accent); color: var(--on-accent); }
-.site-header .inner { max-width: 72rem; margin: 0 auto; padding: 0.75rem 16px; }
+.site-header .inner { max-width: 76rem; margin: 0 auto; padding: 0.75rem 16px; }
 .site-title { margin: 0; font: 700 1.25rem/1.3 var(--serif); }
 .site-title a { color: var(--on-accent); text-decoration: none; }
 .site-nav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem 1.5rem; margin-top: 0.5rem; }
@@ -98,9 +98,9 @@ pre code { background: none; padding: 0; }
 button, .button { background: var(--tan); color: var(--ink); border: 2px solid var(--ink); font: inherit; cursor: pointer; }
 button:hover, .button:hover { background: var(--surface); }
 button[aria-pressed="true"] { background: var(--accent-strong); color: var(--on-accent); border-color: var(--accent-strong); }
-main { max-width: 72rem; margin: 0 auto; padding: 1.5rem 16px 3rem; }
+main { max-width: 76rem; margin: 0 auto; padding: 1.5rem 16px 3rem; }
 .site-footer { background: var(--tan); border-top: 1px solid var(--rule); }
-.site-footer .inner { max-width: 72rem; margin: 0 auto; padding: 1rem 16px; color: var(--muted); }
+.site-footer .inner { max-width: 76rem; margin: 0 auto; padding: 1rem 16px; color: var(--muted); }
 .table-wrap { overflow-x: auto; max-width: 100%; }
 table { border-collapse: collapse; width: 100%; background: var(--surface); }
 th, td { border: 1px solid var(--rule); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
@@ -125,9 +125,10 @@ img, svg { max-width: 100%; height: auto; }
 
 // The navigation has two groups, one for each kind of reader, and each group
 // is in reading order. "record": how the work was done with Claude Code (the
-// account first, then the decisions behind it, then the work over time, then
-// the documents). "reuse": what a reader needs to rerun the work and build on
-// it (the results, the extra pages, the releases, then the repository).
+// account first, then the decisions behind it and the results they gave, then
+// the work over time, then the documents). "reuse": what a reader needs to
+// rerun the work and build on it (the documents of the extra pages, then the
+// versions, then the code).
 // A page with a third item shows only when it returns true.
 export const NAV_GROUPS = [
   { group: "record", id: "nav-record", label: "How we worked with Claude Code" },
@@ -137,24 +138,24 @@ const RECORD_NAV = [
   ["Home", "index.html"],
   ["Contributions", "contributions/index.html"],
   ["Decisions", "decisions/index.html"],
+  ["Results", "results/index.html", (m) => m.recordFiles?.results],
   ["Timeline", "timeline/index.html"],
   ["Progress", "progress/index.html"],
   ["Process", "process/index.html"],
   ["Records", "records/index.html"],
 ];
-const RESULTS_NAV = [["Results", "results/index.html", (m) => m.recordFiles?.results]];
 const RELEASES_NAV = [["Releases", "releases/index.html", (m) => m.recordFiles?.releases]];
 
 // The [label, target] items of each group that show for this record. The
-// extra pages of site.config.json go at the end of the record group, or after
-// Results in the reuse group (their default). The repository link is not here.
+// extra pages of site.config.json go at the end of the record group, or first
+// in the reuse group (their default). The repository link is not here.
 export function navGroups(model) {
   const show = (items) => items.filter(([, , s]) => !s || s(model)).map(([label, target]) => [label, target]);
   const extra = (group) => (model.config.pages ?? [])
     .filter((p) => (p.group ?? "reuse") === group).map((p) => [p.title, p.path]);
   return {
     record: [...show(RECORD_NAV), ...extra("record")],
-    reuse: [...show(RESULTS_NAV), ...extra("reuse"), ...show(RELEASES_NAV)],
+    reuse: [...extra("reuse"), ...show(RELEASES_NAV)],
   };
 }
 
