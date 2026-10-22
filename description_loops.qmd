@@ -1,0 +1,132 @@
+---
+title: "Description loops"
+subtitle: "Every candidate description of the eight loops, against the text it revised"
+author:
+  - name: Fadel M. Megahed
+    orcid: 0000-0003-2194-5110
+    affiliations:
+      - name: Farmer School of Business, Miami University
+  - name: Ying-Ju (Tessa) Chen
+    orcid: 0000-0002-6444-6859
+    affiliations:
+      - name: College of Arts and Sciences, University of Dayton
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    embed-resources: true
+    theme: simplex
+    code-tools: true
+    grid:
+      sidebar-width: 250px
+      body-width: 1100px
+      margin-width: 50px
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{css}
+table.loop { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 1.5rem; }
+table.loop th, table.loop td { border-bottom: 1px solid #ddd; padding: 0.4rem 0.5rem; vertical-align: top; text-align: left; }
+table.loop th { border-bottom: 2px solid #333; }
+table.loop .num { text-align: right; white-space: nowrap; }
+table.loop th.num { white-space: normal; }
+table.loop tr.not-kept td { color: #595959; }
+table.loop col.text { width: 40%; }
+ins { text-decoration: underline; font-weight: 700; }
+.jev ins { color: #00829B; }
+.clef ins { color: #917300; }
+del { color: #595959; }
+.anew { font-size: 0.75rem; font-weight: 700; color: #595959; border: 1px solid #999; border-radius: 3px; padding: 0 0.25rem; white-space: nowrap; }
+```
+
+This page shows the candidate descriptions of the eight description loops of the [analysis document](beyond_clip_analysis.html) (its section "Description loop" and figure F2). Each loop starts from the generic description, candidate 1. Each later candidate revises the current best, the last kept candidate before it. A candidate is kept when its design AUC is at least 0.02 above the current best. The last kept candidate is the final description.
+
+Each text is shown against the text that it revised: <span class="jev"><ins>added words</ins></span> are bold and underlined in the color of the model, and <del>removed words</del> are struck through. A text that keeps less than a quarter of the words of the text it revised is shown in full and marked <span class="anew">written anew</span>. Rows in grey are candidates that the loop did not keep. The descriptions are the text of the loop logs (`results/fair/loop/`), unchanged. `R/description_diff.R` makes the word diffs, and the paper shows the table of one loop. The analysis document lists the same candidates in full, with the reason that the agent gave (its section "Loop candidates", table A2).
+
+```{r}
+#| label: setup
+source("R/description_diff.R")
+models <- c(jev = "JEV", clef = "Clef-Flash")
+datasets <- c(extrusion = "Extrusion", textiles = "Textiles", pipe_staple = "Pipe staple",
+              microstructure = "Microstructure")
+loops <- tidyr::expand_grid(model = names(models), dataset = names(datasets)) |>
+  dplyr::mutate(file = file.path("results/fair/loop", stringr::str_c(model, "-", dataset, "_log.csv"))) |>
+  dplyr::filter(file.exists(file))
+read_loop <- function(file) {
+  readr::read_csv(file, show_col_types = FALSE,
+                  col_types = readr::cols(candidate = "i", auc = "d", kept = "l", .default = "c"))
+}
+# The text each candidate revised: the last kept candidate before it.
+with_revised <- function(log) {
+  best <- NA_integer_
+  revised <- integer(nrow(log))
+  for (i in seq_len(nrow(log))) {
+    revised[i] <- best
+    if (isTRUE(log$kept[i])) best <- i
+  }
+  dplyr::mutate(log, revised = revised)
+}
+cell <- function(old, new) {
+  if (!is.na(old) && kept_share(old, new) < 0.25) {
+    return(stringr::str_c(html_escape(new), " <span class=\"anew\">written anew</span>"))
+  }
+  diff_markup(old, new, "html")
+}
+```
+
+## Overview
+
+```{r}
+#| label: overview
+#| results: asis
+overview <- purrr::pmap_chr(loops, \(model, dataset, file) {
+  log <- read_loop(file)
+  kept <- log[log$kept, ]
+  stringr::str_glue(
+    "<tr><td><a href=\"#{model}-{dataset}\">{models[[model]]}</a></td><td>{datasets[[dataset]]}</td>",
+    "<td class=\"num\">{nrow(log)}</td><td class=\"num\">{nrow(kept)}</td>",
+    "<td class=\"num\">{sprintf('%.2f', kept$auc[1])}</td>",
+    "<td class=\"num\">{sprintf('%.2f', kept$auc[nrow(kept)])}</td>",
+    "<td class=\"num\">{kept$candidate[nrow(kept)]}</td></tr>"
+  )
+})
+cat("```{=html}\n",
+    "<table class=\"loop\" data-quarto-disable-processing=\"true\"><thead><tr><th>Model</th><th>Dataset</th><th class=\"num\">Candidates</th><th class=\"num\">Kept</th>",
+    "<th class=\"num\">Design AUC, generic</th><th class=\"num\">Design AUC, final</th><th class=\"num\">Final candidate</th></tr></thead><tbody>",
+    overview, "</tbody></table>\n```\n", sep = "")
+```
+
+```{r}
+#| label: loops
+#| results: asis
+for (r in seq_len(nrow(loops))) {
+  model <- loops$model[r]
+  dataset <- loops$dataset[r]
+  log <- with_revised(read_loop(loops$file[r]))
+  rows <- purrr::map_chr(seq_len(nrow(log)), \(i) {
+    j <- log$revised[i]
+    old_normal <- if (is.na(j)) NA else log$normal[j]
+    old_defective <- if (is.na(j)) NA else log$defective[j]
+    revises <- if (is.na(j)) "generic" else as.character(log$candidate[j])
+    stringr::str_glue(
+      "<tr class=\"{if (isTRUE(log$kept[i])) 'kept' else 'not-kept'}\">",
+      "<td class=\"num\">{log$candidate[i]}</td><td class=\"num\">{revises}</td>",
+      "<td class=\"num\">{sprintf('%.3f', log$auc[i])}</td>",
+      "<td>{if (isTRUE(log$kept[i])) 'yes' else 'no'}</td>",
+      "<td>{cell(old_normal, log$normal[i])}</td>",
+      "<td>{cell(old_defective, log$defective[i])}</td></tr>"
+    )
+  })
+  cat(stringr::str_glue("\n## {models[[model]]}: {tolower(datasets[[dataset]])} {{#{model}-{dataset}}}\n\n"))
+  cat("```{=html}\n",
+      "<table class=\"loop ", model, "\" data-quarto-disable-processing=\"true\"><colgroup><col><col><col><col><col class=\"text\"><col class=\"text\"></colgroup>",
+      "<thead><tr><th class=\"num\">Candidate</th><th class=\"num\">Revises</th><th class=\"num\">Design AUC</th><th>Kept</th>",
+      "<th>Nominal description</th><th>Defective description</th></tr></thead><tbody>",
+      rows, "</tbody></table>\n```\n", sep = "")
+}
+```

@@ -4,7 +4,7 @@ Fadel M. Megahed ([fmegahed](https://github.com/fmegahed)) and Ying-Ju (Tessa) C
 
 Status: ongoing work. An abstract is submitted to MSEC 2027 (`paper/msec2027_submitted.md`). An R package, `decisionqc`, is in design (`docs/decisionqc_design.md`).
 
-Analysis: [all paper tables and figures, with their code](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/beyond_clip_analysis.html) (`beyond_clip_analysis.html`, rendered from `beyond_clip_analysis.qmd`). Replication record: [website](https://fmegahed.github.io/decision-models-for-industrial-image-qc/).
+Analysis: [all paper tables and figures, with their code](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/beyond_clip_analysis.html) (`beyond_clip_analysis.html`, rendered from `beyond_clip_analysis.qmd`). Description loops: [every candidate description, against the text it revised](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html) (`description_loops.html`, rendered from `description_loops.qmd`). Replication record: [website](https://fmegahed.github.io/decision-models-for-industrial-image-qc/).
 
 ## Objective
 
@@ -58,13 +58,14 @@ Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.2
 |---|---|
 | `beyond_clip_analysis.qmd` | The replication document of the fair comparison: data, methods, description loop, main results, paired comparisons, reference curve, calibration, a short v0.0.1 section, appendix and re-run steps. It makes every table and figure of the paper from the saved results; switches re-run the paid and GPU steps |
 | `beyond_clip_analysis.html` | The rendered document (self-contained), for readers who do not run it; also on the record website |
+| `description_loops.qmd`, `.html` | Every candidate description of the eight description loops, each against the text it revised (word diff); also on the record website. The paper shows the table of one loop (`scripts/paper_tables.R`) |
 | `figs/` | Figures of the document: F1 reference images (k = 2), F2 description loop, F3 to F5 paired comparisons P1 to P3, F6 reference curve, F7 reliability diagrams. Each as PNG, PDF and SVG, in one-column and two-column sizes |
 | `tables/` | Tables of the document (CSV and LaTeX): T1 sets, T2 label budget, T3 calibration draw, T4 description loop, T5 main results, T6 paired comparisons, T7 calibration, T8 time per image, T9 total time, T10 JEV cost; appendix A1 isotonic calibration, A2 loop candidates, A3 CLIP variants. `T4_test_results_long.csv` and `validation_size.csv` are v0.0.1 outputs: they stay because the replication record (results H6 to H8) names them as sources |
 | `fonts/` | Outfit and Cabin (SIL Open Font License), used by the figures |
 | `references.bib`, `apa.csl` | References of the document, in APA style |
 | `replication_materials/` | The replication record: decisions, process, plans, releases, results and paid-call budget (website above) |
 | `experiment_log.md` | The lab notebook: setup notes, every v0.0.1 trial (60), decisions and rule changes, and the final-test sections |
-| `R/` | Shared R functions: the JEV/SystemOne client (`industrial_defect_classifier.R`), calibration (`calibration_functions.R`), metrics and paired tests (`evaluation.R`), and the fair comparison: sets (`fair_sets.R`, `image_hash.R`), scoring runner and guards (`fair_runner.R`), blind loop (`fair_loop.R`), CLIP leave-one-out (`fair_clip.R`) and evaluation (`fair_evaluate.R`) |
+| `R/` | Shared R functions: the JEV/SystemOne client (`industrial_defect_classifier.R`), calibration (`calibration_functions.R`), metrics and paired tests (`evaluation.R`), and the fair comparison: sets (`fair_sets.R`, `image_hash.R`), scoring runner and guards (`fair_runner.R`), blind loop (`fair_loop.R`), CLIP leave-one-out (`fair_clip.R`) and evaluation (`fair_evaluate.R`); figure labels (`figure_labels.R`) and description diffs (`description_diff.R`) |
 | `scripts/` | Runnable steps (run from the repository root; see below). `fair_*.R` and the loop launcher `fair_run_loop.sh` make the fair comparison; the other scripts reproduce tag `v0.0.1` |
 | `tests/testthat/` | Tests of the R functions and of the guards of the fair comparison (no paid call) |
 | `python/` | CLIP functions (from the CLIP qmd of the prior study) |

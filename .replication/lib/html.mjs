@@ -1,7 +1,7 @@
 // Miami theme, HTML escaping and the shared page shell.
 import { posix } from "node:path";
 
-export const VERSION = "1.2.1";
+export const VERSION = "1.3.0";
 
 export const DEFAULT_TOKENS = {
   bg: "#FAF9F7",
@@ -85,20 +85,23 @@ pre code { background: none; padding: 0; }
 .skip-link { position: absolute; left: 16px; top: -4rem; background: var(--surface); color: var(--ink); padding: 0.5rem 1rem; z-index: 20; }
 .skip-link:focus { top: 8px; }
 .site-header { background: var(--accent); color: var(--on-accent); }
-.site-header .inner { max-width: 72rem; margin: 0 auto; padding: 0.75rem 16px; }
+.site-header .inner { max-width: 76rem; margin: 0 auto; padding: 0.75rem 16px; }
 .site-title { margin: 0; font: 700 1.25rem/1.3 var(--serif); }
 .site-title a { color: var(--on-accent); text-decoration: none; }
-.site-nav ul { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; }
+.site-nav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem 1.5rem; margin-top: 0.5rem; }
+.site-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 0.4rem; }
+.nav-label { margin: 0 0 0 0.4rem; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .site-nav a, button, .button { display: inline-flex; align-items: center; min-height: 24px; min-width: 24px; padding: 0.25rem 0.5rem; }
-.site-nav a { color: var(--on-accent); }
+.site-nav a { color: var(--on-accent); padding: 0.25rem 0.4rem; }
 .site-nav a[aria-current="page"] { font-weight: 700; text-decoration: underline; text-underline-offset: 0.25em; text-decoration-thickness: 3px; }
 .site-header :focus-visible { outline-color: var(--on-accent); }
+.nav-line { flex: 1 0 100%; margin: 0; padding: 0.25rem 0.4rem; background: var(--accent-strong); color: var(--on-accent); font-size: 0.9rem; line-height: 1.5; text-align: left; }
 button, .button { background: var(--tan); color: var(--ink); border: 2px solid var(--ink); font: inherit; cursor: pointer; }
 button:hover, .button:hover { background: var(--surface); }
 button[aria-pressed="true"] { background: var(--accent-strong); color: var(--on-accent); border-color: var(--accent-strong); }
-main { max-width: 72rem; margin: 0 auto; padding: 1.5rem 16px 3rem; }
+main { max-width: 76rem; margin: 0 auto; padding: 1.5rem 16px 3rem; }
 .site-footer { background: var(--tan); border-top: 1px solid var(--rule); }
-.site-footer .inner { max-width: 72rem; margin: 0 auto; padding: 1rem 16px; color: var(--muted); }
+.site-footer .inner { max-width: 76rem; margin: 0 auto; padding: 1rem 16px; color: var(--muted); }
 .table-wrap { overflow-x: auto; max-width: 100%; }
 table { border-collapse: collapse; width: 100%; background: var(--surface); }
 th, td { border: 1px solid var(--rule); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
@@ -110,42 +113,120 @@ th { background: var(--tan); }
 img, svg { max-width: 100%; height: auto; }
 @media (min-width: 900px) {
   .site-header { position: sticky; top: 0; z-index: 10; }
-  html { scroll-padding-top: 8rem; }
+  html { scroll-padding-top: 11rem; }
+  .nav-reuse { margin-left: auto; text-align: right; }
+  .nav-reuse .nav-label { margin: 0 0.4rem 0 0; }
+  .nav-reuse ul { justify-content: flex-end; }
+  .nav-line[data-side="reuse"] { text-align: right; }
   .doc-layout.has-rail { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 2rem; align-items: start; }
-  .doc-layout.has-rail .doc-rail { grid-column: 1; grid-row: 1; position: sticky; top: 8rem; margin: 0; }
+  .doc-layout.has-rail .doc-rail { grid-column: 1; grid-row: 1; position: sticky; top: 11rem; margin: 0; }
   .doc-layout.has-rail #doc-content { grid-column: 2; grid-row: 1; }
 }
 `;
 }
 
-// One ordered list of the record pages. A page with a third item shows only when it returns true.
-const NAV = [
-  ["Home", "index.html"],
-  ["Records", "records/index.html"],
-  ["Decisions", "decisions/index.html"],
-  ["Contributions", "contributions/index.html"],
-  ["Timeline", "timeline/index.html"],
-  ["Releases", "releases/index.html", (m) => m.recordFiles?.releases],
-  ["Results", "results/index.html", (m) => m.recordFiles?.results],
-  ["Progress", "progress/index.html"],
-  ["Process", "process/index.html"],
+// The navigation has two groups, one for each kind of reader, and each group
+// is in reading order. "record": how the work was done with Claude Code, in
+// the order of the work (the stages, their dates and the milestones, then
+// who decided what and the account of who did what, then the documents and
+// the results). "reuse": what a reader needs to rerun the work and build on
+// it (the documents of the extra pages, then the versions, then the code).
+// Each item: label, target, description (the tooltip of the link and the text
+// after the link on Home), and an optional test: the page shows only when it
+// returns true.
+export const NAV_GROUPS = [
+  { group: "record", id: "nav-record", label: "How we worked with Claude Code" },
+  { group: "reuse", id: "nav-reuse", label: "Rerun and build on it" },
 ];
+const RECORD_NAV = [
+  ["Home", "index.html", "The status of the project: the latest release, the open items and the milestones."],
+  ["Process", "process/index.html", "The stages of the work, from the inputs to the paper, with their dates."],
+  ["Timeline", "timeline/index.html", "The work by date: the stages, the releases and the decisions."],
+  ["Progress", "progress/index.html", "The milestones, the tasks that are complete and the paid calls."],
+  ["Decisions", "decisions/index.html", "Each decision: who proposed it, who decided it, and how."],
+  ["Contributions", "contributions/index.html", "The account of the researchers: who did what, and what no person checked."],
+  ["Records", "records/index.html", "The plans, designs, ledgers and reviews of the work."],
+  ["Results", "results/index.html", "Each result with its release, its source file and its status.", (m) => m.recordFiles?.results],
+];
+const RELEASES_NAV = [["Releases", "releases/index.html", "Each tagged version of the code, with its changes and its decisions.",
+  (m) => m.recordFiles?.releases]];
+export const REPOSITORY_DESCRIPTION = "The code and all files of the project on GitHub.";
 
-// The nav items that show for this record, then the extra pages of site.config.json.
-export function navItems(model) {
-  const extra = (model.config.pages ?? []).map((p) => [p.title, p.path]);
-  return [...NAV.filter(([, , show]) => !show || show(model)).map(([label, target]) => [label, target]), ...extra];
+// The [label, target, description] items of each group that show for this
+// record. The extra pages of site.config.json go at the end of the record
+// group, or first in the reuse group (their default); an extra page without a
+// description has none. The repository link is not here.
+export function navGroups(model) {
+  const show = (items) => items.filter(([, , , s]) => !s || s(model))
+    .map(([label, target, description]) => [label, target, description]);
+  const extra = (group) => (model.config.pages ?? [])
+    .filter((p) => (p.group ?? "reuse") === group).map((p) => [p.title, p.path, p.description]);
+  return {
+    record: [...show(RECORD_NAV), ...extra("record")],
+    reuse: [...extra("reuse"), ...show(RELEASES_NAV)],
+  };
 }
+
+// The description line shows the description of the link under the pointer
+// or with the keyboard focus. It keeps that text while the pointer is
+// anywhere in the navigation, the line too (WCAG 1.4.13), and shows the
+// default (the current page) again when the pointer or the focus leaves.
+const NAV_LINE_SCRIPT = `<script>
+(() => {
+  const nav = document.querySelector(".site-nav");
+  const line = nav && nav.querySelector(".nav-line");
+  if (!line) return;
+  const show = (a) => {
+    line.textContent = a.dataset.line;
+    line.dataset.side = a.closest(".nav-reuse") ? "reuse" : "record";
+  };
+  const reset = () => {
+    line.textContent = line.dataset.default;
+    line.dataset.side = line.dataset.defaultSide;
+  };
+  nav.querySelectorAll("a[data-line]").forEach((a) => {
+    a.addEventListener("mouseenter", () => show(a));
+    a.addEventListener("focus", () => show(a));
+  });
+  nav.addEventListener("mouseleave", reset);
+  nav.addEventListener("focusout", (e) => { if (!nav.contains(e.relatedTarget)) reset(); });
+})();
+</script>`;
+const LINE_HINT = "Point to a tab, or move the keyboard focus to it, to read what it holds.";
 
 export function pageShell({ path, title, body, model, head = "", scripts = "" }) {
   const project = model.config.project;
   const repo = model.config.repository;
   const tokens = { ...DEFAULT_TOKENS, ...(model.config.theme || {}) };
-  const items = navItems(model).map(([label, target]) => {
-    const current = target === path ? ' aria-current="page"' : "";
-    return `<li><a href="${escapeHtml(rel(path, target))}"${current}>${escapeHtml(label)}</a></li>`;
+  const groups = navGroups(model);
+  // A link with a description: aria-describedby gives the text to screen
+  // readers (from a hidden span); data-line is the text of the description
+  // line, which screen readers do not read twice (aria-hidden).
+  let n = 0;
+  let current = { line: LINE_HINT, side: "record" };
+  const link = ([label, href, description], group, here = false) => {
+    const a = `<a href="${escapeHtml(href)}"`;
+    const mark = here ? ' aria-current="page"' : "";
+    if (!description) return `<li>${a}${mark}>${escapeHtml(label)}</a></li>`;
+    const id = `nav-desc-${++n}`;
+    const line = `${label}: ${description}`;
+    if (here) current = { line, side: group };
+    return `<li>${a} aria-describedby="${id}" data-line="${escapeHtml(line)}"${mark}>${escapeHtml(label)}</a>`
+      + `<span class="nav-desc" id="${id}" hidden>${escapeHtml(description)}</span></li>`;
+  };
+  const nav = NAV_GROUPS.map(({ group, id, label }) => {
+    const items = groups[group].map(([text, target, description]) =>
+      link([text, rel(path, target), description], group, target === path));
+    if (group === "reuse") items.push(link(["Repository", repo, REPOSITORY_DESCRIPTION], group));
+    return `<div class="nav-group ${id}">
+<p class="nav-label" id="${id}">${escapeHtml(label)}</p>
+<ul aria-labelledby="${id}">
+${items.join("\n")}
+</ul>
+</div>`;
   });
-  items.push(`<li><a href="${escapeHtml(repo)}">Repository</a></li>`);
+  nav.push(`<p class="nav-line" aria-hidden="true" data-default="${escapeHtml(current.line)}" `
+    + `data-default-side="${current.side}" data-side="${current.side}">${escapeHtml(current.line)}</p>`);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -163,9 +244,7 @@ ${head}
 <div class="inner">
 <p class="site-title"><a href="${escapeHtml(rel(path, "index.html"))}">${escapeHtml(project)}</a></p>
 <nav class="site-nav" aria-label="Site">
-<ul>
-${items.join("\n")}
-</ul>
+${nav.join("\n")}
 </nav>
 </div>
 </header>
@@ -177,6 +256,7 @@ ${body}
 <p>Built from commit ${escapeHtml(model.build.sha)} on ${escapeHtml(model.build.date)}. <a href="${escapeHtml(repo)}">Repository</a></p>
 </div>
 </footer>
+${NAV_LINE_SCRIPT}
 ${scripts}
 </body>
 </html>

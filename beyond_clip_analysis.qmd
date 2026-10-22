@@ -81,7 +81,7 @@ tables_dir   <- if (use_rerun) file.path(rerun_root, "tables") else "tables"
 # Install the packages that are missing; all calls below use pkg::fun().
 packages <- c(
   "dplyr", "tidyr", "purrr", "readr", "stringr", "tibble", "rlang", "withr",
-  "ggplot2", "ggtext", "patchwork", "RColorBrewer", "knitr", "kableExtra",
+  "ggplot2", "ggtext", "patchwork", "knitr", "kableExtra",
   "DT", "magick", "showtext", "sysfonts", "systemfonts", "ragg", "scales",
   "yardstick"
 )
@@ -94,7 +94,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
 
 ## Figure and table style
 
-Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF with no title, at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`: the LaTeX caption takes the place of the title, and the subtitle reads on its own. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+Figures use `theme_bw()` with no grid lines, bold axis titles and tick labels, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Five colors mark the models, the calibration and the defective class: teal for JEV, gold for Clef-Flash, blue for CLIP, plum for Platt scaling and the Accent Red of Miami University for defective images. Each color has a contrast of 4.5:1 or more on white (WCAG 2.2 AA for text), and each pair of colors stays apart in normal vision and in simulated protan, deutan and tritan vision [@machado2009physiologically]. `scripts/palette_check.R` compares them with published palettes. Colored words in the subtitle replace the legend. Subtitles are bold (F2 to F7) and wrap in lines of about the same length. No figure has a title: the caption takes its place, and the subtitle reads on its own. Small labels give the values on a fixed side of each mark: in F3 to F5, the difference over each point and the 2.5% and 97.5% bounds over the ends of its interval, above JEV and below Clef-Flash; in F2, F6 and F7, the value of each point. A label that would overlap a mark or another label is left out. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
 
 ```{r}
 #| label: fonts-and-colors
@@ -118,14 +118,20 @@ purrr::iwalk(fonts, \(f, family) {
                      italic = f[["italic"]], bolditalic = f[["bold"]])
 })
 
-# Colors: one per model, class and calibration method.
-dark2 <- RColorBrewer::brewer.pal(8, "Dark2")
-model_colors <- c("JEV" = dark2[1], "Clef-Flash" = dark2[3], "CLIP" = dark2[2])
-class_colors <- c(nominal = "grey30", defective = dark2[4])
-calibration_colors <- c(raw = "grey45", Platt = dark2[7], isotonic = dark2[5])
-# Text in tables: 25% darker model colors. The Dark2 colors are below the
-# WCAG AA contrast of 4.5:1 for text (JEV: 3.4:1 on white); the darker ones
-# reach 5.1:1 or more on both table backgrounds.
+# Colors: one per model, class and calibration method. Each reaches 4.5:1
+# on white, and each pair stays apart in normal and simulated protan, deutan
+# and tritan vision (scripts/palette_check.R). The red is the Accent Red of
+# Miami University.
+figure_colors <- c(teal = "#00829B", gold = "#917300", blue = "#0A4BC3",
+                   plum = "#872D91", red = "#AD102A")
+model_colors <- c("JEV" = figure_colors[["teal"]],
+                  "Clef-Flash" = figure_colors[["gold"]],
+                  "CLIP" = figure_colors[["blue"]])
+class_colors <- c(nominal = "grey30", defective = figure_colors[["red"]])
+calibration_colors <- c(raw = "grey45", Platt = figure_colors[["plum"]])
+# Text in tables: 25% darker model colors. Teal and gold are below the WCAG
+# AA contrast of 4.5:1 for text on the grey rows (4.1:1); the darker ones
+# reach 6.4:1 or more on both table backgrounds.
 model_text_colors <- purrr::map_chr(model_colors, \(color) {
   grDevices::rgb(t(grDevices::col2rgb(color) * 0.75), maxColorValue = 255)
 })
@@ -170,53 +176,68 @@ layouts <- list(
   "two-column" = list(width = 7.0, base_size = 9)
 )
 
-# Titles: wrap at a fixed number of characters per layout.
-headline <- function(text, layout) {
-  width <- c("one-column" = 46, "two-column" = 84)[[layout]]
-  stringr::str_wrap(text, width = width) |>
-    stringr::str_replace_all("\n", "<br>")
-}
+# No figure has a title: the caption takes its place, in this document and
+# in the paper. The subtitle reads on its own.
 
 # Subtitles are wrapped here, not by ggtext: its text boxes sometimes
 # reserve one line less than they draw, and the subtitle then overlaps the
-# title. Line length counts visible characters only, and a colored span or
-# "k = 2" never breaks across lines (its spaces become no-break spaces first).
-subline <- function(layout, ...) {
+# panels. Each word is measured in its font (systemfonts), bold or not. The
+# text takes the fewest lines that fit the figure, and then the narrowest
+# width that keeps that number of lines, so the lines are about the same
+# length. A colored span or "k = 2" never breaks across lines (its spaces
+# become no-break spaces first). `bold`: the text outside the bold spans is
+# bold; `size`: the text size relative to the base size.
+subline <- function(layout, ..., bold = TRUE, size = 1) {
   nbsp <- " "
   text <- stringr::str_c(...) |>
     stringr::str_replace_all("<span[^>]*>.*?</span>|k = \\d",
                              \(s) stringr::str_replace_all(s, " ", nbsp))
   words <- stringr::str_split_1(text, " ")
-  visible <- stringr::str_length(stringr::str_remove_all(words, "<[^>]+>|\\*\\*"))
-  width <- c("one-column" = 68, "two-column" = 125)[[layout]]
-  lines <- character()
-  current <- integer()
-  for (i in seq_along(words)) {
-    line_length <- sum(visible[current]) + length(current) + visible[i]
-    if (length(current) > 0 && line_length > width) {
-      lines <- c(lines, stringr::str_c(words[current], collapse = " "))
-      current <- integer()
+  measure <- \(s, weight) systemfonts::string_width(
+    s, family = body_font, weight = weight,
+    size = layouts[[layout]]$base_size * size, res = 7200
+  ) / 100 # points
+  widths <- purrr::map2_dbl(
+    stringr::str_replace_all(stringr::str_remove_all(words, "<[^>]+>|\\*\\*"), nbsp, " "),
+    dplyr::if_else(bold | stringr::str_detect(words, "\\*\\*"), "bold", "normal"),
+    measure
+  )
+  space <- measure(" ", if (bold) "bold" else "normal")
+  # The line of each word when no line is wider than `limit` points.
+  wrap <- function(limit) {
+    line <- integer(length(widths))
+    n <- 1
+    used <- -space
+    for (i in seq_along(widths)) {
+      if (used > 0 && used + space + widths[i] > limit) {
+        n <- n + 1
+        used <- -space
+      }
+      used <- used + space + widths[i]
+      line[i] <- n
     }
-    current <- c(current, i)
+    line
   }
-  lines <- c(lines, stringr::str_c(words[current], collapse = " "))
-  stringr::str_c(lines, collapse = "<br>") |>
+  # The figure less its margins (5.5 pt each side), and 3% to spare.
+  limit <- (layouts[[layout]]$width * 72 - 11) * 0.97
+  lines <- max(wrap(limit))
+  while (limit > max(widths) && max(wrap(limit - 1)) == lines) limit <- limit - 1
+  split(words, wrap(limit)) |>
+    purrr::map_chr(\(w) stringr::str_c(w, collapse = " ")) |>
+    stringr::str_c(collapse = "<br>") |>
     stringr::str_replace_all(nbsp, " ")
 }
 
-# The theme of all figures.
-theme_paper <- function(layout) {
+# The theme of all figures: no grid lines; bold axis titles, tick labels
+# and ticks. `subtitle_face`: bold for F2 to F7, plain for F1.
+theme_paper <- function(layout, subtitle_face = "bold") {
   ggplot2::theme_bw(base_size = layouts[[layout]]$base_size,
                     base_family = body_font) +
     ggplot2::theme(
       legend.position = "none",
-      plot.title.position = "plot",
-      plot.title = ggtext::element_markdown(
-        family = title_font, face = "bold", lineheight = 1.1,
-        size = ggplot2::rel(1.2), margin = ggplot2::margin(0, 0, 3, 0)
-      ),
+      plot.title.position = "plot", # the subtitle starts at the left edge
       plot.subtitle = ggtext::element_markdown(
-        colour = "grey25", lineheight = 1.15,
+        face = subtitle_face, colour = "grey25", lineheight = 1.15,
         margin = ggplot2::margin(0, 0, 6, 0)
       ),
       plot.caption.position = "plot",
@@ -224,30 +245,29 @@ theme_paper <- function(layout) {
         colour = "grey35", size = ggplot2::rel(0.8), hjust = 0,
         lineheight = 1.1, margin = ggplot2::margin(6, 0, 0, 0)
       ),
-      panel.grid.minor = ggplot2::element_blank(),
+      panel.grid = ggplot2::element_blank(),
       strip.background = ggplot2::element_rect(fill = "grey95",
                                                colour = "grey70"),
       strip.text = ggplot2::element_text(face = "bold", colour = "grey20"),
-      axis.title = ggplot2::element_text(colour = "grey25")
+      axis.title = ggplot2::element_text(face = "bold", colour = "grey15"),
+      axis.text = ggplot2::element_text(face = "bold", colour = "grey15"),
+      axis.ticks = ggplot2::element_line(colour = "grey15", linewidth = ggplot2::rel(1.6)),
+      axis.ticks.length = ggplot2::unit(3, "pt")
     )
 }
 
 # Paper versions: the column and text widths of the ASME class asmeconf.
 paper_widths <- c("one-column" = 3.56, "two-column" = 7.5)
 
-# A figure with no title (a ggplot or a patchwork), and the height that its
-# title took: the lines of the title and its 3 pt margin.
-drop_title <- function(plot) {
-  if (inherits(plot, "patchwork")) {
-    plot + patchwork::plot_annotation(title = NULL)
-  } else {
-    plot + ggplot2::labs(title = NULL)
-  }
-}
-title_height <- function(plot, layout) {
-  title <- if (inherits(plot, "patchwork")) plot$patches$annotation$title else plot$labels$title
-  lines <- stringr::str_count(title, "<br>") + 1
-  (lines * layouts[[layout]]$base_size * 1.2 * 1.1 + 3) / 72
+# Value labels of points and intervals (R/figure_labels.R): each label takes
+# the first of its candidate places that overlaps no mark, no other label
+# and no panel edge, or is left out. The places depend on the size of the
+# figure, so each figure function gets the size it is drawn at.
+source("R/figure_labels.R")
+# Small labels, so that they do not draw the eye from the data.
+label_size <- c("one-column" = 5.5, "two-column" = 6)
+add_labels <- function(plot, spec, layout, width, height) {
+  annotate_plot(plot, spec, width, height, size_pt = label_size[[layout]], family = body_font)
 }
 
 # Text as outlines in a PDF or SVG file (showtext).
@@ -260,13 +280,14 @@ save_outlined <- function(plot, file, open, width, height) {
 }
 
 # Save one figure in both sizes and three formats, and the paper version of
-# each size; show the two-column one. make_plot(layout, paper) gives the
-# figure; with paper = TRUE, it gives the metrics of the paper (accuracy for
-# balanced accuracy, no MCC). The paper version is as high as the figure
-# less its title, or `paper_height` when it has fewer panels.
-save_figure <- function(make_plot, name, height, paper_height = NULL) {
+# each size; show the two-column one. make_plot(layout, paper, width,
+# height) gives the figure at that size; with paper = TRUE, it gives the
+# metrics of the paper (accuracy for balanced accuracy, no MCC). The paper
+# version is as high as the figure, or `paper_height` when it has fewer
+# panels.
+save_figure <- function(make_plot, name, height, paper_height = height) {
   purrr::iwalk(layouts, \(spec, layout) {
-    plot <- make_plot(layout)
+    plot <- make_plot(layout, width = spec$width, height = height[[layout]])
     dir.create(file.path(figs_dir, layout), recursive = TRUE,
                showWarnings = FALSE)
     stem <- file.path(figs_dir, layout, name)
@@ -281,19 +302,16 @@ save_figure <- function(make_plot, name, height, paper_height = NULL) {
       save_outlined(plot, stringr::str_c(stem, ".", extension), open,
                     spec$width, height[[layout]])
     })
-    # Paper version: PDF only, no title.
+    # Paper version: PDF only.
     dir.create(file.path(figs_dir, "paper", layout), recursive = TRUE,
                showWarnings = FALSE)
-    paper_h <- if (is.null(paper_height)) {
-      height[[layout]] - title_height(plot, layout)
-    } else {
-      paper_height[[layout]]
-    }
-    save_outlined(drop_title(make_plot(layout, paper = TRUE)),
-                  stringr::str_c(file.path(figs_dir, "paper", layout, name), ".pdf"),
-                  grDevices::cairo_pdf, paper_widths[[layout]], paper_h)
+    paper <- make_plot(layout, paper = TRUE, width = paper_widths[[layout]],
+                       height = paper_height[[layout]])
+    save_outlined(paper, stringr::str_c(file.path(figs_dir, "paper", layout, name), ".pdf"),
+                  grDevices::cairo_pdf, paper_widths[[layout]], paper_height[[layout]])
   })
-  make_plot("two-column")
+  make_plot("two-column", width = layouts[["two-column"]]$width,
+            height = height[["two-column"]])
 }
 ```
 
@@ -383,9 +401,9 @@ The metrics, the calibration and the paired tests come from three files in `R/`.
 
 ```{r}
 #| label: fair-functions
-# The functions of the fair comparison, in their own environment:
-# R/fair_evaluate.R names a vector `headline`, which is also the name of the
-# title helper above.
+# The functions of the fair comparison, in their own environment, so that
+# their names (for example the vector `headline` of R/fair_evaluate.R) do
+# not mix with the names of this document.
 fair <- new.env()
 c("R/evaluation.R", "R/calibration_functions.R", "R/fair_evaluate.R") |>
   purrr::walk(\(file) sys.source(file, envir = fair))
@@ -682,7 +700,7 @@ save_table(t3, "T3_calibration_draw", "Draw of the calibration set C (seed 20261
 #| label: fig-references
 #| fig-cap: "The reference images at k = 2, the main setting. All come from the learning set L. Pipe staple images: AutoVI [@carvalho2024autovi], CC BY-NC-SA 4.0; other images: the data of @megahed2026clip."
 #| fig-width: 7
-#| fig-height: 7.4
+#| fig-height: 7.18
 # Label of one reference image: its class, or its defect type.
 type_names <- c(defective = "Defective", missing = "Missing staple",
                 over = "Over-extrusion", under = "Under-extrusion",
@@ -739,7 +757,7 @@ row_label <- function(text, layout) {
 
 # Figure F1: one row per dataset, nominal images first.
 refs_main <- dplyr::filter(sets$references, rank <= k_main)
-fig_references <- function(layout, paper = FALSE) {
+fig_references <- function(layout, paper = FALSE, ...) {
   tiles <- purrr::map(dataset_order, function(ds) {
     refs <- refs_main |>
       dplyr::filter(dataset == ds) |>
@@ -754,27 +772,28 @@ fig_references <- function(layout, paper = FALSE) {
   patchwork::wrap_plots(unlist(tiles, recursive = FALSE), ncol = 1 + 2 * k_main,
                         widths = c(1.1, rep(1, 2 * k_main))) +
     patchwork::plot_annotation(
-      title = headline("Two images per class are all the decision models see", layout),
       subtitle = subline(
         layout,
         paint("Nominal", class_colors[["nominal"]]), " and ",
         paint("defective", class_colors[["defective"]]),
         " reference images, two per class (k = 2) for each dataset, drawn ",
         "from the learning set (seed 202610) and center-cropped as sent to the ",
-        "decision models. Small images are enlarged here for display only."
+        "decision models. Small images are enlarged here for display only.",
+        bold = FALSE
       ),
       # Image sources. AutoVI is CC BY-NC-SA 4.0: the pipe staple tiles of
       # this figure keep that license.
       caption = subline(
         layout,
         "Images: Megahed et al. (2026), github.com/fmegahed/qe_genai. ",
-        "Pipe staple: AutoVI (Carvalho et al., 2024), CC BY-NC-SA 4.0."
+        "Pipe staple: AutoVI (Carvalho et al., 2024), CC BY-NC-SA 4.0.",
+        bold = FALSE, size = 0.8
       ),
-      theme = theme_paper(layout)
+      theme = theme_paper(layout, subtitle_face = "plain")
     )
 }
 save_figure(fig_references, "F1_reference_images",
-            height = c("one-column" = 5.2, "two-column" = 7.4))
+            height = c("one-column" = 4.86, "two-column" = 7.18))
 ```
 
 # Methods {#sec-methods}
@@ -965,7 +984,7 @@ loop_row <- \(m, ds) dplyr::filter(loop_summary, model == m, dataset == ds)
 
 Each loop scored `r min(loop_summary$candidates)` to `r max(loop_summary$candidates)` candidates, the generic description included (@tbl-loop). Of the `r nrow(loop_summary)` loops, `r nrow(changed)` kept a new description, and their design AUC rose by `r fmt(min(changed$design_gain), 3)` to `r fmt(max(changed$design_gain), 3)`. On C, which chose nothing, the final description has a higher AUC than the generic one in `r sum(changed$c_gain > 0)` of these `r nrow(changed)` loops. For Clef-Flash on extrusion, it is lower (`r fmt(loop_row("clef", "extrusion")$c_final, 3)` against `r fmt(loop_row("clef", "extrusion")$c_generic, 3)`).
 
-The largest gain is that of Clef-Flash on pipe staple: the AUC rose from `r fmt(loop_row("clef", "pipe_staple")$design_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$design_final, 3)` on the design images, and from `r fmt(loop_row("clef", "pipe_staple")$c_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$c_final, 3)` on C. JEV on pipe staple kept the generic description: its design AUC was already `r fmt(loop_row("jev", "pipe_staple")$design_generic, 3)`, so no candidate could pass the margin of 0.02. The audits of the `r nrow(loop_summary)` loops flagged `r sum(loop_summary$flagged)` tool calls outside the sandbox.
+The largest gain is that of Clef-Flash on pipe staple: the AUC rose from `r fmt(loop_row("clef", "pipe_staple")$design_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$design_final, 3)` on the design images, and from `r fmt(loop_row("clef", "pipe_staple")$c_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$c_final, 3)` on C. JEV on pipe staple kept the generic description: its design AUC was already `r fmt(loop_row("jev", "pipe_staple")$design_generic, 3)`, so no candidate could pass the margin of 0.02. The audits of the `r nrow(loop_summary)` loops flagged `r sum(loop_summary$flagged)` tool calls outside the sandbox. The page [Description loops](description_loops.html) shows how the descriptions changed: each candidate against the text that it revised. @sec-loop-candidates gives all candidates in full, with the reason that the agent gave.
 
 ```{r}
 #| label: loop-note
@@ -1001,7 +1020,7 @@ save_table(t4, "T4_description_loop", "Description loop: candidates and AUC.",
 #| label: fig-loop
 #| fig-cap: "Design AUC of each candidate of the description loop. The diamond is the AUC of the final description on C."
 #| fig-width: 7
-#| fig-height: 4.2
+#| fig-height: 3.99
 #| eval: !expr has_loop
 #| include: !expr has_loop
 # The current best after each candidate (the AUC of the last kept one).
@@ -1018,15 +1037,30 @@ loop_final <- loop_summary |>
   dplyr::mutate(model = factor(model_labels[model], names(model_colors)),
                 dataset = label_dataset(dataset))
 
-# Figure F2: one row per model, one column per dataset.
-fig_loop <- function(layout, paper = FALSE) {
+# Figure F2: one row per model, one column per dataset. Labels: the AUC
+# above each candidate and the AUC on C below the diamond, on the other side
+# when that place is taken (kept candidates first, then the diamonds, then
+# the others).
+fig_loop <- function(layout, paper = FALSE, width, height) {
   d <- loop_steps
   f <- loop_final
   if (layout == "one-column") {
     levels(d$dataset) <- short_labels[dataset_order]
     levels(f$dataset) <- short_labels[dataset_order]
   }
-  ggplot2::ggplot(d, ggplot2::aes(candidate, auc, colour = model)) +
+  labels <- dplyr::bind_rows(
+    dplyr::transmute(dplyr::filter(d, kept), model, dataset, x = candidate, y = auc,
+                     gap_pt = 2.9, side = "above", other = "below"),
+    dplyr::transmute(f, model, dataset, x = final, y = c_final,
+                     gap_pt = 3.6, side = "below", other = "above"),
+    dplyr::transmute(dplyr::filter(d, !kept), model, dataset, x = candidate, y = auc,
+                     gap_pt = 2.9, side = "above", other = "below")
+  ) |>
+    dplyr::mutate(id = dplyr::row_number(), label = fmt(y),
+                  colour = unname(model_colors[as.character(model)]))
+  labels <- dplyr::bind_rows(labels, dplyr::mutate(labels, side = other)) |>
+    dplyr::arrange(id)
+  plot <- ggplot2::ggplot(d, ggplot2::aes(candidate, auc, colour = model)) +
     ggplot2::geom_hline(yintercept = 0.5, colour = "grey70", linewidth = 0.3) +
     ggplot2::geom_step(ggplot2::aes(y = best), direction = "hv", linewidth = 0.6) +
     ggplot2::geom_point(ggplot2::aes(shape = kept), size = 1.6, stroke = 0.6) +
@@ -1036,11 +1070,10 @@ fig_loop <- function(layout, paper = FALSE) {
     ggplot2::scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1)) +
     ggplot2::scale_x_continuous(breaks = 1:6) +
     ggplot2::scale_y_continuous(breaks = seq(0.5, 1, 0.1)) +
-    ggplot2::coord_cartesian(xlim = c(0.7, 6.3), ylim = c(0.45, 1.02)) +
+    # Room above 1 for the labels.
+    ggplot2::coord_cartesian(xlim = c(0.7, 6.3), ylim = c(0.45, 1.06)) +
     ggplot2::facet_grid(rows = ggplot2::vars(model), cols = ggplot2::vars(dataset)) +
     ggplot2::labs(
-      title = headline(stringr::str_c(nrow(changed), " of ", nrow(loop_summary),
-                                      " loops kept a new description"), layout),
       subtitle = subline(
         layout,
         "Design AUC of each candidate description in the description loops of ",
@@ -1053,9 +1086,10 @@ fig_loop <- function(layout, paper = FALSE) {
       x = "Candidate (1 = generic description)", y = "ROC AUC"
     ) +
     theme_paper(layout)
+  add_labels(plot, labels, layout, width, height)
 }
 save_figure(fig_loop, "F2_description_loop",
-            height = c("one-column" = 4.2, "two-column" = 4.2))
+            height = c("one-column" = 4.0, "two-column" = 3.99))
 ```
 
 # Main results {#sec-main}
@@ -1288,24 +1322,58 @@ forest_data <- function(id, labels = metric_labels[headline_metrics]) {
   present <- intersect(dataset_order, d$dataset)
   # Datasets top to bottom; JEV just above Clef-Flash in each row.
   dplyr::mutate(d, y = match(dataset, present) +
-                  dplyr::if_else(model == "JEV", -0.15, 0.15))
+                  dplyr::if_else(model == "JEV", -0.12, 0.12))
 }
-fig_forest <- function(id, title, text) {
-  function(layout, paper = FALSE) {
+# Labels of a forest figure, small and in the model color: the difference
+# over its point and the 2.5% and 97.5% bounds over the ends of the
+# interval; above the JEV row, below the Clef-Flash row. A bound that does
+# not fit over its end goes beside the difference.
+forest_labels <- function(d, size) {
+  width_pt <- \(s) systemfonts::string_width(s, family = body_font, size = size, res = 7200) / 100
+  rows <- dplyr::mutate(
+    d, n = dplyr::row_number(), colour = unname(model_colors[as.character(model)]),
+    v = dplyr::if_else(model == "JEV", "above", "below"),
+    beside = width_pt(fmt(difference)) / 2 + 2 # half the difference label, and 2 pt
+  )
+  candidate <- function(part, rank, label, x, side, dx = 0) {
+    dplyr::mutate(rows, id = 3 * n + part, rank = rank, label = .env$label, x = .env$x,
+                  side = .env$side, dx_pt = .env$dx)
+  }
+  dplyr::bind_rows(
+    candidate(0, 1, fmt(rows$difference), rows$difference, rows$v),
+    candidate(1, 1, fmt(rows$low), rows$low, rows$v),
+    candidate(1, 2, fmt(rows$low), rows$low, stringr::str_c(rows$v, "-left")),
+    candidate(1, 3, fmt(rows$low), rows$difference, stringr::str_c(rows$v, "-left"), -rows$beside),
+    candidate(2, 1, fmt(rows$high), rows$high, rows$v),
+    candidate(2, 2, fmt(rows$high), rows$high, stringr::str_c(rows$v, "-right")),
+    candidate(2, 3, fmt(rows$high), rows$difference, stringr::str_c(rows$v, "-right"), rows$beside)
+  ) |>
+    dplyr::arrange(id, rank) |>
+    dplyr::mutate(gap_pt = 3.1) # just over the point (radius 3.0 pt)
+}
+# The panels stand side by side, except the three panels of the one-column
+# size of this document (one above the other).
+fig_forest <- function(id, text) {
+  function(layout, paper = FALSE, width, height) {
     d <- forest_data(id, if (paper) paper_metric_labels else metric_labels[headline_metrics])
     present <- intersect(dataset_order, d$dataset)
     labels <- if (layout == "one-column") short_labels[present] else dataset_labels[present]
-    ggplot2::ggplot(d, ggplot2::aes(difference, y, colour = model)) +
+    plot <- ggplot2::ggplot(d, ggplot2::aes(difference, y, colour = model)) +
       ggplot2::geom_vline(xintercept = 0, colour = "grey55", linewidth = 0.3) +
       ggplot2::geom_linerange(ggplot2::aes(xmin = low, xmax = high), linewidth = 0.6) +
       ggplot2::geom_point(size = 1.8) +
       ggplot2::scale_colour_manual(values = model_colors) +
+      # Room at both ends for a bound beside its difference label.
+      ggplot2::scale_x_continuous(
+        expand = ggplot2::expansion(mult = if (layout == "one-column") 0.25 else 0.15)
+      ) +
+      # Room for the labels above the first row and below the last one.
       ggplot2::scale_y_continuous(breaks = seq_along(present), labels = labels,
-                                  transform = "reverse") +
+                                  transform = "reverse",
+                                  expand = ggplot2::expansion(add = 0.45)) +
       ggplot2::facet_wrap(ggplot2::vars(metric), scales = "free_x",
-                          ncol = if (layout == "one-column") 1 else nlevels(d$metric)) +
+                          ncol = if (layout == "one-column" && !paper) 1 else nlevels(d$metric)) +
       ggplot2::labs(
-        title = headline(title, layout),
         subtitle = subline(
           layout,
           "Difference and paired 95% bootstrap interval for ",
@@ -1316,12 +1384,14 @@ fig_forest <- function(id, title, text) {
         x = "Difference", y = NULL
       ) +
       theme_paper(layout) +
-      ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())
+      # Free x scales: space so that the end ticks of two panels stay apart.
+      ggplot2::theme(panel.spacing.x = ggplot2::unit(14, "pt"))
+    add_labels(plot, forest_labels(d, label_size[[layout]]), layout, width, height)
   }
 }
-forest_heights <- c("one-column" = 5.6, "two-column" = 3.2)
-# Paper versions: two panels (accuracy, AUC) and no title.
-forest_paper_heights <- c("one-column" = 3.9, "two-column" = 3.0)
+forest_heights <- c("one-column" = 8.0, "two-column" = 3.3)
+# Paper versions: two panels (accuracy, AUC).
+forest_paper_heights <- c("one-column" = 3.6, "two-column" = 3.3)
 ```
 
 ## P1: against the CLIP baseline
@@ -1334,12 +1404,12 @@ On microstructure, the JEV difference is `r diff_text("P1", "jev", "microstructu
 #| label: fig-paired-p1
 #| fig-cap: "P1: the decision models (final description, k = 2) minus the CLIP baseline, both calibrated."
 #| fig-width: 7
-#| fig-height: 3.2
+#| fig-height: 3.3
 #| eval: !expr has_comparison("P1")
 #| include: !expr has_comparison("P1")
 # Figure F3.
 save_figure(
-  fig_forest("P1", "P1: the decision models lead CLIP on pipe staple and pans",
+  fig_forest("P1",
              "Decision model (final description, k = 2 references per class) minus the CLIP baseline; both use Platt scaling on the calibration set C."),
   "F3_paired_P1", height = forest_heights, paper_height = forest_paper_heights
 )
@@ -1355,12 +1425,12 @@ For JEV on pipe staple, the final description is the generic text (decision D85)
 #| label: fig-paired-p2
 #| fig-cap: "P2: the final description minus the generic description, both at k = 2. Pans have no P2."
 #| fig-width: 7
-#| fig-height: 3.2
+#| fig-height: 3.3
 #| eval: !expr has_comparison("P2")
 #| include: !expr has_comparison("P2")
 # Figure F4.
 save_figure(
-  fig_forest("P2", "P2: the final description helps both models on most datasets",
+  fig_forest("P2",
              "Final minus generic description, both at k = 2 references per class. Pans have no description loop and thus no row."),
   "F4_paired_P2", height = forest_heights, paper_height = forest_paper_heights
 )
@@ -1376,12 +1446,12 @@ The k = 0 side of JEV on pipe staple has a negative Platt slope (`r fmt(slope_of
 #| label: fig-paired-p3
 #| fig-cap: "P3: k = 2 minus k = 0, both with the final description (pans: generic)."
 #| fig-width: 7
-#| fig-height: 3.2
+#| fig-height: 3.3
 #| eval: !expr has_comparison("P3")
 #| include: !expr has_comparison("P3")
 # Figure F5.
 save_figure(
-  fig_forest("P3", "P3: two references per class help, least on microstructure",
+  fig_forest("P3",
              "Two references per class (k = 2) minus none (k = 0), both with the final description (pans: generic)."),
   "F5_paired_P3", height = forest_heights, paper_height = forest_paper_heights
 )
@@ -1499,7 +1569,7 @@ note(!has_decision, "Without them, the figure shows CLIP only.")
 #| label: fig-reference-curve
 #| fig-cap: !expr 'stringr::str_c("Test balanced accuracy and AUC against the number of references per class (Platt scaling on C). Bars: paired 95% interval of the change from k = 0, placed at the value and cut at the limits of the metric (0 and 1).", reversed_k0_caption)'
 #| fig-width: 7
-#| fig-height: 3.8
+#| fig-height: 3.58
 # Values and intervals; the interval of the change from k = 0 is moved to the
 # value at k (value at k = 0 plus the bounds) and cut at 0 and 1, the limits
 # of balanced accuracy and AUC. Models side by side at each k.
@@ -1516,8 +1586,10 @@ curve <- k_curve |>
 curve_models <- intersect(names(model_colors), as.character(curve$model))
 
 # Figure F6: metrics by dataset (two-column) or datasets by metric
-# (one-column).
-fig_curve <- function(layout, paper = FALSE) {
+# (one-column). Labels: the value of each point, as in F3 to F5 above JEV
+# (over its bar) and below Clef-Flash and CLIP (under their bars); k = 2
+# first, then k = 4, 1 and 0.
+fig_curve <- function(layout, paper = FALSE, width, height) {
   d <- curve
   if (paper) {
     levels(d$metric)[levels(d$metric) == metric_labels[["bal_accuracy"]]] <- "Accuracy"
@@ -1528,8 +1600,17 @@ fig_curve <- function(layout, paper = FALSE) {
   } else {
     facets <- ggplot2::facet_grid(rows = ggplot2::vars(metric), cols = ggplot2::vars(dataset))
   }
+  labels <- d |>
+    dplyr::mutate(
+      label = fmt(value), colour = unname(model_colors[as.character(model)]),
+      side = dplyr::if_else(model == "JEV", "above", "below"),
+      y = dplyr::if_else(model == "JEV", dplyr::coalesce(high_value, value),
+                         dplyr::coalesce(low_value, value))
+    ) |>
+    dplyr::arrange(match(k, c(2, 4, 1, 0)), model) |>
+    dplyr::mutate(id = dplyr::row_number(), gap_pt = 2.5) # point radius 2.5 pt
   model_text <- purrr::map_chr(curve_models, \(m) paint(m, model_colors[[m]]))
-  ggplot2::ggplot(d, ggplot2::aes(x, value, colour = model)) +
+  plot <- ggplot2::ggplot(d, ggplot2::aes(x, value, colour = model)) +
     ggplot2::geom_hline(yintercept = 0.5, colour = "grey70", linewidth = 0.3) +
     ggplot2::geom_line(linewidth = 0.5) +
     ggplot2::geom_linerange(ggplot2::aes(ymin = low_value, ymax = high_value),
@@ -1538,10 +1619,10 @@ fig_curve <- function(layout, paper = FALSE) {
     ggplot2::scale_colour_manual(values = model_colors) +
     ggplot2::scale_x_continuous(breaks = c(0, 1, 2, 4)) +
     ggplot2::scale_y_continuous(breaks = seq(0.4, 1, 0.2)) +
-    ggplot2::coord_cartesian(ylim = c(0.3, 1.02)) +
+    # Room above 1 for the labels.
+    ggplot2::coord_cartesian(ylim = c(0.3, 1.07)) +
     facets +
     ggplot2::labs(
-      title = headline("Beyond two references, the decision models gain little", layout),
       subtitle = subline(
         layout,
         "Test results of ", stringr::str_c(model_text, collapse = ", "),
@@ -1552,9 +1633,10 @@ fig_curve <- function(layout, paper = FALSE) {
       x = "References per class (k)", y = NULL
     ) +
     theme_paper(layout)
+  add_labels(plot, labels, layout, width, height)
 }
 save_figure(fig_curve, "F6_reference_curve",
-            height = c("one-column" = 6.4, "two-column" = 3.8))
+            height = c("one-column" = 6.06, "two-column" = 3.58))
 ```
 
 # Calibration
@@ -1616,8 +1698,8 @@ save_table(t7, "T7_calibration",
 # one-column size).
 n_panels <- sum(calibration_rows$method %in% reliability_methods)
 reliability_heights <- c(
-  "one-column" = 1.5 + 1.5 * ceiling(n_panels / 3),
-  "two-column" = 1.2 + 1.75 * ceiling(n_panels / 5)
+  "one-column" = 1.15 + 1.5 * ceiling(n_panels / 3),
+  "two-column" = 1.0 + 1.75 * ceiling(n_panels / 5)
 )
 ```
 
@@ -1672,9 +1754,17 @@ strip_text <- function(layout) {
 }
 
 # Figure F7: five panels per row (two-column) or three (one-column).
-fig_reliability <- function(layout, paper = FALSE) {
+# Labels: the observed defect rate of each bin, above the Platt points and
+# below the raw ones (Platt first).
+fig_reliability <- function(layout, paper = FALSE, width, height) {
   d <- dplyr::inner_join(reliability, strip_text(layout), by = c("method", "dataset"))
-  ggplot2::ggplot(d, ggplot2::aes(mean_p, observed, colour = calibration)) +
+  labels <- d |>
+    dplyr::arrange(calibration != "Platt") |>
+    dplyr::transmute(strip, x = mean_p, y = observed, label = fmt(observed),
+                     colour = unname(calibration_colors[as.character(calibration)]),
+                     side = dplyr::if_else(calibration == "Platt", "above", "below"),
+                     id = dplyr::row_number(), gap_pt = 1.8) # point radius 1.75 pt
+  plot <- ggplot2::ggplot(d, ggplot2::aes(mean_p, observed, colour = calibration)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey70", linewidth = 0.3) +
     ggplot2::geom_line(linewidth = 0.55) +
     ggplot2::geom_point(size = 0.9) +
@@ -1683,7 +1773,6 @@ fig_reliability <- function(layout, paper = FALSE) {
     ggplot2::scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.5, 1)) +
     ggplot2::facet_wrap(ggplot2::vars(strip), ncol = if (layout == "one-column") 3 else 5) +
     ggplot2::labs(
-      title = headline("Platt scaling fixes the worst raw scores, except on pans", layout),
       subtitle = subline(
         layout,
         paint("Raw", calibration_colors[["raw"]]), " scores and ",
@@ -1697,6 +1786,7 @@ fig_reliability <- function(layout, paper = FALSE) {
     ) +
     theme_paper(layout) +
     ggplot2::theme(strip.text = ggtext::element_markdown(face = "plain", lineheight = 1.2))
+  add_labels(plot, labels, layout, width, height)
 }
 save_figure(fig_reliability, "F7_reliability", height = reliability_heights)
 ```
@@ -2177,6 +2267,8 @@ save_table(a1, "A1_isotonic",
 ```
 
 ## Loop candidates {#sec-loop-candidates}
+
+The page [Description loops](description_loops.html) shows the same candidates as word diffs, each against the text that it revised.
 
 ```{r}
 #| label: candidates-note
