@@ -1,0 +1,26 @@
+Dataset,Method,Sensitivity,Specificity,Precision at 50%,Precision at 5%,Precision at 1%
+Metallic pans,"JEV, k = 2",1,1,1,1,1
+Metallic pans,"Clef-Flash, k = 2",0.769,1,1,1,1
+Metallic pans,CLIP baseline,0.282,1,1,1,1
+Metallic pans,"CLIP, same references, k = 2",0.487,1,1,1,1
+Metallic pans,"CLIP, zero-shot",0.385,0.846,0.714,0.116,0.025
+Extrusion,"JEV, k = 2",0.6,0.9,0.857,0.24,0.057
+Extrusion,"Clef-Flash, k = 2",0.58,0.84,0.784,0.16,0.035
+Extrusion,CLIP baseline,0.82,0.61,0.678,0.1,0.021
+Extrusion,"CLIP, same references, k = 2",0.6,0.74,0.698,0.108,0.023
+Extrusion,"CLIP, zero-shot",0.61,0.7,0.67,0.097,0.02
+Textiles,"JEV, k = 2",0.93,1,1,1,1
+Textiles,"Clef-Flash, k = 2",0.81,0.87,0.862,0.247,0.059
+Textiles,CLIP baseline,0.97,0.98,0.98,0.719,0.329
+Textiles,"CLIP, same references, k = 2",0.64,0.73,0.703,0.111,0.023
+Textiles,"CLIP, zero-shot †",0.65,0.64,0.644,0.087,0.018
+Pipe staple,"JEV, k = 2",0.92,0.96,0.958,0.548,0.189
+Pipe staple,"Clef-Flash, k = 2",1,0.98,0.98,0.725,0.336
+Pipe staple,CLIP baseline,0.32,0.82,0.64,0.086,0.018
+Pipe staple,"CLIP, same references, k = 2",0.68,0.66,0.667,0.095,0.02
+Pipe staple,"CLIP, zero-shot",0.58,0.7,0.659,0.092,0.019
+Microstructure,"JEV, k = 2",0.822,0.982,0.979,0.709,0.318
+Microstructure,"Clef-Flash, k = 2",0.751,0.982,0.977,0.69,0.299
+Microstructure,CLIP baseline,0.889,0.978,0.976,0.678,0.288
+Microstructure,"CLIP, same references, k = 2",0.742,0.942,0.928,0.403,0.115
+Microstructure,"CLIP, zero-shot †",0.667,0.613,0.633,0.083,0.017

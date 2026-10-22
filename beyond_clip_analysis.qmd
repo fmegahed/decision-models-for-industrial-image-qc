@@ -1701,6 +1701,46 @@ fig_reliability <- function(layout, paper = FALSE) {
 save_figure(fig_reliability, "F7_reliability", height = reliability_heights)
 ```
 
+## Lower defect rates {#sec-prevalence}
+
+```{r}
+#| label: prevalence-numbers
+# Precision at a defect rate, from the test sensitivity and specificity after
+# Platt scaling (decision D103). It holds if the scores of each class keep
+# their distribution at the new defect rate.
+precision_at <- function(sens, spec, rate) {
+  sens * rate / (sens * rate + (1 - spec) * (1 - rate))
+}
+prevalence_rows <- dplyr::mutate(
+  main,
+  p50 = precision_at(sens, spec, 0.5), p05 = precision_at(sens, spec, 0.05),
+  p01 = precision_at(sens, spec, 0.01)
+)
+# Numbers for the text below: the precision at 1% of the decision models
+# where their specificity is below 1, and the nominal test images per dataset.
+p01_models <- dplyr::filter(prevalence_rows, model != "clip", spec < 1)$p01
+nominal_test <- dplyr::count(dplyr::filter(test_set, actual_class == "nominal"), dataset)$n
+```
+
+The test sets and C hold as many defective images as nominal images, but a production line has far fewer defects. At a defect rate π, the sensitivity and the specificity of a method stay the same if the scores of each class keep their distribution, but the precision falls: precision = sens × π / (sens × π + (1 − spec) × (1 − π)). @tbl-prevalence gives the precision of the five methods at defect rates of 50% (the test sets), 5% and 1%. At 1%, the precision of the decision models is `r fmt(min(p01_models), 3)` to `r fmt(max(p01_models), 3)` where their specificity is below 1: most of their alarms would be false. A specificity of 1.000 gives a precision of 1.000 at every defect rate, but it rests on zero false alarms in `r min(nominal_test)` to `r max(nominal_test)` nominal test images.
+
+The Platt probabilities also refer to a defect rate of 50%. At a defect rate π, add log(π / (1 − π)) to their log-odds. If the Platt probabilities are calibrated and the scores of each class keep their distribution, the decision at 0.5 on them gives the highest balanced accuracy at every defect rate: it calls an image defective when its probability at the true defect rate is above π.
+
+```{r}
+#| label: tbl-prevalence
+#| tbl-cap: !expr 'stringr::str_c("Precision at lower defect rates, from the test sensitivity and specificity after Platt scaling on C (decision at 0.5), if the scores of each class keep their distribution.", mark_caption(prevalence_rows$flag))'
+# Table T11.
+t11 <- prevalence_rows |>
+  dplyr::transmute(
+    Dataset = dataset_labels[dataset], Method = stringr::str_c(method, flag),
+    Sensitivity = sens, Specificity = spec,
+    `Precision at 50%` = p50, `Precision at 5%` = p05, `Precision at 1%` = p01
+  )
+save_table(t11, "T11_precision_defect_rate",
+           stringr::str_c("Precision at lower defect rates.", mark_caption(prevalence_rows$flag)),
+           digits = 3, page_length = 25, group = "Dataset")
+```
+
 # Time and cost {#sec-time}
 
 This section gives the time that each method needs for one image, the total time of each step, and the calls, tokens and estimated cost of JEV. `scripts/fair_evaluate.R` makes `results/fair/summary/timing.csv` from the `elapsed_ms` column of the score files, from `clip_timing.csv` and `runs.csv` in `results/fair/timing/`, and from the TypeSafe call log. @sec-time-methods tells how each time is measured.

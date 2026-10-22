@@ -6,6 +6,7 @@
 \documentclass[nohead,nofoot]{asmeconf}
 \usepackage{threeparttable}
 \begin{document}
+\twocolumn % as in the paper (asmeconf starts two columns in \maketitle)
 \begin{table*}
 
 \caption{\label{tab:sets}Datasets and sets (images, nominal + defective).}
@@ -196,5 +197,55 @@ Method & Raw & Platt & Raw & Platt\\
 \bottomrule
 \end{tabular}
 \end{table*}
+
+\begin{table}
+\centering
+\caption{\label{tab:prevalence}Precision at lower defect rates, from the test sensitivity and specificity after Platt scaling on C (decision at 0.5), if the scores of each class keep their distribution. \textsuperscript{\dag}Negative Platt slope: Platt scaling reverses the order of the raw scores.}
+\centering
+\fontsize{8}{10}\selectfont
+\begin{tabular}[t]{lrrr}
+\toprule
+\multicolumn{1}{c}{ } & \multicolumn{3}{c}{Defect rate} \\
+\cmidrule(l{3pt}r{3pt}){2-4}
+Method & 50\% & 5\% & 1\%\\
+\midrule
+\addlinespace[0.3em]
+\multicolumn{4}{l}{\textbf{Metallic pans}}\\
+\hspace{1em}JEV, $k = 2$ & 1.000 & 1.000 & \vphantom{1} 1.000\\
+\hspace{1em}Clef-Flash, $k = 2$ & 1.000 & 1.000 & 1.000\\
+\hspace{1em}CLIP baseline & 1.000 & 1.000 & 1.000\\
+\hspace{1em}CLIP, same references, $k = 2$ & 1.000 & 1.000 & 1.000\\
+\hspace{1em}CLIP, zero-shot & 0.714 & 0.116 & 0.025\\
+\addlinespace[0.3em]
+\multicolumn{4}{l}{\textbf{Extrusion}}\\
+\hspace{1em}JEV, $k = 2$ & 0.857 & 0.240 & 0.057\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.784 & 0.160 & 0.035\\
+\hspace{1em}CLIP baseline & 0.678 & 0.100 & 0.021\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.698 & 0.108 & 0.023\\
+\hspace{1em}CLIP, zero-shot & 0.670 & 0.097 & 0.020\\
+\addlinespace[0.3em]
+\multicolumn{4}{l}{\textbf{Textiles}}\\
+\hspace{1em}JEV, $k = 2$ & 1.000 & 1.000 & 1.000\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.862 & 0.247 & 0.059\\
+\hspace{1em}CLIP baseline & 0.980 & 0.719 & 0.329\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.703 & 0.111 & 0.023\\
+\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.644 & 0.087 & 0.018\\
+\addlinespace[0.3em]
+\multicolumn{4}{l}{\textbf{Pipe staple}}\\
+\hspace{1em}JEV, $k = 2$ & 0.958 & 0.548 & 0.189\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.980 & 0.725 & 0.336\\
+\hspace{1em}CLIP baseline & 0.640 & 0.086 & 0.018\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.667 & 0.095 & 0.020\\
+\hspace{1em}CLIP, zero-shot & 0.659 & 0.092 & 0.019\\
+\addlinespace[0.3em]
+\multicolumn{4}{l}{\textbf{Microstructure}}\\
+\hspace{1em}JEV, $k = 2$ & 0.979 & 0.709 & 0.318\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.977 & 0.690 & 0.299\\
+\hspace{1em}CLIP baseline & 0.976 & 0.678 & 0.288\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.928 & 0.403 & 0.115\\
+\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.633 & 0.083 & 0.017\\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \end{document}

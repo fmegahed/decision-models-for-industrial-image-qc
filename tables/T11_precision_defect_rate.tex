@@ -1,0 +1,40 @@
+\begin{table}
+
+\caption{\label{tab:tbl-prevalence}Precision at lower defect rates. † Negative Platt slope: Platt reverses the order of the raw scores (decision D82).}
+\centering
+\begin{tabular}[t]{llrrrrr}
+\toprule
+Dataset & Method & Sensitivity & Specificity & Precision at 50\% & Precision at 5\% & Precision at 1\%\\
+\midrule
+Metallic pans & JEV, k = 2 & 1.000 & 1.000 & 1.000 & 1.000 & 1.000\\
+Metallic pans & Clef-Flash, k = 2 & 0.769 & 1.000 & 1.000 & 1.000 & 1.000\\
+Metallic pans & CLIP baseline & 0.282 & 1.000 & 1.000 & 1.000 & 1.000\\
+Metallic pans & CLIP, same references, k = 2 & 0.487 & 1.000 & 1.000 & 1.000 & 1.000\\
+Metallic pans & CLIP, zero-shot & 0.385 & 0.846 & 0.714 & 0.116 & 0.025\\
+\addlinespace
+Extrusion & JEV, k = 2 & 0.600 & 0.900 & 0.857 & 0.240 & 0.057\\
+Extrusion & Clef-Flash, k = 2 & 0.580 & 0.840 & 0.784 & 0.160 & 0.035\\
+Extrusion & CLIP baseline & 0.820 & 0.610 & 0.678 & 0.100 & 0.021\\
+Extrusion & CLIP, same references, k = 2 & 0.600 & 0.740 & 0.698 & 0.108 & 0.023\\
+Extrusion & CLIP, zero-shot & 0.610 & 0.700 & 0.670 & 0.097 & 0.020\\
+\addlinespace
+Textiles & JEV, k = 2 & 0.930 & 1.000 & 1.000 & 1.000 & 1.000\\
+Textiles & Clef-Flash, k = 2 & 0.810 & 0.870 & 0.862 & 0.247 & 0.059\\
+Textiles & CLIP baseline & 0.970 & 0.980 & 0.980 & 0.719 & 0.329\\
+Textiles & CLIP, same references, k = 2 & 0.640 & 0.730 & 0.703 & 0.111 & 0.023\\
+Textiles & CLIP, zero-shot † & 0.650 & 0.640 & 0.644 & 0.087 & 0.018\\
+\addlinespace
+Pipe staple & JEV, k = 2 & 0.920 & 0.960 & 0.958 & 0.548 & 0.189\\
+Pipe staple & Clef-Flash, k = 2 & 1.000 & 0.980 & 0.980 & 0.725 & 0.336\\
+Pipe staple & CLIP baseline & 0.320 & 0.820 & 0.640 & 0.086 & 0.018\\
+Pipe staple & CLIP, same references, k = 2 & 0.680 & 0.660 & 0.667 & 0.095 & 0.020\\
+Pipe staple & CLIP, zero-shot & 0.580 & 0.700 & 0.659 & 0.092 & 0.019\\
+\addlinespace
+Microstructure & JEV, k = 2 & 0.822 & 0.982 & 0.979 & 0.709 & 0.318\\
+Microstructure & Clef-Flash, k = 2 & 0.751 & 0.982 & 0.977 & 0.690 & 0.299\\
+Microstructure & CLIP baseline & 0.889 & 0.978 & 0.976 & 0.678 & 0.288\\
+Microstructure & CLIP, same references, k = 2 & 0.742 & 0.942 & 0.928 & 0.403 & 0.115\\
+Microstructure & CLIP, zero-shot † & 0.667 & 0.613 & 0.633 & 0.083 & 0.017\\
+\bottomrule
+\end{tabular}
+\end{table}

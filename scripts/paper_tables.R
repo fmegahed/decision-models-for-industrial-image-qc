@@ -34,19 +34,21 @@ bold_best <- function(x, lower = FALSE) {
 }
 dagger_note <- "\\textsuperscript{\\dag}Negative Platt slope: Platt scaling reverses the order of the raw scores."
 
-# One table at the text width, in the 8 pt type of the paper. With `group`,
-# the rows of each dataset go under a bold line with the dataset name.
-# `col_names` replaces the column names in print (they may repeat there).
-# `note` goes under the table, as wide as the table (threeparttable).
+# One table at the text width (envir "table*") or the column width ("table"),
+# in the 8 pt type of the paper. With `group`, the rows of each dataset go
+# under a bold line with the dataset name. `col_names` replaces the column
+# names in print (they may repeat there). `note` goes under the table, as
+# wide as the table (threeparttable).
 paper_table <- function(d, caption, label, align, group = FALSE, header = NULL,
-                        widths = NULL, col_names = NULL, note = NULL) {
+                        widths = NULL, col_names = NULL, note = NULL,
+                        envir = "table*") {
   d <- dplyr::mutate(d, dplyr::across(dplyr::everything(), latex_text))
   names(d) <- latex_text(names(d))
   shown <- if (group) dplyr::select(d, -Dataset) else d
   table <- kableExtra::kbl(shown, format = "latex", booktabs = TRUE,
                            escape = FALSE, caption = caption, label = label,
                            col.names = col_names %||% names(shown),
-                           align = align, linesep = "", table.envir = "table*") |>
+                           align = align, linesep = "", table.envir = envir) |>
     kableExtra::kable_styling(font_size = 8)
   if (!is.null(header)) table <- kableExtra::add_header_above(table, header)
   for (column in names(widths)) {
@@ -125,6 +127,18 @@ tables <- list(
     "calibration", align = "lrrrr", group = TRUE,
     header = c(" " = 1, "ECE" = 2, "Brier" = 2),
     col_names = c("Method", rep(c("Raw", "Platt"), 2))
+  ),
+  # D103: precision at lower defect rates (T11), one column wide.
+  paper_table(
+    read_table("T11_precision_defect_rate") |>
+      dplyr::select(Dataset, Method, `Precision at 50%`, `Precision at 5%`, `Precision at 1%`) |>
+      dplyr::mutate(dplyr::across(-c(Dataset, Method), three)),
+    stringr::str_c("Precision at lower defect rates, from the test sensitivity and ",
+                   "specificity after Platt scaling on C (decision at 0.5), if the ",
+                   "scores of each class keep their distribution. ", dagger_note),
+    "prevalence", align = "lrrr", group = TRUE, envir = "table",
+    header = c(" " = 1, "Defect rate" = 3),
+    col_names = c("Method", "50\\%", "5\\%", "1\\%")
   )
 )
 
@@ -137,6 +151,7 @@ document <- c(
   "\\documentclass[nohead,nofoot]{asmeconf}",
   "\\usepackage{threeparttable}",
   "\\begin{document}",
+  "\\twocolumn % as in the paper (asmeconf starts two columns in \\maketitle)",
   stringr::str_c(tables, collapse = "\n\n"),
   "",
   "\\end{document}"
