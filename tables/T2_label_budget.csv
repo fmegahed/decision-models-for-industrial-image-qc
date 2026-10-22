@@ -1,0 +1,5 @@
+Method,Learning,Calibration,"Images seen per test image, per class",Metallic pans,Extrusion,Textiles,Pipe staple,Microstructure
+JEV and Clef-Flash,L (k references; the rest chooses the description),C,k,10,75,75,67,75
+CLIP baseline,L,C,50 (pans 10),10,75,75,67,75
+"CLIP, same references",the k references,C,k,10,27,27,19,27
+"CLIP, zero-shot",none,C,0,10,25,25,17,25

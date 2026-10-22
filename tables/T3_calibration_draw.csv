@@ -1,0 +1,9 @@
+Dataset,Class,Near-copy rule,Images left after exclusion,Excluded near-copies,Drawn,Shortfall
+Extrusion,nominal,dHash distance of 6 or less to an L or test image,280,34,25,0
+Extrusion,defective,dHash distance of 6 or less to an L or test image,718,13,25,0
+Textiles,nominal,Byte-identical (MD5) copy of an L or test image,850,0,25,0
+Textiles,defective,Byte-identical (MD5) copy of an L or test image,850,0,25,0
+Pipe staple,nominal,Byte-identical (MD5) copy of an L or test image,88,0,17,8
+Pipe staple,defective,Byte-identical (MD5) copy of an L or test image,17,0,17,8
+Microstructure,nominal,Byte-identical (MD5) copy of an L or test image,25,0,25,0
+Microstructure,defective,Byte-identical (MD5) copy of an L or test image,175,0,25,0

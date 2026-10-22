@@ -1,0 +1,9 @@
+dataset,actual_class,rule,available,excluded_near_copies,drawn,shortfall
+extrusion,defective,dhash6,718,13,25,0
+extrusion,nominal,dhash6,280,34,25,0
+textiles,defective,md5,850,0,25,0
+textiles,nominal,md5,850,0,25,0
+pipe_staple,defective,md5,17,0,17,8
+pipe_staple,nominal,md5,88,0,17,8
+microstructure,defective,md5,175,0,25,0
+microstructure,nominal,md5,25,0,25,0

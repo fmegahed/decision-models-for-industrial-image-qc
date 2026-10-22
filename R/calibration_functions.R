@@ -10,12 +10,14 @@ clamp <- function(p) pmin(pmax(p, 0.005), 0.995)
 #' @return Tibble with `brier`, `ece` (10 equal-width bins), `log_loss`,
 #'   `mean_p_minus_rate`, and `ba_at_050`.
 calibration_metrics <- function(p, y) {
-  bins <- cut(p, seq(0, 1, 0.1), include.lowest = TRUE)
-  gaps <- tapply(seq_along(p), bins,
-                 function(i) length(i) * abs(mean(p[i]) - mean(y[i])))
+  gap <- tibble::tibble(p = p, y = y) |>
+    dplyr::mutate(bin = cut(p, seq(0, 1, 0.1), include.lowest = TRUE)) |>
+    dplyr::summarise(gap = dplyr::n() * abs(mean(p) - mean(y)), .by = bin) |>
+    dplyr::pull(gap) |>
+    sum()
   tibble::tibble(
     brier = mean((p - y)^2),
-    ece = sum(gaps, na.rm = TRUE) / length(p),
+    ece = gap / length(p),
     log_loss = -mean(y * log(clamp(p)) + (1 - y) * log(1 - clamp(p))),
     mean_p_minus_rate = mean(p) - mean(y),
     ba_at_050 = (mean(p[y == 1] >= 0.5) + mean(p[y == 0] < 0.5)) / 2
@@ -31,10 +33,10 @@ platt <- function(p, y) {
   target <- dplyr::if_else(y == 1, (sum(y) + 1) / (sum(y) + 2),
                            1 / (sum(1 - y) + 2))
   fit <- stats::glm(target ~ x, family = stats::quasibinomial(),
-                    data = data.frame(target = target,
-                                      x = stats::qlogis(clamp(p))))
+                    data = tibble::tibble(target = target,
+                                          x = stats::qlogis(clamp(p))))
   function(new_p) {
-    new_x <- data.frame(x = stats::qlogis(clamp(new_p)))
+    new_x <- tibble::tibble(x = stats::qlogis(clamp(new_p)))
     unname(stats::predict(fit, new_x, type = "response"))
   }
 }
@@ -44,11 +46,12 @@ platt <- function(p, y) {
 #'   interpolation between knots, constant beyond the fitted range.
 #' @return A function that maps new probabilities to calibrated ones.
 isotonic <- function(p, y) {
-  o <- order(p)
-  fit <- stats::isoreg(p[o], y[o])
+  ord <- order(p)
+  fit <- stats::isoreg(p[ord], y[ord])
   # One fitted value per distinct score (tied scores share the pooled value).
-  knots <- stats::aggregate(fitted ~ score, FUN = mean,
-                            data = data.frame(score = p[o], fitted = fit$yf))
+  knots <- tibble::tibble(score = p[ord], fitted = fit$yf) |>
+    dplyr::summarise(fitted = mean(fitted), .by = score) |>
+    dplyr::arrange(score)
   if (nrow(knots) == 1L) {
     return(function(new_p) rep(knots$fitted, length(new_p)))
   }
@@ -63,12 +66,15 @@ isotonic <- function(p, y) {
 #'   thresholds that all reach the maximum balanced accuracy.
 #' @return The threshold.
 tune_threshold <- function(p, y) {
-  t <- round(seq(0.01, 0.99, 0.01), 2) # exact grid: seq() alone drifts
-  ba <- vapply(t, function(x) (mean(p[y == 1] >= x) + mean(p[y == 0] < x)) / 2,
-               numeric(1))
-  runs <- rle(abs(ba - max(ba)) < 1e-9)
-  ends <- cumsum(runs$lengths)
-  starts <- ends - runs$lengths + 1
-  k <- which(runs$values)[which.max(runs$lengths[runs$values])]
-  round((t[starts[k]] + t[ends[k]]) / 2, 2)
+  tibble::tibble(t = round(seq(0.01, 0.99, 0.01), 2)) |> # exact grid
+    dplyr::mutate(
+      ba = purrr::map_dbl(t, \(x) (mean(p[y == 1] >= x) + mean(p[y == 0] < x)) / 2),
+      best = abs(ba - max(ba)) < 1e-9,
+      run = dplyr::consecutive_id(best)
+    ) |>
+    dplyr::filter(best) |>
+    dplyr::summarise(start = min(t), end = max(t), n = dplyr::n(), .by = run) |>
+    dplyr::slice_max(n, n = 1, with_ties = FALSE) |>
+    dplyr::mutate(mid = round((start + end) / 2, 2)) |>
+    dplyr::pull(mid)
 }

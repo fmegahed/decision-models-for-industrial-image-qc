@@ -1,0 +1,2 @@
+candidate,time_utc,normal,defective,auc,mean_score_by_type,reason,kept
+1,2026-10-21T12:50:35Z,No visible manufacturing defects; the part appears conforming.,At least one visible manufacturing defect or anomaly.,0.9943576388888888,missing=0.618; good=0.24,Start: the generic description.,TRUE

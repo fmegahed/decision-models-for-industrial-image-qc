@@ -15,3 +15,6 @@ prior_study/
 # Quarto render cache (beyond_clip_analysis.html itself is kept: it is part of the record)
 beyond_clip_analysis_cache/
 beyond_clip_analysis_files/
+
+# Re-run output of the analysis document (switches in beyond_clip_analysis.qmd)
+results/rerun/

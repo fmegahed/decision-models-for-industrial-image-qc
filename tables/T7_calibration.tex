@@ -1,0 +1,40 @@
+\begin{table}
+
+\caption{\label{tab:tbl-calibration}Calibration on the test sets. † Negative Platt slope: Platt reverses the order of the raw scores (decision D82).}
+\centering
+\begin{tabular}[t]{llrrrrrr}
+\toprule
+Dataset & Method & ECE raw & ECE Platt & Brier raw & Brier Platt & Log loss raw & Log loss Platt\\
+\midrule
+Metallic pans & JEV, k = 2 & 0.114 & 0.205 & 0.016 & 0.056 & 0.123 & 0.242\\
+Metallic pans & Clef-Flash, k = 2 & 0.211 & 0.249 & 0.140 & 0.096 & 0.408 & 0.330\\
+Metallic pans & CLIP baseline & 0.407 & 0.290 & 0.247 & 0.183 & 0.687 & 0.530\\
+Metallic pans & CLIP, same references, k = 2 & 0.131 & 0.255 & 0.245 & 0.146 & 0.682 & 0.443\\
+Metallic pans & CLIP, zero-shot & 0.182 & 0.240 & 0.250 & 0.270 & 0.698 & 0.816\\
+\addlinespace
+Extrusion & JEV, k = 2 & 0.115 & 0.134 & 0.181 & 0.193 & 0.536 & 0.574\\
+Extrusion & Clef-Flash, k = 2 & 0.085 & 0.091 & 0.194 & 0.191 & 0.574 & 0.567\\
+Extrusion & CLIP baseline & 0.191 & 0.180 & 0.248 & 0.232 & 0.689 & 0.658\\
+Extrusion & CLIP, same references, k = 2 & 0.120 & 0.090 & 0.246 & 0.216 & 0.686 & 0.621\\
+Extrusion & CLIP, zero-shot & 0.085 & 0.069 & 0.227 & 0.223 & 0.646 & 0.638\\
+\addlinespace
+Textiles & JEV, k = 2 & 0.204 & 0.080 & 0.065 & 0.034 & 0.268 & 0.140\\
+Textiles & Clef-Flash, k = 2 & 0.214 & 0.064 & 0.195 & 0.116 & 0.574 & 0.370\\
+Textiles & CLIP baseline & 0.473 & 0.080 & 0.248 & 0.029 & 0.688 & 0.132\\
+Textiles & CLIP, same references, k = 2 & 0.188 & 0.066 & 0.249 & 0.196 & 0.691 & 0.572\\
+Textiles & CLIP, zero-shot † & 0.423 & 0.059 & 0.443 & 0.214 & 1.468 & 0.617\\
+\addlinespace
+Pipe staple & JEV, k = 2 & 0.284 & 0.108 & 0.125 & 0.043 & 0.423 & 0.180\\
+Pipe staple & Clef-Flash, k = 2 & 0.346 & 0.108 & 0.173 & 0.027 & 0.525 & 0.135\\
+Pipe staple & CLIP baseline & 0.069 & 0.118 & 0.250 & 0.249 & 0.693 & 0.695\\
+Pipe staple & CLIP, same references, k = 2 & 0.169 & 0.085 & 0.250 & 0.227 & 0.693 & 0.651\\
+Pipe staple & CLIP, zero-shot & 0.407 & 0.087 & 0.405 & 0.228 & 1.195 & 0.649\\
+\addlinespace
+Microstructure & JEV, k = 2 & 0.142 & 0.059 & 0.123 & 0.075 & 0.388 & 0.257\\
+Microstructure & Clef-Flash, k = 2 & 0.290 & 0.078 & 0.262 & 0.106 & 0.737 & 0.341\\
+Microstructure & CLIP baseline & 0.334 & 0.119 & 0.248 & 0.061 & 0.689 & 0.222\\
+Microstructure & CLIP, same references, k = 2 & 0.223 & 0.057 & 0.248 & 0.106 & 0.689 & 0.330\\
+Microstructure & CLIP, zero-shot † & 0.181 & 0.101 & 0.273 & 0.235 & 0.740 & 0.683\\
+\bottomrule
+\end{tabular}
+\end{table}

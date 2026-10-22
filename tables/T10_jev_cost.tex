@@ -1,0 +1,94 @@
+\begin{table}
+
+\caption{\label{tab:tbl-cost}Calls, tokens and estimated cost of the JEV runs.}
+\centering
+\begin{tabular}[t]{lllrrrr}
+\toprule
+Dataset & Step & Configuration & Calls & Input tokens & Output tokens & Estimated cost (USD)\\
+\midrule
+Metallic pans & Calibration runs & generic, k = 0 & 20 & 38320 & 686 & 0.0016\\
+Metallic pans & Calibration runs & generic, k = 1 & 18 & 91656 & 612 & 0.0038\\
+Metallic pans & Calibration runs & generic, k = 2 & 16 & 131904 & 544 & 0.0055\\
+Metallic pans & Calibration runs & generic, k = 4 & 12 & 174576 & 408 & 0.0073\\
+Metallic pans & Test runs & generic, k = 0 & 78 & 149448 & 2670 & 0.0063\\
+\addlinespace
+Metallic pans & Test runs & generic, k = 1 & 78 & 397176 & 2652 & 0.0167\\
+Metallic pans & Test runs & generic, k = 2 & 78 & 643032 & 2652 & 0.0270\\
+Metallic pans & Test runs & generic, k = 4 & 78 & 1134744 & 2652 & 0.0477\\
+Extrusion & Design loop & candidate 1 & 96 & 134784 & 3276 & 0.0057\\
+Extrusion & Design loop & candidate 2 & 96 & 141312 & 3312 & 0.0059\\
+\addlinespace
+Extrusion & Design loop & candidate 3 & 96 & 142368 & 3292 & 0.0060\\
+Extrusion & Design loop & candidate 4 & 96 & 144384 & 3278 & 0.0061\\
+Extrusion & Design loop & candidate 5 & 96 & 143616 & 3310 & 0.0060\\
+Extrusion & Design loop & candidate 6 & 96 & 143616 & 3280 & 0.0060\\
+Extrusion & Calibration runs & final, k = 0 & 50 & 31350 & 1702 & 0.0013\\
+\addlinespace
+Extrusion & Calibration runs & generic, k = 0 & 50 & 27400 & 1674 & 0.0012\\
+Extrusion & Calibration runs & final, k = 1 & 50 & 53350 & 1718 & 0.0022\\
+Extrusion & Calibration runs & final, k = 2 & 50 & 74150 & 1720 & 0.0031\\
+Extrusion & Calibration runs & generic, k = 2 & 50 & 70200 & 1712 & 0.0029\\
+Extrusion & Calibration runs & final, k = 4 & 50 & 115750 & 1724 & 0.0049\\
+\addlinespace
+Extrusion & Test runs & final, k = 0 & 200 & 125400 & 6784 & 0.0053\\
+Extrusion & Test runs & generic, k = 0 & 200 & 109600 & 6702 & 0.0046\\
+Extrusion & Test runs & final, k = 1 & 200 & 213400 & 6828 & 0.0090\\
+Extrusion & Test runs & final, k = 2 & 200 & 296600 & 6848 & 0.0125\\
+Extrusion & Test runs & generic, k = 2 & 200 & 280800 & 6756 & 0.0118\\
+\addlinespace
+Extrusion & Test runs & final, k = 4 & 200 & 463000 & 6838 & 0.0194\\
+Textiles & Design loop & candidate 1 & 96 & 134784 & 3220 & 0.0057\\
+Textiles & Design loop & candidate 2 & 96 & 140736 & 3264 & 0.0059\\
+Textiles & Calibration runs & final, k = 0 & 50 & 30500 & 1722 & 0.0013\\
+Textiles & Calibration runs & generic, k = 0 & 50 & 27400 & 1670 & 0.0012\\
+\addlinespace
+Textiles & Calibration runs & final, k = 1 & 50 & 52500 & 1694 & 0.0022\\
+Textiles & Calibration runs & final, k = 2 & 50 & 73300 & 1700 & 0.0031\\
+Textiles & Calibration runs & generic, k = 2 & 50 & 70200 & 1674 & 0.0029\\
+Textiles & Calibration runs & final, k = 4 & 50 & 114900 & 1700 & 0.0048\\
+Textiles & Test runs & final, k = 0 & 200 & 122000 & 6906 & 0.0051\\
+\addlinespace
+Textiles & Test runs & generic, k = 0 & 200 & 109600 & 6668 & 0.0046\\
+Textiles & Test runs & final, k = 1 & 200 & 210000 & 6762 & 0.0088\\
+Textiles & Test runs & final, k = 2 & 200 & 293200 & 6788 & 0.0123\\
+Textiles & Test runs & generic, k = 2 & 200 & 280800 & 6702 & 0.0118\\
+Textiles & Test runs & final, k = 4 & 200 & 459600 & 6790 & 0.0193\\
+\addlinespace
+Pipe staple & Design loop & candidate 1 & 96 & 254784 & 3248 & 0.0107\\
+Pipe staple & Calibration runs & final, k = 0 & 34 & 27132 & 1122 & 0.0011\\
+Pipe staple & Calibration runs & generic, k = 0 & 34 & 27132 & 1122 & 0.0011\\
+Pipe staple & Calibration runs & final, k = 1 & 34 & 59092 & 1132 & 0.0025\\
+Pipe staple & Calibration runs & final, k = 2 & 34 & 90236 & 1148 & 0.0038\\
+\addlinespace
+Pipe staple & Calibration runs & generic, k = 2 & 34 & 90236 & 1148 & 0.0038\\
+Pipe staple & Calibration runs & final, k = 4 & 34 & 152524 & 1156 & 0.0064\\
+Pipe staple & Test runs & final, k = 0 & 100 & 79800 & 3300 & 0.0034\\
+Pipe staple & Test runs & generic, k = 0 & 100 & 79800 & 3300 & 0.0034\\
+Pipe staple & Test runs & final, k = 1 & 100 & 173800 & 3354 & 0.0073\\
+\addlinespace
+Pipe staple & Test runs & final, k = 2 & 100 & 265400 & 3384 & 0.0111\\
+Pipe staple & Test runs & generic, k = 2 & 100 & 265400 & 3378 & 0.0111\\
+Pipe staple & Test runs & final, k = 4 & 100 & 448600 & 3388 & 0.0188\\
+Microstructure & Design loop & candidate 1 & 96 & 254784 & 3170 & 0.0107\\
+Microstructure & Design loop & candidate 2 & 96 & 260832 & 3224 & 0.0110\\
+\addlinespace
+Microstructure & Design loop & candidate 3 & 96 & 262464 & 3232 & 0.0110\\
+Microstructure & Design loop & candidate 4 & 96 & 263904 & 3222 & 0.0111\\
+Microstructure & Calibration runs & final, k = 0 & 50 & 43050 & 1672 & 0.0018\\
+Microstructure & Calibration runs & generic, k = 0 & 50 & 39900 & 1652 & 0.0017\\
+Microstructure & Calibration runs & final, k = 1 & 50 & 90050 & 1684 & 0.0038\\
+\addlinespace
+Microstructure & Calibration runs & final, k = 2 & 50 & 135850 & 1686 & 0.0057\\
+Microstructure & Calibration runs & generic, k = 2 & 50 & 132700 & 1652 & 0.0056\\
+Microstructure & Calibration runs & final, k = 4 & 50 & 227450 & 1686 & 0.0096\\
+Microstructure & Test runs & final, k = 0 & 450 & 387450 & 15056 & 0.0163\\
+Microstructure & Test runs & generic, k = 0 & 450 & 359100 & 14852 & 0.0151\\
+\addlinespace
+Microstructure & Test runs & final, k = 1 & 450 & 810450 & 15126 & 0.0340\\
+Microstructure & Test runs & final, k = 2 & 450 & 1222650 & 15144 & 0.0514\\
+Microstructure & Test runs & generic, k = 2 & 450 & 1194300 & 14852 & 0.0502\\
+Microstructure & Test runs & final, k = 4 & 450 & 2047050 & 15162 & 0.0860\\
+Total & All & All configurations & 8430 & 17337376 & 284142 & 0.7282\\
+\bottomrule
+\end{tabular}
+\end{table}
