@@ -94,7 +94,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
 
 ## Figure and table style
 
-Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF with no title, at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`: the LaTeX caption takes the place of the title, and the subtitle reads on its own. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
 
 ```{r}
 #| label: fonts-and-colors
@@ -179,12 +179,12 @@ headline <- function(text, layout) {
 
 # Subtitles are wrapped here, not by ggtext: its text boxes sometimes
 # reserve one line less than they draw, and the subtitle then overlaps the
-# title. Line length counts visible characters only, and a colored span
-# never breaks across lines (its spaces become no-break spaces first).
+# title. Line length counts visible characters only, and a colored span or
+# "k = 2" never breaks across lines (its spaces become no-break spaces first).
 subline <- function(layout, ...) {
   nbsp <- " "
   text <- stringr::str_c(...) |>
-    stringr::str_replace_all("<span[^>]*>.*?</span>",
+    stringr::str_replace_all("<span[^>]*>.*?</span>|k = \\d",
                              \(s) stringr::str_replace_all(s, " ", nbsp))
   words <- stringr::str_split_1(text, " ")
   visible <- stringr::str_length(stringr::str_remove_all(words, "<[^>]+>|\\*\\*"))
@@ -232,8 +232,39 @@ theme_paper <- function(layout) {
     )
 }
 
-# Save one figure in both sizes and three formats; show the two-column one.
-save_figure <- function(make_plot, name, height) {
+# Paper versions: the column and text widths of the ASME class asmeconf.
+paper_widths <- c("one-column" = 3.56, "two-column" = 7.5)
+
+# A figure with no title (a ggplot or a patchwork), and the height that its
+# title took: the lines of the title and its 3 pt margin.
+drop_title <- function(plot) {
+  if (inherits(plot, "patchwork")) {
+    plot + patchwork::plot_annotation(title = NULL)
+  } else {
+    plot + ggplot2::labs(title = NULL)
+  }
+}
+title_height <- function(plot, layout) {
+  title <- if (inherits(plot, "patchwork")) plot$patches$annotation$title else plot$labels$title
+  lines <- stringr::str_count(title, "<br>") + 1
+  (lines * layouts[[layout]]$base_size * 1.2 * 1.1 + 3) / 72
+}
+
+# Text as outlines in a PDF or SVG file (showtext).
+save_outlined <- function(plot, file, open, width, height) {
+  open(file, width = width, height = height)
+  showtext::showtext_begin()
+  print(plot)
+  showtext::showtext_end()
+  grDevices::dev.off()
+}
+
+# Save one figure in both sizes and three formats, and the paper version of
+# each size; show the two-column one. make_plot(layout, paper) gives the
+# figure; with paper = TRUE, it gives the metrics of the paper (accuracy for
+# balanced accuracy, no MCC). The paper version is as high as the figure
+# less its title, or `paper_height` when it has fewer panels.
+save_figure <- function(make_plot, name, height, paper_height = NULL) {
   purrr::iwalk(layouts, \(spec, layout) {
     plot <- make_plot(layout)
     dir.create(file.path(figs_dir, layout), recursive = TRUE,
@@ -247,13 +278,20 @@ save_figure <- function(make_plot, name, height) {
     # PDF and SVG with showtext (text as outlines).
     devices <- list(pdf = grDevices::cairo_pdf, svg = grDevices::svg)
     purrr::iwalk(devices, \(open, extension) {
-      open(stringr::str_c(stem, ".", extension), width = spec$width,
-           height = height[[layout]])
-      showtext::showtext_begin()
-      print(plot)
-      showtext::showtext_end()
-      grDevices::dev.off()
+      save_outlined(plot, stringr::str_c(stem, ".", extension), open,
+                    spec$width, height[[layout]])
     })
+    # Paper version: PDF only, no title.
+    dir.create(file.path(figs_dir, "paper", layout), recursive = TRUE,
+               showWarnings = FALSE)
+    paper_h <- if (is.null(paper_height)) {
+      height[[layout]] - title_height(plot, layout)
+    } else {
+      paper_height[[layout]]
+    }
+    save_outlined(drop_title(make_plot(layout, paper = TRUE)),
+                  stringr::str_c(file.path(figs_dir, "paper", layout, name), ".pdf"),
+                  grDevices::cairo_pdf, paper_widths[[layout]], paper_h)
   })
   make_plot("two-column")
 }
@@ -701,7 +739,7 @@ row_label <- function(text, layout) {
 
 # Figure F1: one row per dataset, nominal images first.
 refs_main <- dplyr::filter(sets$references, rank <= k_main)
-fig_references <- function(layout) {
+fig_references <- function(layout, paper = FALSE) {
   tiles <- purrr::map(dataset_order, function(ds) {
     refs <- refs_main |>
       dplyr::filter(dataset == ds) |>
@@ -721,9 +759,9 @@ fig_references <- function(layout) {
         layout,
         paint("Nominal", class_colors[["nominal"]]), " and ",
         paint("defective", class_colors[["defective"]]),
-        " reference images at k = 2, drawn from the learning set (seed 202610) ",
-        "and center-cropped as sent to the models. Small images are enlarged ",
-        "here for display only."
+        " reference images, two per class (k = 2) for each dataset, drawn ",
+        "from the learning set (seed 202610) and center-cropped as sent to the ",
+        "decision models. Small images are enlarged here for display only."
       ),
       # Image sources. AutoVI is CC BY-NC-SA 4.0: the pipe staple tiles of
       # this figure keep that license.
@@ -981,7 +1019,7 @@ loop_final <- loop_summary |>
                 dataset = label_dataset(dataset))
 
 # Figure F2: one row per model, one column per dataset.
-fig_loop <- function(layout) {
+fig_loop <- function(layout, paper = FALSE) {
   d <- loop_steps
   f <- loop_final
   if (layout == "one-column") {
@@ -1005,11 +1043,12 @@ fig_loop <- function(layout) {
                                       " loops kept a new description"), layout),
       subtitle = subline(
         layout,
-        "Candidates of ", paint("JEV", model_colors[["JEV"]]), " and ",
+        "Design AUC of each candidate description in the description loops of ",
+        paint("JEV", model_colors[["JEV"]]), " and ",
         paint("Clef-Flash", model_colors[["Clef-Flash"]]),
         ". Filled: kept (AUC at least 0.02 above the current best); open: not ",
         "kept. The line follows the current best. Diamond: AUC of the final ",
-        "description on C, which chose nothing."
+        "description on the calibration set C, which chose nothing."
       ),
       x = "Candidate (1 = generic description)", y = "ROC AUC"
     ) +
@@ -1235,12 +1274,16 @@ max_holm <- function(id, m, ds) {
 # Forest figure of one comparison: one row per dataset, one panel per
 # headline metric, one point and interval per decision model.
 headline_metrics <- c("bal_accuracy", "mcc", "roc_auc")
-forest_data <- function(id) {
+# The paper reports accuracy and AUC. On the balanced test sets, accuracy
+# equals balanced accuracy, also in each bootstrap sample (the bootstrap
+# resamples within class), so the paper uses these rows as accuracy.
+paper_metric_labels <- c(bal_accuracy = "Accuracy", roc_auc = metric_labels[["roc_auc"]])
+forest_data <- function(id, labels = metric_labels[headline_metrics]) {
   d <- paired |>
-    dplyr::filter(comparison == id) |>
+    dplyr::filter(comparison == id, metric %in% names(labels)) |>
     dplyr::mutate(
       model = factor(model_labels[model], names(model_colors)),
-      metric = factor(metric_labels[metric], metric_labels[headline_metrics])
+      metric = factor(labels[metric], labels)
     )
   present <- intersect(dataset_order, d$dataset)
   # Datasets top to bottom; JEV just above Clef-Flash in each row.
@@ -1248,9 +1291,9 @@ forest_data <- function(id) {
                   dplyr::if_else(model == "JEV", -0.15, 0.15))
 }
 fig_forest <- function(id, title, text) {
-  d <- forest_data(id)
-  present <- intersect(dataset_order, d$dataset)
-  function(layout) {
+  function(layout, paper = FALSE) {
+    d <- forest_data(id, if (paper) paper_metric_labels else metric_labels[headline_metrics])
+    present <- intersect(dataset_order, d$dataset)
     labels <- if (layout == "one-column") short_labels[present] else dataset_labels[present]
     ggplot2::ggplot(d, ggplot2::aes(difference, y, colour = model)) +
       ggplot2::geom_vline(xintercept = 0, colour = "grey55", linewidth = 0.3) +
@@ -1260,7 +1303,7 @@ fig_forest <- function(id, title, text) {
       ggplot2::scale_y_continuous(breaks = seq_along(present), labels = labels,
                                   transform = "reverse") +
       ggplot2::facet_wrap(ggplot2::vars(metric), scales = "free_x",
-                          ncol = if (layout == "one-column") 1 else 3) +
+                          ncol = if (layout == "one-column") 1 else nlevels(d$metric)) +
       ggplot2::labs(
         title = headline(title, layout),
         subtitle = subline(
@@ -1277,6 +1320,8 @@ fig_forest <- function(id, title, text) {
   }
 }
 forest_heights <- c("one-column" = 5.6, "two-column" = 3.2)
+# Paper versions: two panels (accuracy, AUC) and no title.
+forest_paper_heights <- c("one-column" = 3.9, "two-column" = 3.0)
 ```
 
 ## P1: against the CLIP baseline
@@ -1295,8 +1340,8 @@ On microstructure, the JEV difference is `r diff_text("P1", "jev", "microstructu
 # Figure F3.
 save_figure(
   fig_forest("P1", "P1: the decision models lead CLIP on pipe staple and pans",
-             "Decision model (final description, k = 2) minus the CLIP baseline; both use Platt scaling on C."),
-  "F3_paired_P1", height = forest_heights
+             "Decision model (final description, k = 2 references per class) minus the CLIP baseline; both use Platt scaling on the calibration set C."),
+  "F3_paired_P1", height = forest_heights, paper_height = forest_paper_heights
 )
 ```
 
@@ -1316,8 +1361,8 @@ For JEV on pipe staple, the final description is the generic text (decision D85)
 # Figure F4.
 save_figure(
   fig_forest("P2", "P2: the final description helps both models on most datasets",
-             "Final minus generic description, both at k = 2. Pans have no loop and no P2."),
-  "F4_paired_P2", height = forest_heights
+             "Final minus generic description, both at k = 2 references per class. Pans have no description loop and thus no row."),
+  "F4_paired_P2", height = forest_heights, paper_height = forest_paper_heights
 )
 ```
 
@@ -1337,8 +1382,8 @@ The k = 0 side of JEV on pipe staple has a negative Platt slope (`r fmt(slope_of
 # Figure F5.
 save_figure(
   fig_forest("P3", "P3: two references per class help, least on microstructure",
-             "k = 2 minus k = 0, both with the final description (pans: generic)."),
-  "F5_paired_P3", height = forest_heights
+             "Two references per class (k = 2) minus none (k = 0), both with the final description (pans: generic)."),
+  "F5_paired_P3", height = forest_heights, paper_height = forest_paper_heights
 )
 ```
 
@@ -1472,8 +1517,11 @@ curve_models <- intersect(names(model_colors), as.character(curve$model))
 
 # Figure F6: metrics by dataset (two-column) or datasets by metric
 # (one-column).
-fig_curve <- function(layout) {
+fig_curve <- function(layout, paper = FALSE) {
   d <- curve
+  if (paper) {
+    levels(d$metric)[levels(d$metric) == metric_labels[["bal_accuracy"]]] <- "Accuracy"
+  }
   if (layout == "one-column") {
     levels(d$dataset) <- short_labels[dataset_order]
     facets <- ggplot2::facet_grid(rows = ggplot2::vars(dataset), cols = ggplot2::vars(metric))
@@ -1496,8 +1544,9 @@ fig_curve <- function(layout) {
       title = headline("Beyond two references, the decision models gain little", layout),
       subtitle = subline(
         layout,
-        stringr::str_c(model_text, collapse = ", "),
-        " after Platt scaling on C. CLIP at k = 0 is zero-shot. Bars: paired ",
+        "Test results of ", stringr::str_c(model_text, collapse = ", "),
+        " by references per class (k), after Platt scaling ",
+        "on the calibration set C. CLIP at k = 0 is zero-shot. Bars: paired ",
         "95% interval of the change from k = 0, placed at the value and cut at 0 and 1."
       ),
       x = "References per class (k)", y = NULL
@@ -1623,7 +1672,7 @@ strip_text <- function(layout) {
 }
 
 # Figure F7: five panels per row (two-column) or three (one-column).
-fig_reliability <- function(layout) {
+fig_reliability <- function(layout, paper = FALSE) {
   d <- dplyr::inner_join(reliability, strip_text(layout), by = c("method", "dataset"))
   ggplot2::ggplot(d, ggplot2::aes(mean_p, observed, colour = calibration)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey70", linewidth = 0.3) +
@@ -1639,8 +1688,9 @@ fig_reliability <- function(layout) {
         layout,
         paint("Raw", calibration_colors[["raw"]]), " scores and ",
         paint("Platt", calibration_colors[["Platt"]]),
-        " probabilities, fitted on C. Calibrated curves follow the diagonal. ",
-        "Strips give the test ECE before and after Platt scaling."
+        " probabilities on the test images (Platt fitted on the calibration ",
+        "set C). Calibrated curves follow the diagonal. Strips give the test ",
+        "ECE before and after Platt scaling."
       ),
       x = "Mean predicted defect probability (10 bins)",
       y = "Observed defect rate"
@@ -1649,6 +1699,46 @@ fig_reliability <- function(layout) {
     ggplot2::theme(strip.text = ggtext::element_markdown(face = "plain", lineheight = 1.2))
 }
 save_figure(fig_reliability, "F7_reliability", height = reliability_heights)
+```
+
+## Lower defect rates {#sec-prevalence}
+
+```{r}
+#| label: prevalence-numbers
+# Precision at a defect rate, from the test sensitivity and specificity after
+# Platt scaling (decision D103). It holds if the scores of each class keep
+# their distribution at the new defect rate.
+precision_at <- function(sens, spec, rate) {
+  sens * rate / (sens * rate + (1 - spec) * (1 - rate))
+}
+prevalence_rows <- dplyr::mutate(
+  main,
+  p50 = precision_at(sens, spec, 0.5), p05 = precision_at(sens, spec, 0.05),
+  p01 = precision_at(sens, spec, 0.01)
+)
+# Numbers for the text below: the precision at 1% of the decision models
+# where their specificity is below 1, and the nominal test images per dataset.
+p01_models <- dplyr::filter(prevalence_rows, model != "clip", spec < 1)$p01
+nominal_test <- dplyr::count(dplyr::filter(test_set, actual_class == "nominal"), dataset)$n
+```
+
+The test sets and C hold as many defective images as nominal images, but a production line has far fewer defects. At a defect rate π, the sensitivity and the specificity of a method stay the same if the scores of each class keep their distribution, but the precision falls: precision = sens × π / (sens × π + (1 − spec) × (1 − π)). @tbl-prevalence gives the precision of the five methods at defect rates of 50% (the test sets), 5% and 1%. At 1%, the precision of the decision models is `r fmt(min(p01_models), 3)` to `r fmt(max(p01_models), 3)` where their specificity is below 1: most of their alarms would be false. A specificity of 1.000 gives a precision of 1.000 at every defect rate, but it rests on zero false alarms in `r min(nominal_test)` to `r max(nominal_test)` nominal test images.
+
+The Platt probabilities also refer to a defect rate of 50%. At a defect rate π, add log(π / (1 − π)) to their log-odds. If the Platt probabilities are calibrated and the scores of each class keep their distribution, the decision at 0.5 on them gives the highest balanced accuracy at every defect rate: it calls an image defective when its probability at the true defect rate is above π.
+
+```{r}
+#| label: tbl-prevalence
+#| tbl-cap: !expr 'stringr::str_c("Precision at lower defect rates, from the test sensitivity and specificity after Platt scaling on C (decision at 0.5), if the scores of each class keep their distribution.", mark_caption(prevalence_rows$flag))'
+# Table T11.
+t11 <- prevalence_rows |>
+  dplyr::transmute(
+    Dataset = dataset_labels[dataset], Method = stringr::str_c(method, flag),
+    Sensitivity = sens, Specificity = spec,
+    `Precision at 50%` = p50, `Precision at 5%` = p05, `Precision at 1%` = p01
+  )
+save_table(t11, "T11_precision_defect_rate",
+           stringr::str_c("Precision at lower defect rates.", mark_caption(prevalence_rows$flag)),
+           digits = 3, page_length = 25, group = "Dataset")
 ```
 
 # Time and cost {#sec-time}
