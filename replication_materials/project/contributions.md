@@ -4,9 +4,9 @@ The researchers write this account. Claude Code can draft it. It is not complete
 
 | Item | Value |
 |---|---|
-| Status | draft, not approved |
+| Status | approved |
 | Written by | Claude Code (draft) |
-| Approved by | - |
+| Approved by | fmm (2026-10-22) |
 
 This draft lists only decisions that a researcher proposed (Proposed by fmm or yjc in `decisions.md`). The researchers can rewrite it, add what the record does not show, and remove what is wrong.
 
