@@ -274,8 +274,29 @@ test_that("timing_table reads files with and without elapsed_ms", {
   expect_equal(clip$total_seconds, 2)
   expect_true(is.na(clip$n_calls))
   expect_named(tab, c("model", "description", "k", "dataset", "split", "n_images",
-                      "median_ms", "q25_ms", "q75_ms", "total_seconds", "n_calls",
-                      "input_tokens", "output_tokens", "cost_usd"))
+                      "median_ms", "q25_ms", "q75_ms", "p05_ms", "p95_ms", "total_seconds",
+                      "n_calls", "input_tokens", "output_tokens", "cost_usd", "cost_sd_usd"))
+})
+
+test_that("timing_table gives the 5th and 95th percentiles, the SD of the JEV cost and the Clef-Flash tokens", {
+  f <- make_timing()
+  tibble::tibble(
+    purpose = c(rep("fair test clef final k2 extrusion", 2), "fair check clef k2"),
+    model = "Cloudflare/clef-flash", input_tokens = c(500, 700, 50), output_tokens = 0,
+    cost_usd = NA) |>
+    readr::write_csv(file.path(f$timing, "clef-calls.csv"))
+  tab <- timing_table(read_fair_scores(f$scores), f$timing, f$record)
+  jev <- dplyr::filter(tab, model == "jev")
+  ms <- c(1000, 2000, 3000, 4000)
+  expect_equal(jev$p05_ms, stats::quantile(ms, 0.05, names = FALSE))
+  expect_equal(jev$p95_ms, stats::quantile(ms, 0.95, names = FALSE))
+  expect_equal(jev$cost_sd_usd, stats::sd(c(100, 200, 300, 400) * 0.042 / 1e6))
+  # The check call does not count; Clef-Flash has no cost.
+  clef <- dplyr::filter(tab, model == "clef")
+  expect_equal(clef$n_calls, 2)
+  expect_equal(clef$input_tokens, 1200)
+  expect_true(is.na(clef$cost_usd))
+  expect_true(is.na(clef$cost_sd_usd))
 })
 
 test_that("the evaluation writes timing.csv and works without timing files", {

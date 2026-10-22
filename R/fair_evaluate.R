@@ -202,11 +202,14 @@ k_curve_table <- function(calibrated, datasets, times = 2000) {
 
 #' Time per image, total time and JEV cost of each configuration
 #' @details Time per image comes from elapsed_ms (decision models) or from
-#'   encode_ms + score_ms in clip_timing.csv (CLIP, test split). The total
-#'   time comes from runs.csv. The calls, tokens and cost of JEV come from the
-#'   TypeSafe call log, grouped by the configuration in the purpose
-#'   ("fair <split> <model> <description> k<k> <dataset>"). A column that does
-#'   not apply is NA. Missing timing files give NA, not an error.
+#'   encode_ms + score_ms in clip_timing.csv (CLIP, test split): median,
+#'   quartiles and the 5th and 95th percentiles. The total time comes from
+#'   runs.csv. The calls, tokens and cost of JEV come from the TypeSafe call
+#'   log, and the calls and tokens of Clef-Flash from clef-calls.csv in
+#'   timing_dir, grouped by the configuration in the purpose
+#'   ("fair <split> <model> <description> k<k> <dataset>"). cost_sd_usd is the
+#'   standard deviation of the cost of one call. A column that does not apply
+#'   is NA. Missing timing files give NA, not an error.
 timing_table <- function(scores, timing_dir, record_root) {
   keys <- c(config_keys, "split")
   read_if <- \(file, ...) {
@@ -228,6 +231,8 @@ timing_table <- function(scores, timing_dir, record_root) {
       median_ms = stats::median(elapsed_ms),
       q25_ms = stats::quantile(elapsed_ms, 0.25, names = FALSE),
       q75_ms = stats::quantile(elapsed_ms, 0.75, names = FALSE),
+      p05_ms = stats::quantile(elapsed_ms, 0.05, names = FALSE),
+      p95_ms = stats::quantile(elapsed_ms, 0.95, names = FALSE),
       .by = dplyr::all_of(keys)
     )
 
@@ -242,38 +247,46 @@ timing_table <- function(scores, timing_dir, record_root) {
     dplyr::summarise(runs_images = sum(n_images), total_seconds = sum(seconds),
                      .by = dplyr::all_of(keys))
 
-  calls <- read_if(file.path(record_root, "calls", "typesafe-calls.csv"),
-                   col_types = readr::cols(.default = "c"))
-  jev_cost <- tibble::tibble(model = character(), description = character(), k = double(),
-                             dataset = character(), split = character(), n_calls = integer(),
-                             input_tokens = double(), output_tokens = double(),
-                             cost_usd = double())
-  if (!is.null(calls)) {
-    pattern <- "^fair (\\S+) jev (\\S+) k(\\d+) (\\S+)$"
-    parsed <- calls |>
-      dplyr::filter(model == "jev-1.13.0", stringr::str_detect(.data$purpose, .env$pattern)) |>
+  # Calls, tokens and cost of each configuration in one call log. The check
+  # calls ("fair check <model> k<k>") do not match the pattern.
+  log_rows <- function(file, log_model, model) {
+    calls <- read_if(file, col_types = readr::cols(.default = "c"))
+    if (is.null(calls)) return(NULL)
+    pattern <- stringr::str_c("^fair (\\S+) ", model, " (\\S+) k(\\d+) (\\S+)$")
+    calls |>
+      dplyr::filter(.data$model == .env$log_model,
+                    stringr::str_detect(.data$purpose, .env$pattern)) |>
       dplyr::mutate(
         parts = stringr::str_match(.data$purpose, .env$pattern),
-        model = "jev", split = parts[, 2], description = parts[, 3],
-        k = as.numeric(parts[, 4]), dataset = parts[, 5]
-      )
-    jev_cost <- parsed |>
+        model = .env$model, split = parts[, 2], description = parts[, 3],
+        k = as.numeric(parts[, 4]), dataset = parts[, 5], cost_usd = as.numeric(cost_usd)
+      ) |>
       dplyr::summarise(
         n_calls = dplyr::n(),
         input_tokens = sum(as.numeric(input_tokens), na.rm = TRUE),
         output_tokens = sum(as.numeric(output_tokens), na.rm = TRUE),
-        cost_usd = if (all(is.na(cost_usd))) NA_real_ else sum(as.numeric(cost_usd), na.rm = TRUE),
+        # Before cost_usd: summarise() gives the later lines the new cost_usd.
+        cost_sd_usd = if (sum(!is.na(cost_usd)) < 2) NA_real_ else stats::sd(cost_usd, na.rm = TRUE),
+        cost_usd = if (all(is.na(cost_usd))) NA_real_ else sum(cost_usd, na.rm = TRUE),
         .by = dplyr::all_of(keys)
       )
   }
+  call_cost <- dplyr::bind_rows(
+    tibble::tibble(model = character(), description = character(), k = double(),
+                   dataset = character(), split = character(), n_calls = integer(),
+                   input_tokens = double(), output_tokens = double(),
+                   cost_usd = double(), cost_sd_usd = double()),
+    log_rows(file.path(record_root, "calls", "typesafe-calls.csv"), "jev-1.13.0", "jev"),
+    log_rows(file.path(timing_dir, "clef-calls.csv"), "Cloudflare/clef-flash", "clef")
+  )
 
   # Full joins: a configuration with calls but no run row (a failed run) keeps its cost.
   per_image |>
     dplyr::full_join(totals, by = keys) |>
-    dplyr::full_join(jev_cost, by = keys) |>
+    dplyr::full_join(call_cost, by = keys) |>
     dplyr::mutate(n_images = dplyr::coalesce(n_images, runs_images)) |>
-    dplyr::select(dplyr::all_of(keys), n_images, median_ms, q25_ms, q75_ms,
-                  total_seconds, n_calls, input_tokens, output_tokens, cost_usd) |>
+    dplyr::select(dplyr::all_of(keys), n_images, median_ms, q25_ms, q75_ms, p05_ms, p95_ms,
+                  total_seconds, n_calls, input_tokens, output_tokens, cost_usd, cost_sd_usd) |>
     dplyr::arrange(dplyr::across(dplyr::all_of(keys)))
 }
 

@@ -1,0 +1,14 @@
+\begin{table}
+
+\caption{\label{tab:tbl-compute-size}Size, memory and work units of each model.}
+\centering
+\begin{tabular}[t]{lrlrrrrrl}
+\toprule
+Model & Parameters (billions) & Weight type & Weights (GB) & GPU memory, measured (GB) & GFLOPs, one image encoding & GFLOPs, two prompts & Feature length & Hardware\\
+\midrule
+JEV & NA & not public & NA & NA & NA & NA & NA & TypeSafe API\\
+Clef-Flash & 9.41 & bfloat16 & 18.82 & 24.80 & NA & NA & NA & NVIDIA RTX 5000 Ada Generation\\
+CLIP ViT-L/14 & 0.43 & float16 & 0.94 & 0.96 & 155.53 & 26.16 & 768 & NVIDIA RTX 5000 Ada Generation\\
+\bottomrule
+\end{tabular}
+\end{table}

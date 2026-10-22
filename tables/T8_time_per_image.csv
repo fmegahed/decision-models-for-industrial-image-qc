@@ -1,26 +1,26 @@
-Dataset,Method,Hardware,Images,Median,Q1,Q3
-Metallic pans,"JEV, k = 2",TypeSafe API,78,969.7,944.4,999.5
-Metallic pans,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,78,1211.9,1183.9,1243.8
-Metallic pans,CLIP baseline,NVIDIA RTX 5000 Ada Generation,78,97.9,65.5,110.9
-Metallic pans,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,78,113.3,107.1,128.1
-Metallic pans,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,78,124.1,118.2,129.3
-Extrusion,"JEV, k = 2",TypeSafe API,200,175.1,165.6,195.2
-Extrusion,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,200,173.2,167.2,179.9
-Extrusion,CLIP baseline,NVIDIA RTX 5000 Ada Generation,200,10.5,9.7,13.8
-Extrusion,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,200,13.3,10.6,14.7
-Extrusion,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,200,15.9,14.8,19.6
-Textiles,"JEV, k = 2",TypeSafe API,200,289.5,276,323.4
-Textiles,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,200,193.7,186.4,200.7
-Textiles,CLIP baseline,NVIDIA RTX 5000 Ada Generation,200,10.7,9.8,13
-Textiles,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,200,10.4,9.7,12.9
-Textiles,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,200,16.5,15.2,20.8
-Pipe staple,"JEV, k = 2",TypeSafe API,100,269.4,250.3,291.8
-Pipe staple,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,100,257,249.4,265.8
-Pipe staple,CLIP baseline,NVIDIA RTX 5000 Ada Generation,100,13.2,12.9,14.2
-Pipe staple,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,100,13.2,12.7,14.1
-Pipe staple,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,100,18.2,17.8,19
-Microstructure,"JEV, k = 2",TypeSafe API,450,259.6,242.3,288.9
-Microstructure,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,450,257.3,247.1,272.4
-Microstructure,CLIP baseline,NVIDIA RTX 5000 Ada Generation,450,13.2,10.9,15.2
-Microstructure,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,450,10.3,10.1,10.7
-Microstructure,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,450,15.9,15.5,16.6
+Dataset,Method,Hardware,Images,Median,Q1,Q3,P5,P95
+Metallic pans,"JEV, k = 2",TypeSafe API,78,969.7,944.4,999.5,925.1,1143.2
+Metallic pans,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,78,1211.9,1183.9,1243.8,1159.7,1301.7
+Metallic pans,CLIP baseline,NVIDIA RTX 5000 Ada Generation,78,97.9,65.5,110.9,63.2,136.7
+Metallic pans,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,78,113.3,107.1,128.1,99.7,143.3
+Metallic pans,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,78,124.1,118.2,129.3,114.2,146.4
+Extrusion,"JEV, k = 2",TypeSafe API,200,175.1,165.6,195.2,152,271.7
+Extrusion,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,200,173.2,167.2,179.9,144.3,188.1
+Extrusion,CLIP baseline,NVIDIA RTX 5000 Ada Generation,200,10.5,9.7,13.8,9.2,19
+Extrusion,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,200,13.3,10.6,14.7,9,15.7
+Extrusion,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,200,15.9,14.8,19.6,14,24.2
+Textiles,"JEV, k = 2",TypeSafe API,200,289.5,276,323.4,261.9,456.3
+Textiles,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,200,193.7,186.4,200.7,163,229.8
+Textiles,CLIP baseline,NVIDIA RTX 5000 Ada Generation,200,10.7,9.8,13,9.4,16.1
+Textiles,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,200,10.4,9.7,12.9,9.3,16
+Textiles,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,200,16.5,15.2,20.8,14.5,26
+Pipe staple,"JEV, k = 2",TypeSafe API,100,269.4,250.3,291.8,225.1,342.2
+Pipe staple,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,100,257,249.4,265.8,205.7,287.1
+Pipe staple,CLIP baseline,NVIDIA RTX 5000 Ada Generation,100,13.2,12.9,14.2,12.4,16.7
+Pipe staple,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,100,13.2,12.7,14.1,12.3,18.8
+Pipe staple,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,100,18.2,17.8,19,17.2,21.1
+Microstructure,"JEV, k = 2",TypeSafe API,450,259.6,242.3,288.9,225,404.1
+Microstructure,"Clef-Flash, k = 2",NVIDIA RTX 5000 Ada Generation,450,257.3,247.1,272.4,237.1,306.9
+Microstructure,CLIP baseline,NVIDIA RTX 5000 Ada Generation,450,13.2,10.9,15.2,10,18.7
+Microstructure,"CLIP, same references, k = 2",NVIDIA RTX 5000 Ada Generation,450,10.3,10.1,10.7,9.9,11.9
+Microstructure,"CLIP, zero-shot",NVIDIA RTX 5000 Ada Generation,450,15.9,15.5,16.6,15,20.5

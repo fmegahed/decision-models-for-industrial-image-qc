@@ -1,0 +1,3 @@
+model,name,parameters,image_parameters,dense,dtype_as_run,bytes_per_parameter,weights_gb,gpu_gb_measured,gpu_gb_note,embedding_dim,input_size,image_flops,text_flops,hardware,source,retrieved_utc
+clip,ViT-L/14,427616513,303966208,TRUE,float16,2,0.943427072,0.961271296,peak while one image is encoded (torch.cuda.max_memory_allocated),768,224,155532656640,26162233344,NVIDIA RTX 5000 Ada Generation,"OpenAI CLIP package (clip.load), commit d05afc4",2026-10-22T13:24Z
+clef,Cloudflare/clef-flash,9409813744,NA,TRUE,bfloat16,2,18.819627488,24.8,"SGLang server with its cache reserve (experiment_log.md, 2026-10-20)",NA,NA,NA,NA,NVIDIA RTX 5000 Ada Generation,https://huggingface.co/api/models/Cloudflare/clef-flash@f0b7d3cd65296abfe459e6c228b618f5d8b26d2f,2026-10-22T13:24Z
