@@ -302,7 +302,14 @@ function readCalls(base) {
     const header = text.split(/\r?\n/, 1)[0].split(",").map((h) => h.trim());
     const missing = CALL_CSV_COLUMNS.filter((c) => !header.includes(c));
     if (missing.length) throw new RecordFormatError(rel, 1, `lacks column(s) ${missing.join(", ")}.`);
-    const s = entry(f.slice(0, -"-calls.csv".length));
+    // A budget row joins its log by name: Service is the <service> of
+    // calls/<service>-calls.csv. A log that no row names has no budget.
+    const name = f.slice(0, -"-calls.csv".length);
+    if (!budgets.some((b) => b.service === name)) {
+      throw new RecordFormatError(rel, 1,
+        `no budget row in calls/README.md has the Service "${name}". Write "${name}" in the Service column of the budget rows of this log.`);
+    }
+    const s = entry(name);
     parseCsv(text).forEach((r, k) => {
       s.calls += 1;
       // A failed call can have no cost: an empty cell counts as 0 (Task 4 ruling).

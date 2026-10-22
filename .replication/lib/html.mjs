@@ -1,7 +1,7 @@
 // Miami theme, HTML escaping and the shared page shell.
 import { posix } from "node:path";
 
-export const VERSION = "1.2.0";
+export const VERSION = "1.2.1";
 
 export const DEFAULT_TOKENS = {
   bg: "#FAF9F7",
