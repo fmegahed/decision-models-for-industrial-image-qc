@@ -25,6 +25,13 @@ latex_text <- function(x) {
 }
 # Three decimals, as in the analysis document (the CSV files drop trailing zeros).
 three <- function(x) formatC(as.numeric(x), format = "f", digits = 3)
+# Three decimals, in bold for the best value: the highest, or the lowest with
+# `lower`. Tied values are all bold.
+bold_best <- function(x, lower = FALSE) {
+  v <- as.numeric(x)
+  best <- if (lower) min(v) else max(v)
+  dplyr::if_else(v == best, stringr::str_c("\\textbf{", three(v), "}"), three(v))
+}
 dagger_note <- "\\textsuperscript{\\dag}Negative Platt slope: Platt scaling reverses the order of the raw scores."
 
 # One table at the text width, in the 8 pt type of the paper. With `group`,
@@ -52,9 +59,11 @@ paper_table <- function(d, caption, label, align, group = FALSE, header = NULL,
   as.character(table)
 }
 
-metric_names <- c(`Balanced accuracy` = "Bal.\\ acc.", Accuracy = "Acc.",
-                  Sensitivity = "Sens.", Specificity = "Spec.", Precision = "Prec.")
-
+# The paper reports accuracy, sensitivity, specificity, AUC, ECE and Brier
+# (D99); the analysis document keeps all metrics. On the balanced test sets,
+# accuracy equals balanced accuracy, also in each bootstrap sample (the
+# bootstrap resamples within class), so the balanced-accuracy column of T6
+# is the accuracy difference.
 tables <- list(
   paper_table(
     read_table("T1_sets"),
@@ -70,29 +79,36 @@ tables <- list(
   ),
   paper_table(
     read_table("T5_main_results") |>
-      dplyr::mutate(dplyr::across(-c(Dataset, Method), three)) |>
-      dplyr::rename_with(\(x) metric_names[x], dplyr::all_of(names(metric_names))),
-    stringr::str_c("Main results on the test sets: all metrics, after Platt scaling on C. ",
-                   "Bal.\\ acc.: balanced accuracy; Acc.: accuracy; Sens.: sensitivity; ",
-                   "Spec.: specificity; Prec.: precision. ", dagger_note),
-    "main", align = "lrrrrrrrrrrr", group = TRUE
+      dplyr::select(Dataset, Method, Accuracy, Sensitivity, Specificity, AUC, ECE, Brier) |>
+      dplyr::mutate(dplyr::across(c(Accuracy, Sensitivity, Specificity, AUC), bold_best),
+                    dplyr::across(c(ECE, Brier), \(x) bold_best(x, lower = TRUE)),
+                    .by = Dataset),
+    stringr::str_c("Main results on the test sets, after Platt scaling on C. Bold: the ",
+                   "best value of each metric on each dataset (the lowest for ECE and ",
+                   "Brier). ", dagger_note),
+    "main", align = "lrrrrrr", group = TRUE
   ),
   paper_table(
     read_table("T6_paired_comparisons") |>
-      dplyr::select(-`Holm tests`),
-    stringr::str_c("Paired comparisons on the test sets. Holm p: adjusted over the ",
-                   "14 McNemar tests of each model. A mark on a comparison applies to ",
-                   "one of its two sides. ", dagger_note),
-    "paired", align = "llrrrrr", group = TRUE
+      dplyr::select(Dataset, Comparison, Model, Accuracy = `Balanced accuracy`, AUC,
+                    `McNemar p`, `Holm p`),
+    stringr::str_c("Paired comparisons on the test sets: difference (decision model ",
+                   "minus the other side) and paired 95\\% bootstrap interval. The ",
+                   "p-values test the accuracy: McNemar p is the exact McNemar test of ",
+                   "the decisions at 0.5, and Holm p adjusts it over the 14 tests of each ",
+                   "model. AUC has an interval and no test. A mark on a comparison ",
+                   "applies to one of its two sides. ", dagger_note),
+    "paired", align = "llrrrr", group = TRUE
   ),
   paper_table(
     read_table("T7_calibration") |>
+      dplyr::select(Dataset, Method, `ECE raw`, `ECE Platt`, `Brier raw`, `Brier Platt`) |>
       dplyr::mutate(dplyr::across(-c(Dataset, Method), three)),
     stringr::str_c("Calibration on the test sets, before (raw) and after Platt scaling on C. ",
                    dagger_note),
-    "calibration", align = "lrrrrrr", group = TRUE,
-    header = c(" " = 1, "ECE" = 2, "Brier" = 2, "Log loss" = 2),
-    col_names = c("Method", rep(c("Raw", "Platt"), 3))
+    "calibration", align = "lrrrr", group = TRUE,
+    header = c(" " = 1, "ECE" = 2, "Brier" = 2),
+    col_names = c("Method", rep(c("Raw", "Platt"), 2))
   )
 )
 

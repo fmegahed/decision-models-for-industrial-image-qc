@@ -94,7 +94,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
 
 ## Figure and table style
 
-Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF with no title, at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`: the LaTeX caption takes the place of the title, and the subtitle reads on its own. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF with no title, at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`: the LaTeX caption takes the place of the title, and the subtitle reads on its own. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
 
 ```{r}
 #| label: fonts-and-colors
@@ -260,8 +260,11 @@ save_outlined <- function(plot, file, open, width, height) {
 }
 
 # Save one figure in both sizes and three formats, and the paper version of
-# each size; show the two-column one.
-save_figure <- function(make_plot, name, height) {
+# each size; show the two-column one. make_plot(layout, paper) gives the
+# figure; with paper = TRUE, it gives the metrics of the paper (accuracy for
+# balanced accuracy, no MCC). The paper version is as high as the figure
+# less its title, or `paper_height` when it has fewer panels.
+save_figure <- function(make_plot, name, height, paper_height = NULL) {
   purrr::iwalk(layouts, \(spec, layout) {
     plot <- make_plot(layout)
     dir.create(file.path(figs_dir, layout), recursive = TRUE,
@@ -281,10 +284,14 @@ save_figure <- function(make_plot, name, height) {
     # Paper version: PDF only, no title.
     dir.create(file.path(figs_dir, "paper", layout), recursive = TRUE,
                showWarnings = FALSE)
-    save_outlined(drop_title(plot),
+    paper_h <- if (is.null(paper_height)) {
+      height[[layout]] - title_height(plot, layout)
+    } else {
+      paper_height[[layout]]
+    }
+    save_outlined(drop_title(make_plot(layout, paper = TRUE)),
                   stringr::str_c(file.path(figs_dir, "paper", layout, name), ".pdf"),
-                  grDevices::cairo_pdf, paper_widths[[layout]],
-                  height[[layout]] - title_height(plot, layout))
+                  grDevices::cairo_pdf, paper_widths[[layout]], paper_h)
   })
   make_plot("two-column")
 }
@@ -732,7 +739,7 @@ row_label <- function(text, layout) {
 
 # Figure F1: one row per dataset, nominal images first.
 refs_main <- dplyr::filter(sets$references, rank <= k_main)
-fig_references <- function(layout) {
+fig_references <- function(layout, paper = FALSE) {
   tiles <- purrr::map(dataset_order, function(ds) {
     refs <- refs_main |>
       dplyr::filter(dataset == ds) |>
@@ -1012,7 +1019,7 @@ loop_final <- loop_summary |>
                 dataset = label_dataset(dataset))
 
 # Figure F2: one row per model, one column per dataset.
-fig_loop <- function(layout) {
+fig_loop <- function(layout, paper = FALSE) {
   d <- loop_steps
   f <- loop_final
   if (layout == "one-column") {
@@ -1267,12 +1274,16 @@ max_holm <- function(id, m, ds) {
 # Forest figure of one comparison: one row per dataset, one panel per
 # headline metric, one point and interval per decision model.
 headline_metrics <- c("bal_accuracy", "mcc", "roc_auc")
-forest_data <- function(id) {
+# The paper reports accuracy and AUC. On the balanced test sets, accuracy
+# equals balanced accuracy, also in each bootstrap sample (the bootstrap
+# resamples within class), so the paper uses these rows as accuracy.
+paper_metric_labels <- c(bal_accuracy = "Accuracy", roc_auc = metric_labels[["roc_auc"]])
+forest_data <- function(id, labels = metric_labels[headline_metrics]) {
   d <- paired |>
-    dplyr::filter(comparison == id) |>
+    dplyr::filter(comparison == id, metric %in% names(labels)) |>
     dplyr::mutate(
       model = factor(model_labels[model], names(model_colors)),
-      metric = factor(metric_labels[metric], metric_labels[headline_metrics])
+      metric = factor(labels[metric], labels)
     )
   present <- intersect(dataset_order, d$dataset)
   # Datasets top to bottom; JEV just above Clef-Flash in each row.
@@ -1280,9 +1291,9 @@ forest_data <- function(id) {
                   dplyr::if_else(model == "JEV", -0.15, 0.15))
 }
 fig_forest <- function(id, title, text) {
-  d <- forest_data(id)
-  present <- intersect(dataset_order, d$dataset)
-  function(layout) {
+  function(layout, paper = FALSE) {
+    d <- forest_data(id, if (paper) paper_metric_labels else metric_labels[headline_metrics])
+    present <- intersect(dataset_order, d$dataset)
     labels <- if (layout == "one-column") short_labels[present] else dataset_labels[present]
     ggplot2::ggplot(d, ggplot2::aes(difference, y, colour = model)) +
       ggplot2::geom_vline(xintercept = 0, colour = "grey55", linewidth = 0.3) +
@@ -1292,7 +1303,7 @@ fig_forest <- function(id, title, text) {
       ggplot2::scale_y_continuous(breaks = seq_along(present), labels = labels,
                                   transform = "reverse") +
       ggplot2::facet_wrap(ggplot2::vars(metric), scales = "free_x",
-                          ncol = if (layout == "one-column") 1 else 3) +
+                          ncol = if (layout == "one-column") 1 else nlevels(d$metric)) +
       ggplot2::labs(
         title = headline(title, layout),
         subtitle = subline(
@@ -1309,6 +1320,8 @@ fig_forest <- function(id, title, text) {
   }
 }
 forest_heights <- c("one-column" = 5.6, "two-column" = 3.2)
+# Paper versions: two panels (accuracy, AUC) and no title.
+forest_paper_heights <- c("one-column" = 3.9, "two-column" = 3.0)
 ```
 
 ## P1: against the CLIP baseline
@@ -1328,7 +1341,7 @@ On microstructure, the JEV difference is `r diff_text("P1", "jev", "microstructu
 save_figure(
   fig_forest("P1", "P1: the decision models lead CLIP on pipe staple and pans",
              "Decision model (final description, k = 2 references per class) minus the CLIP baseline; both use Platt scaling on the calibration set C."),
-  "F3_paired_P1", height = forest_heights
+  "F3_paired_P1", height = forest_heights, paper_height = forest_paper_heights
 )
 ```
 
@@ -1349,7 +1362,7 @@ For JEV on pipe staple, the final description is the generic text (decision D85)
 save_figure(
   fig_forest("P2", "P2: the final description helps both models on most datasets",
              "Final minus generic description, both at k = 2 references per class. Pans have no description loop and thus no row."),
-  "F4_paired_P2", height = forest_heights
+  "F4_paired_P2", height = forest_heights, paper_height = forest_paper_heights
 )
 ```
 
@@ -1370,7 +1383,7 @@ The k = 0 side of JEV on pipe staple has a negative Platt slope (`r fmt(slope_of
 save_figure(
   fig_forest("P3", "P3: two references per class help, least on microstructure",
              "Two references per class (k = 2) minus none (k = 0), both with the final description (pans: generic)."),
-  "F5_paired_P3", height = forest_heights
+  "F5_paired_P3", height = forest_heights, paper_height = forest_paper_heights
 )
 ```
 
@@ -1504,8 +1517,11 @@ curve_models <- intersect(names(model_colors), as.character(curve$model))
 
 # Figure F6: metrics by dataset (two-column) or datasets by metric
 # (one-column).
-fig_curve <- function(layout) {
+fig_curve <- function(layout, paper = FALSE) {
   d <- curve
+  if (paper) {
+    levels(d$metric)[levels(d$metric) == metric_labels[["bal_accuracy"]]] <- "Accuracy"
+  }
   if (layout == "one-column") {
     levels(d$dataset) <- short_labels[dataset_order]
     facets <- ggplot2::facet_grid(rows = ggplot2::vars(dataset), cols = ggplot2::vars(metric))
@@ -1656,7 +1672,7 @@ strip_text <- function(layout) {
 }
 
 # Figure F7: five panels per row (two-column) or three (one-column).
-fig_reliability <- function(layout) {
+fig_reliability <- function(layout, paper = FALSE) {
   d <- dplyr::inner_join(reliability, strip_text(layout), by = c("method", "dataset"))
   ggplot2::ggplot(d, ggplot2::aes(mean_p, observed, colour = calibration)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey70", linewidth = 0.3) +

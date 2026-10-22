@@ -43,99 +43,99 @@ CLIP, zero-shot & none & C & 0 & 10 & 25 & 25 & 17 & 25\\
 
 \begin{table*}
 
-\caption{\label{tab:main}Main results on the test sets: all metrics, after Platt scaling on C. Bal.\ acc.: balanced accuracy; Acc.: accuracy; Sens.: sensitivity; Spec.: specificity; Prec.: precision. \textsuperscript{\dag}Negative Platt slope: Platt scaling reverses the order of the raw scores.}
+\caption{\label{tab:main}Main results on the test sets, after Platt scaling on C. Bold: the best value of each metric on each dataset (the lowest for ECE and Brier). \textsuperscript{\dag}Negative Platt slope: Platt scaling reverses the order of the raw scores.}
 \centering
 \fontsize{8}{10}\selectfont
-\begin{tabular}[t]{lrrrrrrrrrrr}
+\begin{tabular}[t]{lrrrrrr}
 \toprule
-Method & Bal.\ acc. & MCC & AUC & Acc. & Sens. & Spec. & Prec. & F1 & Brier & Log loss & ECE\\
+Method & Accuracy & Sensitivity & Specificity & AUC & ECE & Brier\\
 \midrule
 \addlinespace[0.3em]
-\multicolumn{12}{l}{\textbf{Metallic pans}}\\
-\hspace{1em}JEV, $k = 2$ & 1.000 & 1.000 & 1.000 & 1.000 & 1.000 & 1.000 & 1.000 & 1.000 & 0.056 & 0.242 & 0.205\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.885 & 0.791 & 1.000 & 0.885 & 0.769 & 1.000 & 1.000 & 0.870 & 0.096 & 0.330 & 0.249\\
-\hspace{1em}CLIP baseline & 0.641 & 0.405 & 0.999 & 0.641 & 0.282 & 1.000 & 1.000 & 0.440 & 0.183 & 0.530 & 0.290\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.744 & 0.567 & 0.988 & 0.744 & 0.487 & 1.000 & 1.000 & 0.655 & 0.146 & 0.443 & 0.255\\
-\hspace{1em}CLIP, zero-shot & 0.615 & 0.260 & 0.565 & 0.615 & 0.385 & 0.846 & 0.714 & 0.500 & 0.270 & 0.816 & 0.240\\
+\multicolumn{7}{l}{\textbf{Metallic pans}}\\
+\hspace{1em}JEV, $k = 2$ & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{0.205} & \textbf{0.056}\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.885 & 0.769 & \textbf{1.000} & \textbf{1.000} & 0.249 & 0.096\\
+\hspace{1em}CLIP baseline & 0.641 & 0.282 & \textbf{1.000} & 0.999 & 0.290 & 0.183\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.744 & 0.487 & \textbf{1.000} & 0.988 & 0.255 & 0.146\\
+\hspace{1em}CLIP, zero-shot & 0.615 & 0.385 & 0.846 & 0.565 & 0.240 & 0.270\\
 \addlinespace[0.3em]
-\multicolumn{12}{l}{\textbf{Extrusion}}\\
-\hspace{1em}JEV, $k = 2$ & 0.750 & 0.524 & 0.826 & 0.750 & 0.600 & 0.900 & 0.857 & 0.706 & 0.193 & 0.574 & 0.134\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.710 & 0.435 & 0.799 & 0.710 & 0.580 & 0.840 & 0.784 & 0.667 & 0.191 & 0.567 & 0.091\\
-\hspace{1em}CLIP baseline & 0.715 & 0.440 & 0.775 & 0.715 & 0.820 & 0.610 & 0.678 & 0.742 & 0.232 & 0.658 & 0.180\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.670 & 0.343 & 0.743 & 0.670 & 0.600 & 0.740 & 0.698 & 0.645 & 0.216 & 0.621 & 0.090\\
-\hspace{1em}CLIP, zero-shot & 0.655 & 0.311 & 0.706 & 0.655 & 0.610 & 0.700 & 0.670 & 0.639 & 0.223 & 0.638 & 0.069\\
+\multicolumn{7}{l}{\textbf{Extrusion}}\\
+\hspace{1em}JEV, $k = 2$ & \textbf{0.750} & 0.600 & \textbf{0.900} & \textbf{0.826} & 0.134 & 0.193\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.710 & 0.580 & 0.840 & 0.799 & 0.091 & \textbf{0.191}\\
+\hspace{1em}CLIP baseline & 0.715 & \textbf{0.820} & 0.610 & 0.775 & 0.180 & 0.232\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.670 & 0.600 & 0.740 & 0.743 & 0.090 & 0.216\\
+\hspace{1em}CLIP, zero-shot & 0.655 & 0.610 & 0.700 & 0.706 & \textbf{0.069} & 0.223\\
 \addlinespace[0.3em]
-\multicolumn{12}{l}{\textbf{Textiles}}\\
-\hspace{1em}JEV, $k = 2$ & 0.965 & 0.932 & 0.995 & 0.965 & 0.930 & 1.000 & 1.000 & 0.964 & 0.034 & 0.140 & 0.080\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.840 & 0.681 & 0.911 & 0.840 & 0.810 & 0.870 & 0.862 & 0.835 & 0.116 & 0.370 & 0.064\\
-\hspace{1em}CLIP baseline & 0.975 & 0.950 & 0.998 & 0.975 & 0.970 & 0.980 & 0.980 & 0.975 & 0.029 & 0.132 & 0.080\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.685 & 0.372 & 0.753 & 0.685 & 0.640 & 0.730 & 0.703 & 0.670 & 0.196 & 0.572 & 0.066\\
-\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.645 & 0.290 & 0.718 & 0.645 & 0.650 & 0.640 & 0.644 & 0.647 & 0.214 & 0.617 & 0.059\\
+\multicolumn{7}{l}{\textbf{Textiles}}\\
+\hspace{1em}JEV, $k = 2$ & 0.965 & 0.930 & \textbf{1.000} & 0.995 & 0.080 & 0.034\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.840 & 0.810 & 0.870 & 0.911 & 0.064 & 0.116\\
+\hspace{1em}CLIP baseline & \textbf{0.975} & \textbf{0.970} & 0.980 & \textbf{0.998} & 0.080 & \textbf{0.029}\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.685 & 0.640 & 0.730 & 0.753 & 0.066 & 0.196\\
+\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.645 & 0.650 & 0.640 & 0.718 & \textbf{0.059} & 0.214\\
 \addlinespace[0.3em]
-\multicolumn{12}{l}{\textbf{Pipe staple}}\\
-\hspace{1em}JEV, $k = 2$ & 0.940 & 0.881 & 0.994 & 0.940 & 0.920 & 0.960 & 0.958 & 0.939 & 0.043 & 0.180 & 0.108\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.990 & 0.980 & 1.000 & 0.990 & 1.000 & 0.980 & 0.980 & 0.990 & 0.027 & 0.135 & 0.108\\
-\hspace{1em}CLIP baseline & 0.570 & 0.162 & 0.631 & 0.570 & 0.320 & 0.820 & 0.640 & 0.427 & 0.249 & 0.695 & 0.118\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.670 & 0.340 & 0.686 & 0.670 & 0.680 & 0.660 & 0.667 & 0.673 & 0.227 & 0.651 & 0.085\\
-\hspace{1em}CLIP, zero-shot & 0.640 & 0.282 & 0.709 & 0.640 & 0.580 & 0.700 & 0.659 & 0.617 & 0.228 & 0.649 & 0.087\\
+\multicolumn{7}{l}{\textbf{Pipe staple}}\\
+\hspace{1em}JEV, $k = 2$ & 0.940 & 0.920 & 0.960 & 0.994 & 0.108 & 0.043\\
+\hspace{1em}Clef-Flash, $k = 2$ & \textbf{0.990} & \textbf{1.000} & \textbf{0.980} & \textbf{1.000} & 0.108 & \textbf{0.027}\\
+\hspace{1em}CLIP baseline & 0.570 & 0.320 & 0.820 & 0.631 & 0.118 & 0.249\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.670 & 0.680 & 0.660 & 0.686 & \textbf{0.085} & 0.227\\
+\hspace{1em}CLIP, zero-shot & 0.640 & 0.580 & 0.700 & 0.709 & 0.087 & 0.228\\
 \addlinespace[0.3em]
-\multicolumn{12}{l}{\textbf{Microstructure}}\\
-\hspace{1em}JEV, $k = 2$ & 0.902 & 0.815 & 0.959 & 0.902 & 0.822 & 0.982 & 0.979 & 0.894 & 0.075 & 0.257 & 0.059\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.867 & 0.754 & 0.924 & 0.867 & 0.751 & 0.982 & 0.977 & 0.849 & 0.106 & 0.341 & 0.078\\
-\hspace{1em}CLIP baseline & 0.933 & 0.870 & 0.990 & 0.933 & 0.889 & 0.978 & 0.976 & 0.930 & 0.061 & 0.222 & 0.119\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.842 & 0.699 & 0.939 & 0.842 & 0.742 & 0.942 & 0.928 & 0.825 & 0.106 & 0.330 & 0.057\\
-\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.640 & 0.280 & 0.688 & 0.640 & 0.667 & 0.613 & 0.633 & 0.649 & 0.235 & 0.683 & 0.101\\
+\multicolumn{7}{l}{\textbf{Microstructure}}\\
+\hspace{1em}JEV, $k = 2$ & 0.902 & 0.822 & \textbf{0.982} & 0.959 & 0.059 & 0.075\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.867 & 0.751 & \textbf{0.982} & 0.924 & 0.078 & 0.106\\
+\hspace{1em}CLIP baseline & \textbf{0.933} & \textbf{0.889} & 0.978 & \textbf{0.990} & 0.119 & \textbf{0.061}\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.842 & 0.742 & 0.942 & 0.939 & \textbf{0.057} & 0.106\\
+\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.640 & 0.667 & 0.613 & 0.688 & 0.101 & 0.235\\
 \bottomrule
 \end{tabular}
 \end{table*}
 
 \begin{table*}
 
-\caption{\label{tab:paired}Paired comparisons on the test sets. Holm p: adjusted over the 14 McNemar tests of each model. A mark on a comparison applies to one of its two sides. \textsuperscript{\dag}Negative Platt slope: Platt scaling reverses the order of the raw scores.}
+\caption{\label{tab:paired}Paired comparisons on the test sets: difference (decision model minus the other side) and paired 95\% bootstrap interval. The p-values test the accuracy: McNemar p is the exact McNemar test of the decisions at 0.5, and Holm p adjusts it over the 14 tests of each model. AUC has an interval and no test. A mark on a comparison applies to one of its two sides. \textsuperscript{\dag}Negative Platt slope: Platt scaling reverses the order of the raw scores.}
 \centering
 \fontsize{8}{10}\selectfont
-\begin{tabular}[t]{llrrrrr}
+\begin{tabular}[t]{llrrrr}
 \toprule
-Comparison & Model & Balanced accuracy & MCC & AUC & McNemar p & Holm p\\
+Comparison & Model & Accuracy & AUC & McNemar p & Holm p\\
 \midrule
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Metallic pans}}\\
-\hspace{1em}P1 & JEV & +0.359 (0.282 to 0.423) & +0.595 (0.472 to 0.711) & +0.001 (0.000 to 0.007) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P1 & Clef-Flash & +0.244 (0.167 to 0.321) & +0.385 (0.260 to 0.529) & +0.001 (0.000 to 0.007) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P3 & JEV & +0.231 (0.154 to 0.308) & +0.393 (0.272 to 0.512) & +0.002 (0.000 to 0.008) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P3 & Clef-Flash & +0.167 (0.077 to 0.256) & +0.263 (0.121 to 0.409) & +0.045 (0.004 to 0.098) & 0.002 & 0.016\\
+\multicolumn{6}{l}{\textbf{Metallic pans}}\\
+\hspace{1em}P1 & JEV & +0.359 (0.282 to 0.423) & +0.001 (0.000 to 0.007) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P1 & Clef-Flash & +0.244 (0.167 to 0.321) & +0.001 (0.000 to 0.007) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P3 & JEV & +0.231 (0.154 to 0.308) & +0.002 (0.000 to 0.008) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P3 & Clef-Flash & +0.167 (0.077 to 0.256) & +0.045 (0.004 to 0.098) & 0.002 & 0.016\\
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Extrusion}}\\
-\hspace{1em}P1 & JEV & +0.035 ($-$0.035 to 0.115) & +0.084 ($-$0.057 to 0.244) & +0.052 ($-$0.019 to 0.132) & 0.489 & 1.000\\
-\hspace{1em}P1 & Clef-Flash & $-$0.005 ($-$0.080 to 0.075) & $-$0.005 ($-$0.157 to 0.154) & +0.024 ($-$0.055 to 0.105) & 1.000 & 1.000\\
-\hspace{1em}P2 & JEV & +0.130 (0.070 to 0.190) & +0.267 (0.144 to 0.388) & +0.112 (0.058 to 0.165) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P2 & Clef-Flash & +0.035 ($-$0.020 to 0.090) & +0.071 ($-$0.037 to 0.185) & +0.002 ($-$0.036 to 0.040) & 0.281 & 0.875\\
-\hspace{1em}P3 & JEV & +0.090 (0.040 to 0.145) & +0.203 (0.103 to 0.312) & +0.068 (0.029 to 0.109) & 0.003 & 0.018\\
-\hspace{1em}P3 & Clef-Flash & +0.070 (0.015 to 0.130) & +0.148 (0.030 to 0.268) & +0.082 (0.045 to 0.121) & 0.029 & 0.173\\
+\multicolumn{6}{l}{\textbf{Extrusion}}\\
+\hspace{1em}P1 & JEV & +0.035 ($-$0.035 to 0.115) & +0.052 ($-$0.019 to 0.132) & 0.489 & 1.000\\
+\hspace{1em}P1 & Clef-Flash & $-$0.005 ($-$0.080 to 0.075) & +0.024 ($-$0.055 to 0.105) & 1.000 & 1.000\\
+\hspace{1em}P2 & JEV & +0.130 (0.070 to 0.190) & +0.112 (0.058 to 0.165) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P2 & Clef-Flash & +0.035 ($-$0.020 to 0.090) & +0.002 ($-$0.036 to 0.040) & 0.281 & 0.875\\
+\hspace{1em}P3 & JEV & +0.090 (0.040 to 0.145) & +0.068 (0.029 to 0.109) & 0.003 & 0.018\\
+\hspace{1em}P3 & Clef-Flash & +0.070 (0.015 to 0.130) & +0.082 (0.045 to 0.121) & 0.029 & 0.173\\
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Textiles}}\\
-\hspace{1em}P1 & JEV & $-$0.010 ($-$0.040 to 0.020) & $-$0.018 ($-$0.076 to 0.041) & $-$0.002 ($-$0.012 to 0.005) & 0.754 & 1.000\\
-\hspace{1em}P1 & Clef-Flash & $-$0.135 ($-$0.190 to $-$0.080) & $-$0.269 ($-$0.380 to $-$0.160) & $-$0.087 ($-$0.131 to $-$0.049) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P2 & JEV & +0.145 (0.090 to 0.205) & +0.291 (0.184 to 0.407) & +0.068 (0.041 to 0.102) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P2 & Clef-Flash & +0.085 (0.005 to 0.165) & +0.127 ($-$0.018 to 0.279) & +0.046 ($-$0.023 to 0.116) & 0.057 & 0.284\\
-\hspace{1em}P3 & JEV & +0.090 (0.050 to 0.135) & +0.168 (0.089 to 0.254) & +0.021 (0.004 to 0.039) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P3 & Clef-Flash & +0.145 (0.095 to 0.200) & +0.291 (0.189 to 0.400) & +0.119 (0.082 to 0.160) & $<$\,0.001 & $<$\,0.001\\
+\multicolumn{6}{l}{\textbf{Textiles}}\\
+\hspace{1em}P1 & JEV & $-$0.010 ($-$0.040 to 0.020) & $-$0.002 ($-$0.012 to 0.005) & 0.754 & 1.000\\
+\hspace{1em}P1 & Clef-Flash & $-$0.135 ($-$0.190 to $-$0.080) & $-$0.087 ($-$0.131 to $-$0.049) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P2 & JEV & +0.145 (0.090 to 0.205) & +0.068 (0.041 to 0.102) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P2 & Clef-Flash & +0.085 (0.005 to 0.165) & +0.046 ($-$0.023 to 0.116) & 0.057 & 0.284\\
+\hspace{1em}P3 & JEV & +0.090 (0.050 to 0.135) & +0.021 (0.004 to 0.039) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P3 & Clef-Flash & +0.145 (0.095 to 0.200) & +0.119 (0.082 to 0.160) & $<$\,0.001 & $<$\,0.001\\
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Pipe staple}}\\
-\hspace{1em}P1 & JEV & +0.370 (0.280 to 0.470) & +0.719 (0.510 to 0.940) & +0.364 (0.257 to 0.477) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P1 & Clef-Flash & +0.420 (0.340 to 0.500) & +0.819 (0.625 to 1.007) & +0.369 (0.263 to 0.482) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P2 & JEV & 0.000 ($-$0.030 to 0.030) & +0.001 ($-$0.057 to 0.060) & +0.001 ($-$0.003 to 0.005) & 1.000 & 1.000\\
-\hspace{1em}P2\textsuperscript{\dag} & Clef-Flash & +0.530 (0.430 to 0.620) & +1.060 (0.859 to 1.245) & +0.519 (0.400 to 0.629) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P3\textsuperscript{\dag} & JEV & +0.210 (0.110 to 0.310) & +0.409 (0.216 to 0.609) & +0.185 (0.106 to 0.273) & $<$\,0.001 & 0.001\\
-\hspace{1em}P3 & Clef-Flash & +0.040 (0.000 to 0.090) & +0.079 (0.000 to 0.176) & +0.035 (0.006 to 0.075) & 0.219 & 0.875\\
+\multicolumn{6}{l}{\textbf{Pipe staple}}\\
+\hspace{1em}P1 & JEV & +0.370 (0.280 to 0.470) & +0.364 (0.257 to 0.477) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P1 & Clef-Flash & +0.420 (0.340 to 0.500) & +0.369 (0.263 to 0.482) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P2 & JEV & 0.000 ($-$0.030 to 0.030) & +0.001 ($-$0.003 to 0.005) & 1.000 & 1.000\\
+\hspace{1em}P2\textsuperscript{\dag} & Clef-Flash & +0.530 (0.430 to 0.620) & +0.519 (0.400 to 0.629) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P3\textsuperscript{\dag} & JEV & +0.210 (0.110 to 0.310) & +0.185 (0.106 to 0.273) & $<$\,0.001 & 0.001\\
+\hspace{1em}P3 & Clef-Flash & +0.040 (0.000 to 0.090) & +0.035 (0.006 to 0.075) & 0.219 & 0.875\\
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Microstructure}}\\
-\hspace{1em}P1 & JEV & $-$0.031 ($-$0.058 to $-$0.004) & $-$0.055 ($-$0.106 to $-$0.005) & $-$0.031 ($-$0.050 to $-$0.015) & 0.034 & 0.168\\
-\hspace{1em}P1 & Clef-Flash & $-$0.067 ($-$0.098 to $-$0.036) & $-$0.116 ($-$0.172 to $-$0.060) & $-$0.066 ($-$0.093 to $-$0.042) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P2 & JEV & +0.147 (0.107 to 0.187) & +0.297 (0.219 to 0.377) & +0.120 (0.087 to 0.157) & $<$\,0.001 & $<$\,0.001\\
-\hspace{1em}P2 & Clef-Flash & +0.064 (0.033 to 0.096) & +0.145 (0.081 to 0.207) & +0.016 ($-$0.011 to 0.043) & $<$\,0.001 & 0.002\\
-\hspace{1em}P3 & JEV & +0.013 ($-$0.009 to 0.036) & +0.028 ($-$0.018 to 0.075) & +0.025 (0.012 to 0.039) & 0.362 & 1.000\\
-\hspace{1em}P3 & Clef-Flash & +0.013 ($-$0.009 to 0.036) & +0.019 ($-$0.023 to 0.060) & +0.041 (0.023 to 0.060) & 0.362 & 0.875\\
+\multicolumn{6}{l}{\textbf{Microstructure}}\\
+\hspace{1em}P1 & JEV & $-$0.031 ($-$0.058 to $-$0.004) & $-$0.031 ($-$0.050 to $-$0.015) & 0.034 & 0.168\\
+\hspace{1em}P1 & Clef-Flash & $-$0.067 ($-$0.098 to $-$0.036) & $-$0.066 ($-$0.093 to $-$0.042) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P2 & JEV & +0.147 (0.107 to 0.187) & +0.120 (0.087 to 0.157) & $<$\,0.001 & $<$\,0.001\\
+\hspace{1em}P2 & Clef-Flash & +0.064 (0.033 to 0.096) & +0.016 ($-$0.011 to 0.043) & $<$\,0.001 & 0.002\\
+\hspace{1em}P3 & JEV & +0.013 ($-$0.009 to 0.036) & +0.025 (0.012 to 0.039) & 0.362 & 1.000\\
+\hspace{1em}P3 & Clef-Flash & +0.013 ($-$0.009 to 0.036) & +0.041 (0.023 to 0.060) & 0.362 & 0.875\\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -145,47 +145,47 @@ Comparison & Model & Balanced accuracy & MCC & AUC & McNemar p & Holm p\\
 \caption{\label{tab:calibration}Calibration on the test sets, before (raw) and after Platt scaling on C. \textsuperscript{\dag}Negative Platt slope: Platt scaling reverses the order of the raw scores.}
 \centering
 \fontsize{8}{10}\selectfont
-\begin{tabular}[t]{lrrrrrr}
+\begin{tabular}[t]{lrrrr}
 \toprule
-\multicolumn{1}{c}{ } & \multicolumn{2}{c}{ECE} & \multicolumn{2}{c}{Brier} & \multicolumn{2}{c}{Log loss} \\
-\cmidrule(l{3pt}r{3pt}){2-3} \cmidrule(l{3pt}r{3pt}){4-5} \cmidrule(l{3pt}r{3pt}){6-7}
-Method & Raw & Platt & Raw & Platt & Raw & Platt\\
+\multicolumn{1}{c}{ } & \multicolumn{2}{c}{ECE} & \multicolumn{2}{c}{Brier} \\
+\cmidrule(l{3pt}r{3pt}){2-3} \cmidrule(l{3pt}r{3pt}){4-5}
+Method & Raw & Platt & Raw & Platt\\
 \midrule
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Metallic pans}}\\
-\hspace{1em}JEV, $k = 2$ & 0.114 & 0.205 & 0.016 & 0.056 & 0.123 & 0.242\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.211 & 0.249 & 0.140 & 0.096 & 0.408 & 0.330\\
-\hspace{1em}CLIP baseline & 0.407 & 0.290 & 0.247 & 0.183 & 0.687 & 0.530\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.131 & 0.255 & 0.245 & 0.146 & 0.682 & 0.443\\
-\hspace{1em}CLIP, zero-shot & 0.182 & 0.240 & 0.250 & 0.270 & 0.698 & 0.816\\
+\multicolumn{5}{l}{\textbf{Metallic pans}}\\
+\hspace{1em}JEV, $k = 2$ & 0.114 & 0.205 & 0.016 & 0.056\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.211 & 0.249 & 0.140 & 0.096\\
+\hspace{1em}CLIP baseline & 0.407 & 0.290 & 0.247 & 0.183\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.131 & 0.255 & 0.245 & 0.146\\
+\hspace{1em}CLIP, zero-shot & 0.182 & 0.240 & 0.250 & 0.270\\
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Extrusion}}\\
-\hspace{1em}JEV, $k = 2$ & 0.115 & 0.134 & 0.181 & 0.193 & 0.536 & 0.574\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.085 & 0.091 & 0.194 & 0.191 & 0.574 & 0.567\\
-\hspace{1em}CLIP baseline & 0.191 & 0.180 & 0.248 & 0.232 & 0.689 & 0.658\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.120 & 0.090 & 0.246 & 0.216 & 0.686 & 0.621\\
-\hspace{1em}CLIP, zero-shot & 0.085 & 0.069 & 0.227 & 0.223 & 0.646 & 0.638\\
+\multicolumn{5}{l}{\textbf{Extrusion}}\\
+\hspace{1em}JEV, $k = 2$ & 0.115 & 0.134 & 0.181 & 0.193\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.085 & 0.091 & 0.194 & 0.191\\
+\hspace{1em}CLIP baseline & 0.191 & 0.180 & 0.248 & 0.232\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.120 & 0.090 & 0.246 & 0.216\\
+\hspace{1em}CLIP, zero-shot & 0.085 & 0.069 & 0.227 & 0.223\\
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Textiles}}\\
-\hspace{1em}JEV, $k = 2$ & 0.204 & 0.080 & 0.065 & 0.034 & 0.268 & 0.140\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.214 & 0.064 & 0.195 & 0.116 & 0.574 & 0.370\\
-\hspace{1em}CLIP baseline & 0.473 & 0.080 & 0.248 & 0.029 & 0.688 & 0.132\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.188 & 0.066 & 0.249 & 0.196 & 0.691 & 0.572\\
-\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.423 & 0.059 & 0.443 & 0.214 & 1.468 & 0.617\\
+\multicolumn{5}{l}{\textbf{Textiles}}\\
+\hspace{1em}JEV, $k = 2$ & 0.204 & 0.080 & 0.065 & 0.034\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.214 & 0.064 & 0.195 & 0.116\\
+\hspace{1em}CLIP baseline & 0.473 & 0.080 & 0.248 & 0.029\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.188 & 0.066 & 0.249 & 0.196\\
+\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.423 & 0.059 & 0.443 & 0.214\\
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Pipe staple}}\\
-\hspace{1em}JEV, $k = 2$ & 0.284 & 0.108 & 0.125 & 0.043 & 0.423 & 0.180\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.346 & 0.108 & 0.173 & 0.027 & 0.525 & 0.135\\
-\hspace{1em}CLIP baseline & 0.069 & 0.118 & 0.250 & 0.249 & 0.693 & 0.695\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.169 & 0.085 & 0.250 & 0.227 & 0.693 & 0.651\\
-\hspace{1em}CLIP, zero-shot & 0.407 & 0.087 & 0.405 & 0.228 & 1.195 & 0.649\\
+\multicolumn{5}{l}{\textbf{Pipe staple}}\\
+\hspace{1em}JEV, $k = 2$ & 0.284 & 0.108 & 0.125 & 0.043\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.346 & 0.108 & 0.173 & 0.027\\
+\hspace{1em}CLIP baseline & 0.069 & 0.118 & 0.250 & 0.249\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.169 & 0.085 & 0.250 & 0.227\\
+\hspace{1em}CLIP, zero-shot & 0.407 & 0.087 & 0.405 & 0.228\\
 \addlinespace[0.3em]
-\multicolumn{7}{l}{\textbf{Microstructure}}\\
-\hspace{1em}JEV, $k = 2$ & 0.142 & 0.059 & 0.123 & 0.075 & 0.388 & 0.257\\
-\hspace{1em}Clef-Flash, $k = 2$ & 0.290 & 0.078 & 0.262 & 0.106 & 0.737 & 0.341\\
-\hspace{1em}CLIP baseline & 0.334 & 0.119 & 0.248 & 0.061 & 0.689 & 0.222\\
-\hspace{1em}CLIP, same references, $k = 2$ & 0.223 & 0.057 & 0.248 & 0.106 & 0.689 & 0.330\\
-\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.181 & 0.101 & 0.273 & 0.235 & 0.740 & 0.683\\
+\multicolumn{5}{l}{\textbf{Microstructure}}\\
+\hspace{1em}JEV, $k = 2$ & 0.142 & 0.059 & 0.123 & 0.075\\
+\hspace{1em}Clef-Flash, $k = 2$ & 0.290 & 0.078 & 0.262 & 0.106\\
+\hspace{1em}CLIP baseline & 0.334 & 0.119 & 0.248 & 0.061\\
+\hspace{1em}CLIP, same references, $k = 2$ & 0.223 & 0.057 & 0.248 & 0.106\\
+\hspace{1em}CLIP, zero-shot\textsuperscript{\dag} & 0.181 & 0.101 & 0.273 & 0.235\\
 \bottomrule
 \end{tabular}
 \end{table*}
