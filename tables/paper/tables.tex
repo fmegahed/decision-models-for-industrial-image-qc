@@ -5,8 +5,12 @@
 % Table 3 has notes under it and needs \usepackage{threeparttable}. It
 % also needs makecell and tikz, and the three macros below (\latx,
 % \latglyph and \lataxis): copy them into the preamble of main.tex.
+% The description table needs tabularx, xcolor, ulem (normalem) and the
+% color jev below.
 \documentclass[nohead,nofoot]{asmeconf}
-\usepackage{threeparttable,makecell,tikz}
+\usepackage{threeparttable,makecell,tikz,tabularx,xcolor}
+\usepackage[normalem]{ulem}
+\definecolor{jev}{HTML}{00829B}
 \newcommand{\latx}[1]{\fpeval{(ln(#1)/ln(10) - 0.69897)*0.38}in}
 \newcommand{\latglyph}[5]{\begin{tikzpicture}[baseline=-0.6ex]
   \foreach \t in {10,100,1000} \draw[black!15, line width=0.3pt] (\latx{\t},-3.6pt) -- (\latx{\t},3.6pt);
@@ -267,5 +271,20 @@ Method & 50\% & 5\% & 1\%\\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{table*}
+\caption{\label{tab:description-jev-extrusion}The descriptions that the JEV description loop kept for extrusion (Fig.~F2), each against the text it revised: added words in color and bold, removed words struck through. Design AUC: on the design set of the loop. \dag\ Written anew (keeps less than a quarter of the words of the text it revised). All eight loops, with the candidates that the loops did not keep: \url{https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html}.}
+\centering
+\fontsize{8}{10}\selectfont
+\begin{tabularx}{\textwidth}{@{}cc>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Candidate & Design AUC & Nominal description & Defective description \\
+\midrule
+1 & 0.59 & No visible manufacturing defects; the part appears conforming. & At least one visible manufacturing defect or anomaly. \\
+2 & 0.74 & A close-up of a 3D printing nozzle and freshly extruded plastic; the extruded material forms a smooth, even layer of steady width that lies flat on the print surface.\textsuperscript{\dag} & A close-up of a 3D printing nozzle and extruded plastic where the amount of material is wrong: either a thin, stringy or broken strand with dark gaps showing through, or a bulging, blobby, overly wide mass of plastic.\textsuperscript{\dag} \\
+3 & 0.78 & A close-up of a 3D printing nozzle and freshly extruded plastic; the extruded material forms a smooth, even layer \textcolor{jev}{\textbf{or strand}} of steady width \textcolor{black!60}{\sout{that lies flat on the print surface.}} \textcolor{jev}{\textbf{with straight, clean edges. The background around it may be dark or light.}} & A close-up of a 3D printing nozzle and extruded plastic where the amount of material is wrong: either a thin, stringy \textcolor{black!60}{\sout{or broken strand with dark gaps showing through,}} \textcolor{jev}{\textbf{strand with breaks or gaps within the plastic itself,}} or a bulging, blobby, overly wide mass of plastic. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
 
 \end{document}

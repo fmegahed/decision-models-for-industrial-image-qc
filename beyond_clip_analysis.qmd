@@ -984,7 +984,7 @@ loop_row <- \(m, ds) dplyr::filter(loop_summary, model == m, dataset == ds)
 
 Each loop scored `r min(loop_summary$candidates)` to `r max(loop_summary$candidates)` candidates, the generic description included (@tbl-loop). Of the `r nrow(loop_summary)` loops, `r nrow(changed)` kept a new description, and their design AUC rose by `r fmt(min(changed$design_gain), 3)` to `r fmt(max(changed$design_gain), 3)`. On C, which chose nothing, the final description has a higher AUC than the generic one in `r sum(changed$c_gain > 0)` of these `r nrow(changed)` loops. For Clef-Flash on extrusion, it is lower (`r fmt(loop_row("clef", "extrusion")$c_final, 3)` against `r fmt(loop_row("clef", "extrusion")$c_generic, 3)`).
 
-The largest gain is that of Clef-Flash on pipe staple: the AUC rose from `r fmt(loop_row("clef", "pipe_staple")$design_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$design_final, 3)` on the design images, and from `r fmt(loop_row("clef", "pipe_staple")$c_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$c_final, 3)` on C. JEV on pipe staple kept the generic description: its design AUC was already `r fmt(loop_row("jev", "pipe_staple")$design_generic, 3)`, so no candidate could pass the margin of 0.02. The audits of the `r nrow(loop_summary)` loops flagged `r sum(loop_summary$flagged)` tool calls outside the sandbox.
+The largest gain is that of Clef-Flash on pipe staple: the AUC rose from `r fmt(loop_row("clef", "pipe_staple")$design_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$design_final, 3)` on the design images, and from `r fmt(loop_row("clef", "pipe_staple")$c_generic, 3)` to `r fmt(loop_row("clef", "pipe_staple")$c_final, 3)` on C. JEV on pipe staple kept the generic description: its design AUC was already `r fmt(loop_row("jev", "pipe_staple")$design_generic, 3)`, so no candidate could pass the margin of 0.02. The audits of the `r nrow(loop_summary)` loops flagged `r sum(loop_summary$flagged)` tool calls outside the sandbox. The page [Description loops](description_loops.html) shows how the descriptions changed: each candidate against the text that it revised. @sec-loop-candidates gives all candidates in full, with the reason that the agent gave.
 
 ```{r}
 #| label: loop-note
@@ -2267,6 +2267,8 @@ save_table(a1, "A1_isotonic",
 ```
 
 ## Loop candidates {#sec-loop-candidates}
+
+The page [Description loops](description_loops.html) shows the same candidates as word diffs, each against the text that it revised.
 
 ```{r}
 #| label: candidates-note

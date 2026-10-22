@@ -237,6 +237,54 @@ paper_table <- function(d, caption, label, align, group = FALSE, header = NULL,
   as.character(table)
 }
 
+# The descriptions that one description loop kept, each against the text it
+# revised (R/description_diff.R): added words bold in the model color, cut
+# words struck through. A text that keeps less than a quarter of the words
+# of the text it revised is shown in full, with a dagger. The page of all
+# loops, with the candidates that were not kept, is description_loops.html.
+source("R/description_diff.R")
+loops_page <- "https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html"
+description_table <- function(model, dataset) {
+  log <- readr::read_csv(file.path("results/fair/loop", stringr::str_c(model, "-", dataset, "_log.csv")),
+                         col_types = readr::cols(candidate = "i", auc = "d", kept = "l", .default = "c")) |>
+    dplyr::filter(kept)
+  cell <- function(old, new) {
+    if (is.na(old)) return(latex_escape(new))
+    if (kept_share(old, new) < 0.25) return(stringr::str_c(latex_escape(new), "\\textsuperscript{\\dag}"))
+    diff_markup(old, new, "latex", color = model)
+  }
+  rows <- purrr::map_chr(seq_len(nrow(log)), \(i) {
+    stringr::str_c(
+      log$candidate[i], " & ", formatC(log$auc[i], format = "f", digits = 2), " & ",
+      cell(if (i == 1) NA else log$normal[i - 1], log$normal[i]), " & ",
+      cell(if (i == 1) NA else log$defective[i - 1], log$defective[i]), " \\\\"
+    )
+  })
+  names <- c(jev = "JEV", clef = "Clef-Flash")
+  c(
+    "\\begin{table*}",
+    stringr::str_c(
+      "\\caption{\\label{tab:description-", model, "-", dataset, "}The descriptions that the ",
+      names[[model]], " description loop kept for ", stringr::str_replace_all(dataset, "_", " "),
+      " (Fig.~F2), each against the text it revised: added words in color and bold, removed ",
+      "words struck through. Design AUC: on the design set of the loop. \\dag\\ Written anew ",
+      "(keeps less than a quarter of the words of the text it revised). All eight loops, with ",
+      "the candidates that the loops did not keep: \\url{", loops_page, "}.}"
+    ),
+    "\\centering",
+    "\\fontsize{8}{10}\\selectfont",
+    "\\begin{tabularx}{\\textwidth}{@{}cc>{\\raggedright\\arraybackslash}X>{\\raggedright\\arraybackslash}X@{}}",
+    "\\toprule",
+    "Candidate & Design AUC & Nominal description & Defective description \\\\",
+    "\\midrule",
+    rows,
+    "\\bottomrule",
+    "\\end{tabularx}",
+    "\\end{table*}"
+  ) |>
+    stringr::str_c(collapse = "\n")
+}
+
 # The paper reports accuracy, sensitivity, specificity, AUC, ECE and Brier
 # (D99); the analysis document keeps all metrics. On the balanced test sets,
 # accuracy equals balanced accuracy, also in each bootstrap sample (the
@@ -289,7 +337,9 @@ tables <- list(
     "prevalence", align = "lrrr", group = TRUE, envir = "table",
     header = c(" " = 1, "Defect rate" = 3),
     col_names = c("Method", "50\\%", "5\\%", "1\\%")
-  )
+  ),
+  # D124: one loop in the paper; all loops on description_loops.html.
+  description_table("jev", "extrusion")
 )
 
 document <- c(
@@ -300,8 +350,12 @@ document <- c(
   "% Table 3 has notes under it and needs \\usepackage{threeparttable}. It",
   "% also needs makecell and tikz, and the three macros below (\\latx,",
   "% \\latglyph and \\lataxis): copy them into the preamble of main.tex.",
+  "% The description table needs tabularx, xcolor, ulem (normalem) and the",
+  "% color jev below.",
   "\\documentclass[nohead,nofoot]{asmeconf}",
-  "\\usepackage{threeparttable,makecell,tikz}",
+  "\\usepackage{threeparttable,makecell,tikz,tabularx,xcolor}",
+  "\\usepackage[normalem]{ulem}",
+  "\\definecolor{jev}{HTML}{00829B}",
   glyph_macros,
   "\\begin{document}",
   "\\twocolumn % as in the paper (asmeconf starts two columns in \\maketitle)",
