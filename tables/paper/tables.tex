@@ -273,9 +273,10 @@ Method & 50\% & 5\% & 1\%\\
 \end{table}
 
 \begin{table*}
-\caption{\label{tab:description-jev-extrusion}The descriptions that the JEV description loop kept for extrusion (Fig.~F2), each against the text it revised: added words in color and bold, removed words struck through. Design AUC: on the design set of the loop. \dag\ Written anew (keeps less than a quarter of the words of the text it revised). All eight loops, with the candidates that the loops did not keep: \url{https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html}.}
+\caption{\label{tab:description-wide}The descriptions that the JEV description loop kept for extrusion.}
 \centering
 \fontsize{8}{10}\selectfont
+\begin{threeparttable}
 \begin{tabularx}{\textwidth}{@{}cc>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
 \toprule
 Candidate & Design AUC & Nominal description & Defective description \\
@@ -285,6 +286,40 @@ Candidate & Design AUC & Nominal description & Defective description \\
 3 & 0.78 & A close-up of a 3D printing nozzle and freshly extruded plastic; the extruded material forms a smooth, even layer \textcolor{jev}{\textbf{or strand}} of steady width \textcolor{black!60}{\sout{that lies flat on the print surface.}} \textcolor{jev}{\textbf{with straight, clean edges. The background around it may be dark or light.}} & A close-up of a 3D printing nozzle and extruded plastic where the amount of material is wrong: either a thin, stringy \textcolor{black!60}{\sout{or broken strand with dark gaps showing through,}} \textcolor{jev}{\textbf{strand with breaks or gaps within the plastic itself,}} or a bulging, blobby, overly wide mass of plastic. \\
 \bottomrule
 \end{tabularx}
+\begin{tablenotes}[flushleft]\footnotesize\raggedright
+\item Each text is shown against the text it revised: added words in color and bold, removed words struck through. Design AUC: on the design set of the loop. \textsuperscript{\dag}Written anew (keeps less than a quarter of the words of the text it revised).
+\item The instructions of the loop agent (\texttt{LOOP.md}; its prompt is ``Read LOOP.md and follow it.''), on how to make a change: ``Read the printed result: the AUC, the mean score for each defect type and the current best candidate. Open \texttt{scores/N.csv} to see which images get the wrong scores.'' \ldots\ ``Look at the images that the model ranks wrongly. Compare them with the reference images.'' \ldots\ ``Base each change on what you see in the design images and in the scores. Change one idea at a time, so that the log shows what helped.'' \ldots\ ``Do not aim for an AUC of 1. A small design set can mislead you. Prefer a clear, general description over a long list of special cases.'' (\texttt{scripts/fair\_loop\_instructions.md}).
+\item All eight loops, with the candidates that the loops did not keep: \url{https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html}.
+\end{tablenotes}
+\end{threeparttable}
 \end{table*}
+
+\begin{table}
+\caption{\label{tab:description-long}The descriptions that the JEV description loop kept for extrusion.}
+\centering
+\fontsize{8}{10}\selectfont
+\begin{threeparttable}
+\begin{tabularx}{\columnwidth}{@{}l>{\raggedright\arraybackslash}X@{}}
+\toprule
+\multicolumn{2}{@{}l}{\textbf{Candidate 1}, design AUC 0.59} \\
+Nominal & No visible manufacturing defects; the part appears conforming. \\
+Defective & At least one visible manufacturing defect or anomaly. \\
+\addlinespace
+\multicolumn{2}{@{}l}{\textbf{Candidate 2}, design AUC 0.74} \\
+Nominal & A close-up of a 3D printing nozzle and freshly extruded plastic; the extruded material forms a smooth, even layer of steady width that lies flat on the print surface.\textsuperscript{\dag} \\
+Defective & A close-up of a 3D printing nozzle and extruded plastic where the amount of material is wrong: either a thin, stringy or broken strand with dark gaps showing through, or a bulging, blobby, overly wide mass of plastic.\textsuperscript{\dag} \\
+\addlinespace
+\multicolumn{2}{@{}l}{\textbf{Candidate 3}, design AUC 0.78} \\
+Nominal & A close-up of a 3D printing nozzle and freshly extruded plastic; the extruded material forms a smooth, even layer \textcolor{jev}{\textbf{or strand}} of steady width \textcolor{black!60}{\sout{that lies flat on the print surface.}} \textcolor{jev}{\textbf{with straight, clean edges. The background around it may be dark or light.}} \\
+Defective & A close-up of a 3D printing nozzle and extruded plastic where the amount of material is wrong: either a thin, stringy \textcolor{black!60}{\sout{or broken strand with dark gaps showing through,}} \textcolor{jev}{\textbf{strand with breaks or gaps within the plastic itself,}} or a bulging, blobby, overly wide mass of plastic. \\
+\bottomrule
+\end{tabularx}
+\begin{tablenotes}[flushleft]\footnotesize\raggedright
+\item Each text is shown against the text it revised: added words in color and bold, removed words struck through. Design AUC: on the design set of the loop. \textsuperscript{\dag}Written anew (keeps less than a quarter of the words of the text it revised).
+\item The instructions of the loop agent (\texttt{LOOP.md}; its prompt is ``Read LOOP.md and follow it.''), on how to make a change: ``Read the printed result: the AUC, the mean score for each defect type and the current best candidate. Open \texttt{scores/N.csv} to see which images get the wrong scores.'' \ldots\ ``Look at the images that the model ranks wrongly. Compare them with the reference images.'' \ldots\ ``Base each change on what you see in the design images and in the scores. Change one idea at a time, so that the log shows what helped.'' \ldots\ ``Do not aim for an AUC of 1. A small design set can mislead you. Prefer a clear, general description over a long list of special cases.'' (\texttt{scripts/fair\_loop\_instructions.md}).
+\item All eight loops, with the candidates that the loops did not keep: \url{https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html}.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
 
 \end{document}

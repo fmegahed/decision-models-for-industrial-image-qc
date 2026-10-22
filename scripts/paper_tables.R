@@ -240,11 +240,33 @@ paper_table <- function(d, caption, label, align, group = FALSE, header = NULL,
 # The descriptions that one description loop kept, each against the text it
 # revised (R/description_diff.R): added words bold in the model color, cut
 # words struck through. A text that keeps less than a quarter of the words
-# of the text it revised is shown in full, with a dagger. The page of all
-# loops, with the candidates that were not kept, is description_loops.html.
+# of the text it revised is shown in full, with a dagger. Two layouts of the
+# same table (D126): "wide" across the two columns (one row per candidate)
+# and "long" in one column (the two texts of a candidate one above the
+# other). The notes quote the part of the instructions of the loop agent
+# (LOOP.md, from scripts/fair_loop_instructions.md) that tells it how to
+# reason about a change, word for word from the file. The page of all loops,
+# with the candidates that were not kept, is description_loops.html.
 source("R/description_diff.R")
 loops_page <- "https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html"
-description_table <- function(model, dataset) {
+loop_instructions <- function() {
+  lines <- readLines("scripts/fair_loop_instructions.md", warn = FALSE, encoding = "UTF-8")
+  # Steps 2 and 3, and the two rules on how to change a text.
+  starts <- c("2. Read the printed result", "3. Look at the images",
+              "- Base each change", "- Do not aim for an AUC of 1")
+  quoted <- purrr::map_chr(starts, \(s) {
+    line <- lines[startsWith(lines, s)]
+    stopifnot(length(line) == 1)
+    stringr::str_remove(line, "^(\\d+\\.|-) ")
+  })
+  quoted |>
+    latex_escape() |>
+    stringr::str_replace_all("`([^`]+)`", "\\\\texttt{\\1}") |>
+    purrr::map_chr(\(q) stringr::str_c("``", q, "''")) |>
+    stringr::str_c(collapse = " \\ldots\\ ")
+}
+description_table <- function(model, dataset, layout = c("wide", "long")) {
+  layout <- match.arg(layout)
   log <- readr::read_csv(file.path("results/fair/loop", stringr::str_c(model, "-", dataset, "_log.csv")),
                          col_types = readr::cols(candidate = "i", auc = "d", kept = "l", .default = "c")) |>
     dplyr::filter(kept)
@@ -253,34 +275,65 @@ description_table <- function(model, dataset) {
     if (kept_share(old, new) < 0.25) return(stringr::str_c(latex_escape(new), "\\textsuperscript{\\dag}"))
     diff_markup(old, new, "latex", color = model)
   }
-  rows <- purrr::map_chr(seq_len(nrow(log)), \(i) {
-    stringr::str_c(
-      log$candidate[i], " & ", formatC(log$auc[i], format = "f", digits = 2), " & ",
-      cell(if (i == 1) NA else log$normal[i - 1], log$normal[i]), " & ",
-      cell(if (i == 1) NA else log$defective[i - 1], log$defective[i]), " \\\\"
-    )
-  })
+  texts <- purrr::map(seq_len(nrow(log)), \(i) list(
+    normal = cell(if (i == 1) NA else log$normal[i - 1], log$normal[i]),
+    defective = cell(if (i == 1) NA else log$defective[i - 1], log$defective[i]),
+    auc = formatC(log$auc[i], format = "f", digits = 2),
+    candidate = log$candidate[i]
+  ))
   names <- c(jev = "JEV", clef = "Clef-Flash")
+  notes <- c(
+    stringr::str_c("Each text is shown against the text it revised: added words in color and bold, ",
+                   "removed words struck through. Design AUC: on the design set of the loop. ",
+                   "\\textsuperscript{\\dag}Written anew (keeps less than a quarter of the words of the ",
+                   "text it revised)."),
+    stringr::str_c("The instructions of the loop agent (\\texttt{LOOP.md}; its prompt is ",
+                   "``Read LOOP.md and follow it.''), on how to make a change: ",
+                   loop_instructions(), " (\\texttt{scripts/fair\\_loop\\_instructions.md})."),
+    stringr::str_c("All eight loops, with the candidates that the loops did not keep: \\url{",
+                   loops_page, "}.")
+  )
+  caption <- stringr::str_c(
+    "\\caption{\\label{tab:description-", layout, "}The descriptions that the ", names[[model]],
+    " description loop kept for ", stringr::str_replace_all(dataset, "_", " "), ".}"
+  )
+  if (layout == "wide") {
+    envir <- "table*"
+    spec <- "\\begin{tabularx}{\\textwidth}{@{}cc>{\\raggedright\\arraybackslash}X>{\\raggedright\\arraybackslash}X@{}}"
+    body <- c(
+      "Candidate & Design AUC & Nominal description & Defective description \\\\",
+      "\\midrule",
+      purrr::map_chr(texts, \(t) stringr::str_c(t$candidate, " & ", t$auc, " & ", t$normal, " & ",
+                                                t$defective, " \\\\"))
+    )
+  } else {
+    envir <- "table"
+    spec <- "\\begin{tabularx}{\\columnwidth}{@{}l>{\\raggedright\\arraybackslash}X@{}}"
+    body <- purrr::imap(texts, \(t, i) c(
+      if (i > 1) "\\addlinespace",
+      stringr::str_c("\\multicolumn{2}{@{}l}{\\textbf{Candidate ", t$candidate, "}, design AUC ",
+                     t$auc, "} \\\\"),
+      stringr::str_c("Nominal & ", t$normal, " \\\\"),
+      stringr::str_c("Defective & ", t$defective, " \\\\")
+    )) |>
+      unlist()
+  }
   c(
-    "\\begin{table*}",
-    stringr::str_c(
-      "\\caption{\\label{tab:description-", model, "-", dataset, "}The descriptions that the ",
-      names[[model]], " description loop kept for ", stringr::str_replace_all(dataset, "_", " "),
-      " (Fig.~F2), each against the text it revised: added words in color and bold, removed ",
-      "words struck through. Design AUC: on the design set of the loop. \\dag\\ Written anew ",
-      "(keeps less than a quarter of the words of the text it revised). All eight loops, with ",
-      "the candidates that the loops did not keep: \\url{", loops_page, "}.}"
-    ),
+    stringr::str_c("\\begin{", envir, "}"),
+    caption,
     "\\centering",
     "\\fontsize{8}{10}\\selectfont",
-    "\\begin{tabularx}{\\textwidth}{@{}cc>{\\raggedright\\arraybackslash}X>{\\raggedright\\arraybackslash}X@{}}",
+    "\\begin{threeparttable}",
+    spec,
     "\\toprule",
-    "Candidate & Design AUC & Nominal description & Defective description \\\\",
-    "\\midrule",
-    rows,
+    body,
     "\\bottomrule",
     "\\end{tabularx}",
-    "\\end{table*}"
+    "\\begin{tablenotes}[flushleft]\\footnotesize\\raggedright",
+    stringr::str_c("\\item ", notes),
+    "\\end{tablenotes}",
+    "\\end{threeparttable}",
+    stringr::str_c("\\end{", envir, "}")
   ) |>
     stringr::str_c(collapse = "\n")
 }
@@ -338,8 +391,10 @@ tables <- list(
     header = c(" " = 1, "Defect rate" = 3),
     col_names = c("Method", "50\\%", "5\\%", "1\\%")
   ),
-  # D124: one loop in the paper; all loops on description_loops.html.
-  description_table("jev", "extrusion")
+  # D124, D126: one loop in the paper, in two layouts (the authors choose
+  # one); all loops on description_loops.html.
+  description_table("jev", "extrusion", "wide"),
+  description_table("jev", "extrusion", "long")
 )
 
 document <- c(
