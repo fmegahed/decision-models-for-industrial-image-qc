@@ -94,7 +94,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
 
 ## Figure and table style
 
-Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF with no title, at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`: the LaTeX caption takes the place of the title, and the subtitle reads on its own. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
 
 ```{r}
 #| label: fonts-and-colors
@@ -179,12 +179,12 @@ headline <- function(text, layout) {
 
 # Subtitles are wrapped here, not by ggtext: its text boxes sometimes
 # reserve one line less than they draw, and the subtitle then overlaps the
-# title. Line length counts visible characters only, and a colored span
-# never breaks across lines (its spaces become no-break spaces first).
+# title. Line length counts visible characters only, and a colored span or
+# "k = 2" never breaks across lines (its spaces become no-break spaces first).
 subline <- function(layout, ...) {
   nbsp <- " "
   text <- stringr::str_c(...) |>
-    stringr::str_replace_all("<span[^>]*>.*?</span>",
+    stringr::str_replace_all("<span[^>]*>.*?</span>|k = \\d",
                              \(s) stringr::str_replace_all(s, " ", nbsp))
   words <- stringr::str_split_1(text, " ")
   visible <- stringr::str_length(stringr::str_remove_all(words, "<[^>]+>|\\*\\*"))
@@ -232,7 +232,35 @@ theme_paper <- function(layout) {
     )
 }
 
-# Save one figure in both sizes and three formats; show the two-column one.
+# Paper versions: the column and text widths of the ASME class asmeconf.
+paper_widths <- c("one-column" = 3.56, "two-column" = 7.5)
+
+# A figure with no title (a ggplot or a patchwork), and the height that its
+# title took: the lines of the title and its 3 pt margin.
+drop_title <- function(plot) {
+  if (inherits(plot, "patchwork")) {
+    plot + patchwork::plot_annotation(title = NULL)
+  } else {
+    plot + ggplot2::labs(title = NULL)
+  }
+}
+title_height <- function(plot, layout) {
+  title <- if (inherits(plot, "patchwork")) plot$patches$annotation$title else plot$labels$title
+  lines <- stringr::str_count(title, "<br>") + 1
+  (lines * layouts[[layout]]$base_size * 1.2 * 1.1 + 3) / 72
+}
+
+# Text as outlines in a PDF or SVG file (showtext).
+save_outlined <- function(plot, file, open, width, height) {
+  open(file, width = width, height = height)
+  showtext::showtext_begin()
+  print(plot)
+  showtext::showtext_end()
+  grDevices::dev.off()
+}
+
+# Save one figure in both sizes and three formats, and the paper version of
+# each size; show the two-column one.
 save_figure <- function(make_plot, name, height) {
   purrr::iwalk(layouts, \(spec, layout) {
     plot <- make_plot(layout)
@@ -247,13 +275,16 @@ save_figure <- function(make_plot, name, height) {
     # PDF and SVG with showtext (text as outlines).
     devices <- list(pdf = grDevices::cairo_pdf, svg = grDevices::svg)
     purrr::iwalk(devices, \(open, extension) {
-      open(stringr::str_c(stem, ".", extension), width = spec$width,
-           height = height[[layout]])
-      showtext::showtext_begin()
-      print(plot)
-      showtext::showtext_end()
-      grDevices::dev.off()
+      save_outlined(plot, stringr::str_c(stem, ".", extension), open,
+                    spec$width, height[[layout]])
     })
+    # Paper version: PDF only, no title.
+    dir.create(file.path(figs_dir, "paper", layout), recursive = TRUE,
+               showWarnings = FALSE)
+    save_outlined(drop_title(plot),
+                  stringr::str_c(file.path(figs_dir, "paper", layout, name), ".pdf"),
+                  grDevices::cairo_pdf, paper_widths[[layout]],
+                  height[[layout]] - title_height(plot, layout))
   })
   make_plot("two-column")
 }
@@ -721,9 +752,9 @@ fig_references <- function(layout) {
         layout,
         paint("Nominal", class_colors[["nominal"]]), " and ",
         paint("defective", class_colors[["defective"]]),
-        " reference images at k = 2, drawn from the learning set (seed 202610) ",
-        "and center-cropped as sent to the models. Small images are enlarged ",
-        "here for display only."
+        " reference images, two per class (k = 2) for each dataset, drawn ",
+        "from the learning set (seed 202610) and center-cropped as sent to the ",
+        "decision models. Small images are enlarged here for display only."
       ),
       # Image sources. AutoVI is CC BY-NC-SA 4.0: the pipe staple tiles of
       # this figure keep that license.
@@ -1005,11 +1036,12 @@ fig_loop <- function(layout) {
                                       " loops kept a new description"), layout),
       subtitle = subline(
         layout,
-        "Candidates of ", paint("JEV", model_colors[["JEV"]]), " and ",
+        "Design AUC of each candidate description in the description loops of ",
+        paint("JEV", model_colors[["JEV"]]), " and ",
         paint("Clef-Flash", model_colors[["Clef-Flash"]]),
         ". Filled: kept (AUC at least 0.02 above the current best); open: not ",
         "kept. The line follows the current best. Diamond: AUC of the final ",
-        "description on C, which chose nothing."
+        "description on the calibration set C, which chose nothing."
       ),
       x = "Candidate (1 = generic description)", y = "ROC AUC"
     ) +
@@ -1295,7 +1327,7 @@ On microstructure, the JEV difference is `r diff_text("P1", "jev", "microstructu
 # Figure F3.
 save_figure(
   fig_forest("P1", "P1: the decision models lead CLIP on pipe staple and pans",
-             "Decision model (final description, k = 2) minus the CLIP baseline; both use Platt scaling on C."),
+             "Decision model (final description, k = 2 references per class) minus the CLIP baseline; both use Platt scaling on the calibration set C."),
   "F3_paired_P1", height = forest_heights
 )
 ```
@@ -1316,7 +1348,7 @@ For JEV on pipe staple, the final description is the generic text (decision D85)
 # Figure F4.
 save_figure(
   fig_forest("P2", "P2: the final description helps both models on most datasets",
-             "Final minus generic description, both at k = 2. Pans have no loop and no P2."),
+             "Final minus generic description, both at k = 2 references per class. Pans have no description loop and thus no row."),
   "F4_paired_P2", height = forest_heights
 )
 ```
@@ -1337,7 +1369,7 @@ The k = 0 side of JEV on pipe staple has a negative Platt slope (`r fmt(slope_of
 # Figure F5.
 save_figure(
   fig_forest("P3", "P3: two references per class help, least on microstructure",
-             "k = 2 minus k = 0, both with the final description (pans: generic)."),
+             "Two references per class (k = 2) minus none (k = 0), both with the final description (pans: generic)."),
   "F5_paired_P3", height = forest_heights
 )
 ```
@@ -1496,8 +1528,9 @@ fig_curve <- function(layout) {
       title = headline("Beyond two references, the decision models gain little", layout),
       subtitle = subline(
         layout,
-        stringr::str_c(model_text, collapse = ", "),
-        " after Platt scaling on C. CLIP at k = 0 is zero-shot. Bars: paired ",
+        "Test results of ", stringr::str_c(model_text, collapse = ", "),
+        " by references per class (k), after Platt scaling ",
+        "on the calibration set C. CLIP at k = 0 is zero-shot. Bars: paired ",
         "95% interval of the change from k = 0, placed at the value and cut at 0 and 1."
       ),
       x = "References per class (k)", y = NULL
@@ -1639,8 +1672,9 @@ fig_reliability <- function(layout) {
         layout,
         paint("Raw", calibration_colors[["raw"]]), " scores and ",
         paint("Platt", calibration_colors[["Platt"]]),
-        " probabilities, fitted on C. Calibrated curves follow the diagonal. ",
-        "Strips give the test ECE before and after Platt scaling."
+        " probabilities on the test images (Platt fitted on the calibration ",
+        "set C). Calibrated curves follow the diagonal. Strips give the test ",
+        "ECE before and after Platt scaling."
       ),
       x = "Mean predicted defect probability (10 bins)",
       y = "Observed defect rate"
