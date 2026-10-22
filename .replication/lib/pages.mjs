@@ -1,6 +1,6 @@
 // Page renderers: SiteModel in, a Map of site path to HTML out.
 import { readFileSync } from "node:fs";
-import { escapeHtml, inline, rel, pageShell, navGroups, NAV_GROUPS, CDN } from "./html.mjs";
+import { escapeHtml, inline, rel, pageShell, navGroups, NAV_GROUPS, REPOSITORY_DESCRIPTION, CDN } from "./html.mjs";
 import { STAGES } from "./project.mjs";
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
@@ -93,12 +93,16 @@ export function renderHome(model) {
     ? `<ul>\n${model.counts.byDecider.map((c) => `<li>${escapeHtml(c.name)}: ${c.count}</li>`).join("\n")}\n</ul>`
     : "<p>No decisions yet.</p>";
   const link = (target, label) => `<li><a href="${escapeHtml(rel(path, target))}">${label}</a></li>`;
-  // The pages under the two reader groups of the navigation, in its order.
+  // The pages under the two reader groups of the navigation, in its order,
+  // each with its description as visible text (screens with no hover).
   const groups = navGroups(model);
+  const described = (item, description) => (description ? item.replace(/<\/li>$/, `: ${escapeHtml(description)}</li>`) : item);
   const pageLinks = NAV_GROUPS.map(({ group, label }) => {
     const items = groups[group].filter(([, target]) => target !== "index.html")
-      .map(([text, target]) => link(target, escapeHtml(text)));
-    if (group === "reuse") items.push(`<li><a href="${escapeHtml(model.config.repository)}">Repository</a></li>`);
+      .map(([text, target, description]) => described(link(target, escapeHtml(text)), description));
+    if (group === "reuse") {
+      items.push(described(`<li><a href="${escapeHtml(model.config.repository)}">Repository</a></li>`, REPOSITORY_DESCRIPTION));
+    }
     return `<h3>${escapeHtml(label)}</h3>
 <ul>
 ${items.join("\n")}

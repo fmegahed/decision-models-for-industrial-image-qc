@@ -3,7 +3,15 @@
   "repository": "https://github.com/fmegahed/decision-models-for-industrial-image-qc",
   "format_version": 1,
   "pages": [
-    { "file": "beyond_clip_analysis.html", "title": "Analysis notebook" },
-    { "file": "description_loops.html", "title": "Description loops" }
+    {
+      "file": "beyond_clip_analysis.html",
+      "title": "Analysis notebook",
+      "description": "Remakes every table and figure of the paper from the saved results, with the code."
+    },
+    {
+      "file": "description_loops.html",
+      "title": "Description loops",
+      "description": "Every candidate description of the eight loops, against the text it revised."
+    }
   ]
 }

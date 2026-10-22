@@ -95,6 +95,11 @@ pre code { background: none; padding: 0; }
 .site-nav a { color: var(--on-accent); padding: 0.25rem 0.4rem; }
 .site-nav a[aria-current="page"] { font-weight: 700; text-decoration: underline; text-underline-offset: 0.25em; text-decoration-thickness: 3px; }
 .site-header :focus-visible { outline-color: var(--on-accent); }
+.site-nav li { position: relative; }
+.nav-tip { display: none; position: absolute; top: 100%; left: 0; z-index: 30; padding-top: 8px; width: max-content; max-width: min(18rem, 80vw); text-align: left; }
+.nav-tip > span { display: block; background: var(--surface); color: var(--ink); border: 2px solid var(--ink); padding: 0.375rem 0.5rem; font-size: 0.875rem; font-weight: 400; line-height: 1.4; }
+.site-nav li:hover .nav-tip, .site-nav li:focus-within .nav-tip { display: block; }
+.site-nav li.tip-closed .nav-tip { display: none; }
 button, .button { background: var(--tan); color: var(--ink); border: 2px solid var(--ink); font: inherit; cursor: pointer; }
 button:hover, .button:hover { background: var(--surface); }
 button[aria-pressed="true"] { background: var(--accent-strong); color: var(--on-accent); border-color: var(--accent-strong); }
@@ -116,6 +121,7 @@ img, svg { max-width: 100%; height: auto; }
   .nav-reuse { margin-left: auto; text-align: right; }
   .nav-reuse .nav-label { margin: 0 0.4rem 0 0; }
   .nav-reuse ul { justify-content: flex-end; }
+  .nav-reuse .nav-tip { left: auto; right: 0; }
   .doc-layout.has-rail { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 2rem; align-items: start; }
   .doc-layout.has-rail .doc-rail { grid-column: 1; grid-row: 1; position: sticky; top: 9rem; margin: 0; }
   .doc-layout.has-rail #doc-content { grid-column: 2; grid-row: 1; }
@@ -124,53 +130,80 @@ img, svg { max-width: 100%; height: auto; }
 }
 
 // The navigation has two groups, one for each kind of reader, and each group
-// is in reading order. "record": how the work was done with Claude Code (the
-// account first, then the decisions behind it and the results they gave, then
-// the work over time, then the documents). "reuse": what a reader needs to
-// rerun the work and build on it (the documents of the extra pages, then the
-// versions, then the code).
-// A page with a third item shows only when it returns true.
+// is in reading order. "record": how the work was done with Claude Code, in
+// the order of the work (the stages, their dates and the milestones, then
+// who decided what and the account of who did what, then the documents and
+// the results). "reuse": what a reader needs to rerun the work and build on
+// it (the documents of the extra pages, then the versions, then the code).
+// Each item: label, target, description (the tooltip of the link and the text
+// after the link on Home), and an optional test: the page shows only when it
+// returns true.
 export const NAV_GROUPS = [
   { group: "record", id: "nav-record", label: "How we worked with Claude Code" },
   { group: "reuse", id: "nav-reuse", label: "Rerun and build on it" },
 ];
 const RECORD_NAV = [
-  ["Home", "index.html"],
-  ["Contributions", "contributions/index.html"],
-  ["Decisions", "decisions/index.html"],
-  ["Results", "results/index.html", (m) => m.recordFiles?.results],
-  ["Timeline", "timeline/index.html"],
-  ["Progress", "progress/index.html"],
-  ["Process", "process/index.html"],
-  ["Records", "records/index.html"],
+  ["Home", "index.html", "The status of the project: the latest release, the open items and the milestones."],
+  ["Process", "process/index.html", "The stages of the work, from the inputs to the paper, with their dates."],
+  ["Timeline", "timeline/index.html", "The work by date: the stages, the releases and the decisions."],
+  ["Progress", "progress/index.html", "The milestones, the tasks that are complete and the paid calls."],
+  ["Decisions", "decisions/index.html", "Each decision: who proposed it, who decided it, and how."],
+  ["Contributions", "contributions/index.html", "The account of the researchers: who did what, and what no person checked."],
+  ["Records", "records/index.html", "The plans, designs, ledgers and reviews of the work."],
+  ["Results", "results/index.html", "Each result with its release, its source file and its status.", (m) => m.recordFiles?.results],
 ];
-const RELEASES_NAV = [["Releases", "releases/index.html", (m) => m.recordFiles?.releases]];
+const RELEASES_NAV = [["Releases", "releases/index.html", "Each tagged version of the code, with its changes and its decisions.",
+  (m) => m.recordFiles?.releases]];
+export const REPOSITORY_DESCRIPTION = "The code and all files of the project on GitHub.";
 
-// The [label, target] items of each group that show for this record. The
-// extra pages of site.config.json go at the end of the record group, or first
-// in the reuse group (their default). The repository link is not here.
+// The [label, target, description] items of each group that show for this
+// record. The extra pages of site.config.json go at the end of the record
+// group, or first in the reuse group (their default); an extra page without a
+// description has none. The repository link is not here.
 export function navGroups(model) {
-  const show = (items) => items.filter(([, , s]) => !s || s(model)).map(([label, target]) => [label, target]);
+  const show = (items) => items.filter(([, , , s]) => !s || s(model))
+    .map(([label, target, description]) => [label, target, description]);
   const extra = (group) => (model.config.pages ?? [])
-    .filter((p) => (p.group ?? "reuse") === group).map((p) => [p.title, p.path]);
+    .filter((p) => (p.group ?? "reuse") === group).map((p) => [p.title, p.path, p.description]);
   return {
     record: [...show(RECORD_NAV), ...extra("record")],
     reuse: [...extra("reuse"), ...show(RELEASES_NAV)],
   };
 }
 
+// Escape closes the description of the link under the pointer or with the
+// focus (WCAG 1.4.13); it shows again when the pointer or the focus leaves.
+const NAV_TIP_SCRIPT = `<script>
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  document.querySelectorAll(".site-nav li:hover, .site-nav li:focus-within").forEach((li) => li.classList.add("tip-closed"));
+});
+document.querySelectorAll(".site-nav li").forEach((li) => {
+  const reset = () => li.classList.remove("tip-closed");
+  li.addEventListener("mouseleave", reset);
+  li.addEventListener("focusout", reset);
+});
+</script>`;
+
 export function pageShell({ path, title, body, model, head = "", scripts = "" }) {
   const project = model.config.project;
   const repo = model.config.repository;
   const tokens = { ...DEFAULT_TOKENS, ...(model.config.theme || {}) };
   const groups = navGroups(model);
-  const link = ([label, target]) => {
-    const current = target === path ? ' aria-current="page"' : "";
-    return `<li><a href="${escapeHtml(rel(path, target))}"${current}>${escapeHtml(label)}</a></li>`;
+  // A link with a description gets a tooltip: aria-describedby gives the
+  // text to screen readers; CSS shows it on hover and on keyboard focus.
+  let tips = 0;
+  const link = ([label, href, description], current = "") => {
+    const a = `<a href="${escapeHtml(href)}"`;
+    if (!description) return `<li>${a}${current}>${escapeHtml(label)}</a></li>`;
+    const id = `nav-tip-${++tips}`;
+    return `<li>${a} aria-describedby="${id}"${current}>${escapeHtml(label)}</a>`
+      + `<span class="nav-tip" id="${id}" role="tooltip"><span>${escapeHtml(description)}</span></span></li>`;
   };
   const nav = NAV_GROUPS.map(({ group, id, label }) => {
-    const items = groups[group].map(link);
-    if (group === "reuse") items.push(`<li><a href="${escapeHtml(repo)}">Repository</a></li>`);
+    const items = groups[group].map(([text, target, description]) =>
+      link([text, rel(path, target), description], target === path ? ' aria-current="page"' : ""));
+    if (group === "reuse") items.push(link(["Repository", repo, REPOSITORY_DESCRIPTION]));
     return `<div class="nav-group ${id}">
 <p class="nav-label" id="${id}">${escapeHtml(label)}</p>
 <ul aria-labelledby="${id}">
@@ -207,6 +240,7 @@ ${body}
 <p>Built from commit ${escapeHtml(model.build.sha)} on ${escapeHtml(model.build.date)}. <a href="${escapeHtml(repo)}">Repository</a></p>
 </div>
 </footer>
+${NAV_TIP_SCRIPT}
 ${scripts}
 </body>
 </html>

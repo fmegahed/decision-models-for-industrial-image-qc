@@ -103,6 +103,12 @@ function readPages(root, raw, bad) {
     if (group !== "record" && group !== "reuse") {
       throw bad(`pages[${k}].group must be "record" or "reuse", not "${page.group}".`);
     }
+    // An optional one-line description: the tooltip of the link and the text
+    // after the link on the Home page.
+    const { description } = page;
+    if (description !== undefined && (typeof description !== "string" || description.trim() === "")) {
+      throw bad(`pages[${k}].description must be a non-empty string.`);
+    }
     const { file } = page;
     const parts = typeof file === "string" ? file.split("/") : [];
     if (typeof file !== "string" || /[\\:]/.test(file)
@@ -114,7 +120,7 @@ function readPages(root, raw, bad) {
     const name = parts[parts.length - 1];
     if (names.has(name)) throw bad(`pages[${k}].file has the same file name as pages[${names.get(name)}].file.`);
     names.set(name, k);
-    return { file, title: page.title, path: `pages/${name}`, group };
+    return { file, title: page.title, path: `pages/${name}`, group, ...(description !== undefined && { description }) };
   });
 }
 
