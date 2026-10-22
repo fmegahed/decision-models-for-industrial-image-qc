@@ -95,6 +95,7 @@
 | D89 | 2026-10-21 | Keep the test result of CLIP zero_final on textiles as it is, with a flag. All its probabilities are 0.999 or more; the clamp at 0.995 makes the Platt inputs equal, so Platt gives 0.5 to every image. Do not change the calibration code after the test results. | claude | claude | ruling | results/fair/scores/clip_zero_final_k0_textiles_test.csv; results/fair/summary/metrics.csv | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 17:09 | Thresholds and calibration | One secondary CLIP variant shows balanced accuracy 0.500 and an NA slope; its raw test AUC (0.685) shows its ranking. A change of the clamp now would be a choice made with the test set. It is not part of P1 to P3. | - |
 | D90 | 2026-10-21 | Push the branch fair-comparison and open a pull request to main. The merge waits for the approval of fmm. | claude | fmm | question | "Push and open PR (Recommended)" (2026-10-21) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 22:19 | Record and process | The code, the results and the analysis document of the fair comparison become public on GitHub before the merge. After the merge, results H9 to H15 go into results.md; the tag v0.1.0 waits for the D75 check. | - |
 | D91 | 2026-10-22 | Merge the pull request #1 (fair-comparison) into main with a merge commit. The branch commits that the ledger and the records name stay on main. | claude | fmm | question | "Merge commit (Recommended)" (2026-10-22) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 00:47 | Record and process | The code, the results and the analysis document of the fair comparison are on main (merge commit 0015900). Results H9 to H15 are added with Release "-". The tag v0.1.0 waits for the D75 check. | - |
+| D92 | 2026-10-22 | Tag the fair comparison as v0.0.2, not v0.1.0. | fmm | fmm | chat | "tag to be v 0.0.2" (2026-10-22) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 01:00 | Record and process | The plan, D75 and D91 name the tag v0.1.0. The tag of milestone M5 is v0.0.2. The D75 check is done (## Checks). | - |
 
 ## Topics
 
@@ -119,6 +120,43 @@ When a person checks a classified decision and finds it right, add one row to th
 
 | Decision | Checked by | Date | Note |
 |---|---|---|---|
+| D2 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D3 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D4 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D5 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D6 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D7 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D8 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D9 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D10 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D11 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D12 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D13 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D14 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D15 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D16 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D17 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D18 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D19 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D20 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D21 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D22 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D23 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D24 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D25 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D26 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D27 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D28 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D29 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D30 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D31 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D32 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D33 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D34 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D35 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D36 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D37 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
+| D38 | fmm | 2026-10-22 | D75 check of D2 to D38: "all correct as far as I can tell/recall" |
 
 ## Corrections
 

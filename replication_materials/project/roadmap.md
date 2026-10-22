@@ -15,7 +15,7 @@
 | M2 | Full MSEC 2027 paper | next | - | - |
 | M3 | R package decisionqc | planned | - | - |
 | M4 | Record additions: releases, results, timeline and contributions (replication-materials 1.2.0) | done | plans/2026-10-20-record-additions-plan.md | plans/2026-10-20-record-additions-ledger.md |
-| M5 | Fair comparison: shared label budget, blind description loop, calibration of all methods (v0.1.0) | now | plans/2026-10-20-fair-comparison-plan.md | - |
+| M5 | Fair comparison: shared label budget, blind description loop, calibration of all methods (v0.0.2) | now | plans/2026-10-20-fair-comparison-plan.md | - |
 
 ## Open items
 
