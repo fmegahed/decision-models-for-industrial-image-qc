@@ -1,7 +1,7 @@
 // Miami theme, HTML escaping and the shared page shell.
 import { posix } from "node:path";
 
-export const VERSION = "1.2.1";
+export const VERSION = "1.3.0";
 
 export const DEFAULT_TOKENS = {
   bg: "#FAF9F7",
@@ -88,9 +88,11 @@ pre code { background: none; padding: 0; }
 .site-header .inner { max-width: 72rem; margin: 0 auto; padding: 0.75rem 16px; }
 .site-title { margin: 0; font: 700 1.25rem/1.3 var(--serif); }
 .site-title a { color: var(--on-accent); text-decoration: none; }
-.site-nav ul { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; }
+.site-nav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem 1.5rem; margin-top: 0.5rem; }
+.site-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 0.4rem; }
+.nav-label { margin: 0 0 0 0.4rem; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .site-nav a, button, .button { display: inline-flex; align-items: center; min-height: 24px; min-width: 24px; padding: 0.25rem 0.5rem; }
-.site-nav a { color: var(--on-accent); }
+.site-nav a { color: var(--on-accent); padding: 0.25rem 0.4rem; }
 .site-nav a[aria-current="page"] { font-weight: 700; text-decoration: underline; text-underline-offset: 0.25em; text-decoration-thickness: 3px; }
 .site-header :focus-visible { outline-color: var(--on-accent); }
 button, .button { background: var(--tan); color: var(--ink); border: 2px solid var(--ink); font: inherit; cursor: pointer; }
@@ -110,42 +112,71 @@ th { background: var(--tan); }
 img, svg { max-width: 100%; height: auto; }
 @media (min-width: 900px) {
   .site-header { position: sticky; top: 0; z-index: 10; }
-  html { scroll-padding-top: 8rem; }
+  html { scroll-padding-top: 9rem; }
+  .nav-reuse { margin-left: auto; text-align: right; }
+  .nav-reuse .nav-label { margin: 0 0.4rem 0 0; }
+  .nav-reuse ul { justify-content: flex-end; }
   .doc-layout.has-rail { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 2rem; align-items: start; }
-  .doc-layout.has-rail .doc-rail { grid-column: 1; grid-row: 1; position: sticky; top: 8rem; margin: 0; }
+  .doc-layout.has-rail .doc-rail { grid-column: 1; grid-row: 1; position: sticky; top: 9rem; margin: 0; }
   .doc-layout.has-rail #doc-content { grid-column: 2; grid-row: 1; }
 }
 `;
 }
 
-// One ordered list of the record pages. A page with a third item shows only when it returns true.
-const NAV = [
+// The navigation has two groups, one for each kind of reader, and each group
+// is in reading order. "record": how the work was done with Claude Code (the
+// account first, then the decisions behind it, then the work over time, then
+// the documents). "reuse": what a reader needs to rerun the work and build on
+// it (the results, the extra pages, the releases, then the repository).
+// A page with a third item shows only when it returns true.
+export const NAV_GROUPS = [
+  { group: "record", id: "nav-record", label: "How we worked with Claude Code" },
+  { group: "reuse", id: "nav-reuse", label: "Rerun and build on it" },
+];
+const RECORD_NAV = [
   ["Home", "index.html"],
-  ["Records", "records/index.html"],
-  ["Decisions", "decisions/index.html"],
   ["Contributions", "contributions/index.html"],
+  ["Decisions", "decisions/index.html"],
   ["Timeline", "timeline/index.html"],
-  ["Releases", "releases/index.html", (m) => m.recordFiles?.releases],
-  ["Results", "results/index.html", (m) => m.recordFiles?.results],
   ["Progress", "progress/index.html"],
   ["Process", "process/index.html"],
+  ["Records", "records/index.html"],
 ];
+const RESULTS_NAV = [["Results", "results/index.html", (m) => m.recordFiles?.results]];
+const RELEASES_NAV = [["Releases", "releases/index.html", (m) => m.recordFiles?.releases]];
 
-// The nav items that show for this record, then the extra pages of site.config.json.
-export function navItems(model) {
-  const extra = (model.config.pages ?? []).map((p) => [p.title, p.path]);
-  return [...NAV.filter(([, , show]) => !show || show(model)).map(([label, target]) => [label, target]), ...extra];
+// The [label, target] items of each group that show for this record. The
+// extra pages of site.config.json go at the end of the record group, or after
+// Results in the reuse group (their default). The repository link is not here.
+export function navGroups(model) {
+  const show = (items) => items.filter(([, , s]) => !s || s(model)).map(([label, target]) => [label, target]);
+  const extra = (group) => (model.config.pages ?? [])
+    .filter((p) => (p.group ?? "reuse") === group).map((p) => [p.title, p.path]);
+  return {
+    record: [...show(RECORD_NAV), ...extra("record")],
+    reuse: [...show(RESULTS_NAV), ...extra("reuse"), ...show(RELEASES_NAV)],
+  };
 }
 
 export function pageShell({ path, title, body, model, head = "", scripts = "" }) {
   const project = model.config.project;
   const repo = model.config.repository;
   const tokens = { ...DEFAULT_TOKENS, ...(model.config.theme || {}) };
-  const items = navItems(model).map(([label, target]) => {
+  const groups = navGroups(model);
+  const link = ([label, target]) => {
     const current = target === path ? ' aria-current="page"' : "";
     return `<li><a href="${escapeHtml(rel(path, target))}"${current}>${escapeHtml(label)}</a></li>`;
+  };
+  const nav = NAV_GROUPS.map(({ group, id, label }) => {
+    const items = groups[group].map(link);
+    if (group === "reuse") items.push(`<li><a href="${escapeHtml(repo)}">Repository</a></li>`);
+    return `<div class="nav-group ${id}">
+<p class="nav-label" id="${id}">${escapeHtml(label)}</p>
+<ul aria-labelledby="${id}">
+${items.join("\n")}
+</ul>
+</div>`;
   });
-  items.push(`<li><a href="${escapeHtml(repo)}">Repository</a></li>`);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -163,9 +194,7 @@ ${head}
 <div class="inner">
 <p class="site-title"><a href="${escapeHtml(rel(path, "index.html"))}">${escapeHtml(project)}</a></p>
 <nav class="site-nav" aria-label="Site">
-<ul>
-${items.join("\n")}
-</ul>
+${nav.join("\n")}
 </nav>
 </div>
 </header>

@@ -97,6 +97,12 @@ function readPages(root, raw, bad) {
     if (typeof page.title !== "string" || page.title.trim() === "") {
       throw bad(`pages[${k}].title must be a non-empty string.`);
     }
+    // The navigation group of the page: "record" (how the work was done) or
+    // "reuse" (what a reader needs to rerun the work), the default.
+    const group = page.group ?? "reuse";
+    if (group !== "record" && group !== "reuse") {
+      throw bad(`pages[${k}].group must be "record" or "reuse", not "${page.group}".`);
+    }
     const { file } = page;
     const parts = typeof file === "string" ? file.split("/") : [];
     if (typeof file !== "string" || /[\\:]/.test(file)
@@ -108,7 +114,7 @@ function readPages(root, raw, bad) {
     const name = parts[parts.length - 1];
     if (names.has(name)) throw bad(`pages[${k}].file has the same file name as pages[${names.get(name)}].file.`);
     names.set(name, k);
-    return { file, title: page.title, path: `pages/${name}` };
+    return { file, title: page.title, path: `pages/${name}`, group };
   });
 }
 
