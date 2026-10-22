@@ -53,6 +53,30 @@ test_that("place_labels() drops a label that has no free candidate", {
   expect_equal(place_labels(touching, free, c(0, 10, 0, 10), pad = 0.1)$id, 1)
 })
 
+test_that("annotate_plot() aligns a label to the left or right of its anchor and shifts it by dx_pt", {
+  d <- data.frame(x = c(1, 6), y = 3)
+  p <- ggplot2::ggplot(d, ggplot2::aes(x, y)) +
+    ggplot2::geom_point(size = 1) +
+    ggplot2::coord_cartesian(xlim = c(0, 7), ylim = c(0, 7))
+  box_of <- function(side, dx) {
+    spec <- data.frame(id = 1, x = 3, y = 3, label = "0.25", colour = "black",
+                       side = side, dx_pt = dx)
+    out <- annotate_plot(p, spec, width = 4, height = 3, size_pt = 7, family = "sans")
+    ggplot2::layer_data(out, length(out$layers) - 1)
+  }
+  anchor <- (3 + 0.35) / 7.7 # npc of x = 3 (the range is 0 to 7, expanded by 5%)
+  expect_equal(as.numeric(box_of("above-left", 0)$xmax), anchor, tolerance = 1e-6)
+  expect_equal(as.numeric(box_of("below-right", 0)$xmin), anchor, tolerance = 1e-6)
+  expect_gt(as.numeric(box_of("above-left", 0)$ymin), 3.35 / 7.7)
+  expect_lt(as.numeric(box_of("below-right", 0)$ymax), 3.35 / 7.7)
+  # A shift of dx_pt moves the box by the same distance each time.
+  x0 <- as.numeric(box_of("above", 0)$xmin)
+  x10 <- as.numeric(box_of("above", 10)$xmin)
+  x20 <- as.numeric(box_of("above", 20)$xmin)
+  expect_gt(x10, x0)
+  expect_equal(x20 - x10, x10 - x0, tolerance = 1e-6)
+})
+
 test_that("annotate_plot() lets a label cross a reference line, on a white box", {
   d <- data.frame(x = 1, y = 3)
   p <- ggplot2::ggplot(d, ggplot2::aes(x, y)) +

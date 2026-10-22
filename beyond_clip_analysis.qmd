@@ -94,7 +94,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
 
 ## Figure and table style
 
-Figures use `theme_bw()` with no grid lines, bold axis titles and tick labels, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Five colors mark the models, the calibration and the defective class: teal for JEV, gold for Clef-Flash, blue for CLIP, plum for Platt scaling and the Accent Red of Miami University for defective images. Each color has a contrast of 4.5:1 or more on white (WCAG 2.2 AA for text), and each pair of colors stays apart in normal vision and in simulated protan, deutan and tritan vision [@machado2009physiologically]. `scripts/palette_check.R` compares them with published palettes. Colored words in the subtitle replace the legend. Subtitles are bold (F2 to F7) and wrap in lines of about the same length. No figure has a title: the caption takes its place, and the subtitle reads on its own. Labels give the values of the points and intervals where they overlap no mark and no other label; a label that would overlap is left out. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+Figures use `theme_bw()` with no grid lines, bold axis titles and tick labels, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Five colors mark the models, the calibration and the defective class: teal for JEV, gold for Clef-Flash, blue for CLIP, plum for Platt scaling and the Accent Red of Miami University for defective images. Each color has a contrast of 4.5:1 or more on white (WCAG 2.2 AA for text), and each pair of colors stays apart in normal vision and in simulated protan, deutan and tritan vision [@machado2009physiologically]. `scripts/palette_check.R` compares them with published palettes. Colored words in the subtitle replace the legend. Subtitles are bold (F2 to F7) and wrap in lines of about the same length. No figure has a title: the caption takes its place, and the subtitle reads on its own. Small labels give the values on a fixed side of each mark: in F3 to F5, the difference over each point and the 2.5% and 97.5% bounds over the ends of its interval, above JEV and below Clef-Flash; in F2, F6 and F7, the value of each point. A label that would overlap a mark or another label is left out. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
 
 ```{r}
 #| label: fonts-and-colors
@@ -264,10 +264,10 @@ paper_widths <- c("one-column" = 3.56, "two-column" = 7.5)
 # and no panel edge, or is left out. The places depend on the size of the
 # figure, so each figure function gets the size it is drawn at.
 source("R/figure_labels.R")
-label_size <- c("one-column" = 6, "two-column" = 6.5)
+# Small labels, so that they do not draw the eye from the data.
+label_size <- c("one-column" = 5.5, "two-column" = 6)
 add_labels <- function(plot, spec, layout, width, height) {
-  annotate_plot(plot, spec, width, height, size_pt = label_size[[layout]],
-                family = body_font)
+  annotate_plot(plot, spec, width, height, size_pt = label_size[[layout]], family = body_font)
 }
 
 # Text as outlines in a PDF or SVG file (showtext).
@@ -1037,9 +1037,10 @@ loop_final <- loop_summary |>
   dplyr::mutate(model = factor(model_labels[model], names(model_colors)),
                 dataset = label_dataset(dataset))
 
-# Figure F2: one row per model, one column per dataset. Labels: the AUC of
-# each candidate (kept ones first, then the diamonds, then the others),
-# above, below, right or left of its point.
+# Figure F2: one row per model, one column per dataset. Labels: the AUC
+# above each candidate and the AUC on C below the diamond, on the other side
+# when that place is taken (kept candidates first, then the diamonds, then
+# the others).
 fig_loop <- function(layout, paper = FALSE, width, height) {
   d <- loop_steps
   f <- loop_final
@@ -1047,15 +1048,18 @@ fig_loop <- function(layout, paper = FALSE, width, height) {
     levels(d$dataset) <- short_labels[dataset_order]
     levels(f$dataset) <- short_labels[dataset_order]
   }
-  sides <- c("above", "below", "right", "left")
   labels <- dplyr::bind_rows(
-    dplyr::transmute(dplyr::filter(d, kept), model, dataset, x = candidate, y = auc, gap_pt = 3.5),
-    dplyr::transmute(f, model, dataset, x = final, y = c_final, gap_pt = 4.5),
-    dplyr::transmute(dplyr::filter(d, !kept), model, dataset, x = candidate, y = auc, gap_pt = 3.5)
+    dplyr::transmute(dplyr::filter(d, kept), model, dataset, x = candidate, y = auc,
+                     gap_pt = 2.9, side = "above", other = "below"),
+    dplyr::transmute(f, model, dataset, x = final, y = c_final,
+                     gap_pt = 3.6, side = "below", other = "above"),
+    dplyr::transmute(dplyr::filter(d, !kept), model, dataset, x = candidate, y = auc,
+                     gap_pt = 2.9, side = "above", other = "below")
   ) |>
     dplyr::mutate(id = dplyr::row_number(), label = fmt(y),
-                  colour = unname(model_colors[as.character(model)])) |>
-    tidyr::expand_grid(side = sides)
+                  colour = unname(model_colors[as.character(model)]))
+  labels <- dplyr::bind_rows(labels, dplyr::mutate(labels, side = other)) |>
+    dplyr::arrange(id)
   plot <- ggplot2::ggplot(d, ggplot2::aes(candidate, auc, colour = model)) +
     ggplot2::geom_hline(yintercept = 0.5, colour = "grey70", linewidth = 0.3) +
     ggplot2::geom_step(ggplot2::aes(y = best), direction = "hv", linewidth = 0.6) +
@@ -1066,7 +1070,8 @@ fig_loop <- function(layout, paper = FALSE, width, height) {
     ggplot2::scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1)) +
     ggplot2::scale_x_continuous(breaks = 1:6) +
     ggplot2::scale_y_continuous(breaks = seq(0.5, 1, 0.1)) +
-    ggplot2::coord_cartesian(xlim = c(0.7, 6.3), ylim = c(0.45, 1.02)) +
+    # Room above 1 for the labels.
+    ggplot2::coord_cartesian(xlim = c(0.7, 6.3), ylim = c(0.45, 1.06)) +
     ggplot2::facet_grid(rows = ggplot2::vars(model), cols = ggplot2::vars(dataset)) +
     ggplot2::labs(
       subtitle = subline(
@@ -1315,36 +1320,59 @@ forest_data <- function(id, labels = metric_labels[headline_metrics]) {
       metric = factor(labels[metric], labels)
     )
   present <- intersect(dataset_order, d$dataset)
-  # Datasets top to bottom; JEV just above Clef-Flash in each row, far
-  # enough apart for a label on each.
+  # Datasets top to bottom; JEV just above Clef-Flash in each row.
   dplyr::mutate(d, y = match(dataset, present) +
-                  dplyr::if_else(model == "JEV", -0.2, 0.2))
+                  dplyr::if_else(model == "JEV", -0.12, 0.12))
 }
-# Labels: the difference and its interval, right of the interval or else
-# left of it.
+# Labels of a forest figure, small and in the model color: the difference
+# over its point and the 2.5% and 97.5% bounds over the ends of the
+# interval; above the JEV row, below the Clef-Flash row. A bound that does
+# not fit over its end goes beside the difference.
+forest_labels <- function(d, size) {
+  width_pt <- \(s) systemfonts::string_width(s, family = body_font, size = size, res = 7200) / 100
+  rows <- dplyr::mutate(
+    d, n = dplyr::row_number(), colour = unname(model_colors[as.character(model)]),
+    v = dplyr::if_else(model == "JEV", "above", "below"),
+    beside = width_pt(fmt(difference)) / 2 + 2 # half the difference label, and 2 pt
+  )
+  candidate <- function(part, rank, label, x, side, dx = 0) {
+    dplyr::mutate(rows, id = 3 * n + part, rank = rank, label = .env$label, x = .env$x,
+                  side = .env$side, dx_pt = .env$dx)
+  }
+  dplyr::bind_rows(
+    candidate(0, 1, fmt(rows$difference), rows$difference, rows$v),
+    candidate(1, 1, fmt(rows$low), rows$low, rows$v),
+    candidate(1, 2, fmt(rows$low), rows$low, stringr::str_c(rows$v, "-left")),
+    candidate(1, 3, fmt(rows$low), rows$difference, stringr::str_c(rows$v, "-left"), -rows$beside),
+    candidate(2, 1, fmt(rows$high), rows$high, rows$v),
+    candidate(2, 2, fmt(rows$high), rows$high, stringr::str_c(rows$v, "-right")),
+    candidate(2, 3, fmt(rows$high), rows$difference, stringr::str_c(rows$v, "-right"), rows$beside)
+  ) |>
+    dplyr::arrange(id, rank) |>
+    dplyr::mutate(gap_pt = 3.1) # just over the point (radius 3.0 pt)
+}
+# The panels stand side by side, except the three panels of the one-column
+# size of this document (one above the other).
 fig_forest <- function(id, text) {
   function(layout, paper = FALSE, width, height) {
     d <- forest_data(id, if (paper) paper_metric_labels else metric_labels[headline_metrics])
     present <- intersect(dataset_order, d$dataset)
     labels <- if (layout == "one-column") short_labels[present] else dataset_labels[present]
-    values <- d |>
-      dplyr::mutate(id = dplyr::row_number(),
-                    label = stringr::str_c(signed(difference), " [", fmt(low), ", ", fmt(high), "]"),
-                    colour = unname(model_colors[as.character(model)]), gap_pt = 3.5)
-    values <- dplyr::bind_rows(dplyr::mutate(values, x = high, side = "right"),
-                               dplyr::mutate(values, x = low, side = "left")) |>
-      dplyr::arrange(id)
     plot <- ggplot2::ggplot(d, ggplot2::aes(difference, y, colour = model)) +
       ggplot2::geom_vline(xintercept = 0, colour = "grey55", linewidth = 0.3) +
       ggplot2::geom_linerange(ggplot2::aes(xmin = low, xmax = high), linewidth = 0.6) +
       ggplot2::geom_point(size = 1.8) +
       ggplot2::scale_colour_manual(values = model_colors) +
-      # Room at both ends for the labels.
-      ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = 0.15)) +
+      # Room at both ends for a bound beside its difference label.
+      ggplot2::scale_x_continuous(
+        expand = ggplot2::expansion(mult = if (layout == "one-column") 0.25 else 0.15)
+      ) +
+      # Room for the labels above the first row and below the last one.
       ggplot2::scale_y_continuous(breaks = seq_along(present), labels = labels,
-                                  transform = "reverse") +
+                                  transform = "reverse",
+                                  expand = ggplot2::expansion(add = 0.45)) +
       ggplot2::facet_wrap(ggplot2::vars(metric), scales = "free_x",
-                          ncol = if (layout == "one-column") 1 else nlevels(d$metric)) +
+                          ncol = if (layout == "one-column" && !paper) 1 else nlevels(d$metric)) +
       ggplot2::labs(
         subtitle = subline(
           layout,
@@ -1358,12 +1386,12 @@ fig_forest <- function(id, text) {
       theme_paper(layout) +
       # Free x scales: space so that the end ticks of two panels stay apart.
       ggplot2::theme(panel.spacing.x = ggplot2::unit(14, "pt"))
-    add_labels(plot, values, layout, width, height)
+    add_labels(plot, forest_labels(d, label_size[[layout]]), layout, width, height)
   }
 }
-forest_heights <- c("one-column" = 6.0, "two-column" = 3.0)
+forest_heights <- c("one-column" = 8.0, "two-column" = 3.3)
 # Paper versions: two panels (accuracy, AUC).
-forest_paper_heights <- c("one-column" = 3.9, "two-column" = 3.0)
+forest_paper_heights <- c("one-column" = 3.6, "two-column" = 3.3)
 ```
 
 ## P1: against the CLIP baseline
@@ -1376,7 +1404,7 @@ On microstructure, the JEV difference is `r diff_text("P1", "jev", "microstructu
 #| label: fig-paired-p1
 #| fig-cap: "P1: the decision models (final description, k = 2) minus the CLIP baseline, both calibrated."
 #| fig-width: 7
-#| fig-height: 3.0
+#| fig-height: 3.3
 #| eval: !expr has_comparison("P1")
 #| include: !expr has_comparison("P1")
 # Figure F3.
@@ -1397,7 +1425,7 @@ For JEV on pipe staple, the final description is the generic text (decision D85)
 #| label: fig-paired-p2
 #| fig-cap: "P2: the final description minus the generic description, both at k = 2. Pans have no P2."
 #| fig-width: 7
-#| fig-height: 3.0
+#| fig-height: 3.3
 #| eval: !expr has_comparison("P2")
 #| include: !expr has_comparison("P2")
 # Figure F4.
@@ -1418,7 +1446,7 @@ The k = 0 side of JEV on pipe staple has a negative Platt slope (`r fmt(slope_of
 #| label: fig-paired-p3
 #| fig-cap: "P3: k = 2 minus k = 0, both with the final description (pans: generic)."
 #| fig-width: 7
-#| fig-height: 3.0
+#| fig-height: 3.3
 #| eval: !expr has_comparison("P3")
 #| include: !expr has_comparison("P3")
 # Figure F5.
@@ -1558,9 +1586,9 @@ curve <- k_curve |>
 curve_models <- intersect(names(model_colors), as.character(curve$model))
 
 # Figure F6: metrics by dataset (two-column) or datasets by metric
-# (one-column). Labels, k = 2 first, then k = 4, 1 and 0: the value and the
-# ends of its bar beside the point, or else the value alone beside the point
-# or beyond an end of the bar.
+# (one-column). Labels: the value of each point, as in F3 to F5 above JEV
+# (over its bar) and below Clef-Flash and CLIP (under their bars); k = 2
+# first, then k = 4, 1 and 0.
 fig_curve <- function(layout, paper = FALSE, width, height) {
   d <- curve
   if (paper) {
@@ -1572,24 +1600,15 @@ fig_curve <- function(layout, paper = FALSE, width, height) {
   } else {
     facets <- ggplot2::facet_grid(rows = ggplot2::vars(metric), cols = ggplot2::vars(dataset))
   }
-  points <- d |>
-    dplyr::arrange(match(k, c(2, 4, 1, 0)), model) |>
+  labels <- d |>
     dplyr::mutate(
-      id = dplyr::row_number(), colour = unname(model_colors[as.character(model)]),
-      with_bar = stringr::str_c(fmt(value), " [", fmt(low_value), ", ", fmt(high_value), "]")
-    )
-  bars <- dplyr::filter(points, !is.na(low_value))
-  labels <- dplyr::bind_rows(
-    dplyr::mutate(bars, label = with_bar, y = value, side = "right", rank = 1),
-    dplyr::mutate(bars, label = with_bar, y = value, side = "left", rank = 2),
-    dplyr::mutate(points, label = fmt(value), y = value, side = "right", rank = 3),
-    dplyr::mutate(points, label = fmt(value), y = value, side = "left", rank = 4),
-    dplyr::mutate(points, label = fmt(value), y = dplyr::coalesce(high_value, value),
-                  side = "above", rank = 5),
-    dplyr::mutate(points, label = fmt(value), y = dplyr::coalesce(low_value, value),
-                  side = "below", rank = 6)
-  ) |>
-    dplyr::arrange(id, rank)
+      label = fmt(value), colour = unname(model_colors[as.character(model)]),
+      side = dplyr::if_else(model == "JEV", "above", "below"),
+      y = dplyr::if_else(model == "JEV", dplyr::coalesce(high_value, value),
+                         dplyr::coalesce(low_value, value))
+    ) |>
+    dplyr::arrange(match(k, c(2, 4, 1, 0)), model) |>
+    dplyr::mutate(id = dplyr::row_number(), gap_pt = 2.5) # point radius 2.5 pt
   model_text <- purrr::map_chr(curve_models, \(m) paint(m, model_colors[[m]]))
   plot <- ggplot2::ggplot(d, ggplot2::aes(x, value, colour = model)) +
     ggplot2::geom_hline(yintercept = 0.5, colour = "grey70", linewidth = 0.3) +
@@ -1600,7 +1619,8 @@ fig_curve <- function(layout, paper = FALSE, width, height) {
     ggplot2::scale_colour_manual(values = model_colors) +
     ggplot2::scale_x_continuous(breaks = c(0, 1, 2, 4)) +
     ggplot2::scale_y_continuous(breaks = seq(0.4, 1, 0.2)) +
-    ggplot2::coord_cartesian(ylim = c(0.3, 1.02)) +
+    # Room above 1 for the labels.
+    ggplot2::coord_cartesian(ylim = c(0.3, 1.07)) +
     facets +
     ggplot2::labs(
       subtitle = subline(
@@ -1734,17 +1754,16 @@ strip_text <- function(layout) {
 }
 
 # Figure F7: five panels per row (two-column) or three (one-column).
-# Labels: the observed defect rate of each bin (Platt first), above, below,
-# right or left of its point.
+# Labels: the observed defect rate of each bin, above the Platt points and
+# below the raw ones (Platt first).
 fig_reliability <- function(layout, paper = FALSE, width, height) {
   d <- dplyr::inner_join(reliability, strip_text(layout), by = c("method", "dataset"))
-  sides <- c("above", "below", "right", "left")
   labels <- d |>
     dplyr::arrange(calibration != "Platt") |>
     dplyr::transmute(strip, x = mean_p, y = observed, label = fmt(observed),
                      colour = unname(calibration_colors[as.character(calibration)]),
-                     id = dplyr::row_number(), gap_pt = 2.5) |>
-    tidyr::expand_grid(side = sides)
+                     side = dplyr::if_else(calibration == "Platt", "above", "below"),
+                     id = dplyr::row_number(), gap_pt = 1.8) # point radius 1.75 pt
   plot <- ggplot2::ggplot(d, ggplot2::aes(mean_p, observed, colour = calibration)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey70", linewidth = 0.3) +
     ggplot2::geom_line(linewidth = 0.55) +

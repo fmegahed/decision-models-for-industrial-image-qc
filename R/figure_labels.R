@@ -129,13 +129,17 @@ panel_size <- function(gtable, width, height) {
 
 # Add the labels of `spec` to `plot` for a figure of `width` x `height`
 # inches. `spec`: one row per candidate place, in order of priority, with
-# id, x, y (data units: the anchor), side ("right", "left", "above",
-# "below"), label, colour, an optional gap_pt (distance from the anchor; more
-# than the radius of a point or the half width of a line at the anchor) and
-# the facet columns of the plot. The labels are drawn in npc units (I()), so
-# they never change the scales.
+# id, x, y (data units: the anchor), side, label, colour and the facet
+# columns of the plot. Sides: "right" and "left" (beside the anchor);
+# "above" and "below" (centered on it); "above-left", "above-right",
+# "below-left" and "below-right" (above or below, with the right or the left
+# edge of the label at the anchor). Optional: gap_pt (distance from the
+# anchor; more than the radius of a point or the half width of a line at
+# the anchor) and dx_pt (a shift to the right, in points). `height_em`: the
+# height of a label box in em (0.75 fits digits, signs and points). The
+# labels are drawn in npc units (I()), so they never change the scales.
 annotate_plot <- function(plot, spec, width, height, size_pt, family,
-                          gap_pt = 3, pad_pt = 1) {
+                          gap_pt = 3, pad_pt = 1, height_em = 0.75) {
   file <- tempfile(fileext = ".png")
   ragg::agg_png(file, width = width, height = height, units = "in", res = 72)
   on.exit({
@@ -150,6 +154,7 @@ annotate_plot <- function(plot, spec, width, height, size_pt, family,
     do.call(paste, c(lapply(d[facets], as.character), sep = "\r"))
   spec$PANEL <- layout$PANEL[match(key(spec), key(layout))]
   if (is.null(spec$gap_pt)) spec$gap_pt <- gap_pt
+  if (is.null(spec$dx_pt)) spec$dx_pt <- 0
 
   transform <- function(axis, v) {
     scale <- built$plot$scales$get_scales(axis)
@@ -157,7 +162,7 @@ annotate_plot <- function(plot, spec, width, height, size_pt, family,
   }
   obstacles <- plot_obstacles(built)
   w <- systemfonts::string_width(spec$label, family = family, size = size_pt, res = 7200) / 7200
-  h <- size_pt * 0.95 / 72
+  h <- size_pt * height_em / 72
 
   placed <- purrr::map(split(seq_len(nrow(spec)), spec$PANEL, drop = TRUE), \(rows) {
     s <- spec[rows, ]
@@ -169,10 +174,15 @@ annotate_plot <- function(plot, spec, width, height, size_pt, family,
     ay <- to_y(transform("y", s$y))
     gap <- s$gap_pt / 72 + pad_pt / 72 # the padding never blocks the own anchor
     sw <- w[rows]
-    xmin <- dplyr::case_when(s$side == "right" ~ ax + gap, s$side == "left" ~ ax - gap - sw,
-                             .default = ax - sw / 2)
-    ymin <- dplyr::case_when(s$side == "above" ~ ay + gap, s$side == "below" ~ ay - gap - h,
-                             .default = ay - h / 2)
+    xmin <- dplyr::case_when(
+      s$side == "right" ~ ax + gap, s$side == "left" ~ ax - gap - sw,
+      endsWith(s$side, "-left") ~ ax - sw, endsWith(s$side, "-right") ~ ax,
+      .default = ax - sw / 2
+    ) + s$dx_pt / 72
+    ymin <- dplyr::case_when(
+      startsWith(s$side, "above") ~ ay + gap, startsWith(s$side, "below") ~ ay - gap - h,
+      .default = ay - h / 2
+    )
     candidates <- data.frame(id = s$id, xmin = xmin, xmax = xmin + sw, ymin = ymin,
                              ymax = ymin + h, row = rows)
 
