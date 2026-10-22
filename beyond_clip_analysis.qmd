@@ -81,7 +81,7 @@ tables_dir   <- if (use_rerun) file.path(rerun_root, "tables") else "tables"
 # Install the packages that are missing; all calls below use pkg::fun().
 packages <- c(
   "dplyr", "tidyr", "purrr", "readr", "stringr", "tibble", "rlang", "withr",
-  "ggplot2", "ggtext", "patchwork", "RColorBrewer", "knitr", "kableExtra",
+  "ggplot2", "ggtext", "patchwork", "knitr", "kableExtra",
   "DT", "magick", "showtext", "sysfonts", "systemfonts", "ragg", "scales",
   "yardstick"
 )
@@ -94,7 +94,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
 
 ## Figure and table style
 
-Figures use `theme_bw()` with the Dark2 palette, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Colored words in the subtitle replace the legend. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF with no title, at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`: the LaTeX caption takes the place of the title, and the subtitle reads on its own. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+Figures use `theme_bw()` with no grid lines, bold axis titles and tick labels, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Five colors mark the models, the calibration and the defective class: teal for JEV, gold for Clef-Flash, blue for CLIP, plum for Platt scaling and the Accent Red of Miami University for defective images. Each color has a contrast of 4.5:1 or more on white (WCAG 2.2 AA for text), and each pair of colors stays apart in normal vision and in simulated protan, deutan and tritan vision [@machado2009physiologically]. `scripts/palette_check.R` compares them with published palettes. Colored words in the subtitle replace the legend. Subtitles are bold (F2 to F7) and wrap in lines of about the same length. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF with no title, at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`: the LaTeX caption takes the place of the title, and the subtitle reads on its own. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
 
 ```{r}
 #| label: fonts-and-colors
@@ -118,14 +118,20 @@ purrr::iwalk(fonts, \(f, family) {
                      italic = f[["italic"]], bolditalic = f[["bold"]])
 })
 
-# Colors: one per model, class and calibration method.
-dark2 <- RColorBrewer::brewer.pal(8, "Dark2")
-model_colors <- c("JEV" = dark2[1], "Clef-Flash" = dark2[3], "CLIP" = dark2[2])
-class_colors <- c(nominal = "grey30", defective = dark2[4])
-calibration_colors <- c(raw = "grey45", Platt = dark2[7], isotonic = dark2[5])
-# Text in tables: 25% darker model colors. The Dark2 colors are below the
-# WCAG AA contrast of 4.5:1 for text (JEV: 3.4:1 on white); the darker ones
-# reach 5.1:1 or more on both table backgrounds.
+# Colors: one per model, class and calibration method. Each reaches 4.5:1
+# on white, and each pair stays apart in normal and simulated protan, deutan
+# and tritan vision (scripts/palette_check.R). The red is the Accent Red of
+# Miami University.
+figure_colors <- c(teal = "#00829B", gold = "#917300", blue = "#0A4BC3",
+                   plum = "#872D91", red = "#AD102A")
+model_colors <- c("JEV" = figure_colors[["teal"]],
+                  "Clef-Flash" = figure_colors[["gold"]],
+                  "CLIP" = figure_colors[["blue"]])
+class_colors <- c(nominal = "grey30", defective = figure_colors[["red"]])
+calibration_colors <- c(raw = "grey45", Platt = figure_colors[["plum"]])
+# Text in tables: 25% darker model colors. Teal and gold are below the WCAG
+# AA contrast of 4.5:1 for text on the grey rows (4.1:1); the darker ones
+# reach 6.4:1 or more on both table backgrounds.
 model_text_colors <- purrr::map_chr(model_colors, \(color) {
   grDevices::rgb(t(grDevices::col2rgb(color) * 0.75), maxColorValue = 255)
 })
@@ -179,33 +185,56 @@ headline <- function(text, layout) {
 
 # Subtitles are wrapped here, not by ggtext: its text boxes sometimes
 # reserve one line less than they draw, and the subtitle then overlaps the
-# title. Line length counts visible characters only, and a colored span or
-# "k = 2" never breaks across lines (its spaces become no-break spaces first).
-subline <- function(layout, ...) {
+# title. Each word is measured in its font (systemfonts), bold or not. The
+# text takes the fewest lines that fit the figure, and then the narrowest
+# width that keeps that number of lines, so the lines are about the same
+# length. A colored span or "k = 2" never breaks across lines (its spaces
+# become no-break spaces first). `bold`: the text outside the bold spans is
+# bold; `size`: the text size relative to the base size.
+subline <- function(layout, ..., bold = TRUE, size = 1) {
   nbsp <- " "
   text <- stringr::str_c(...) |>
     stringr::str_replace_all("<span[^>]*>.*?</span>|k = \\d",
                              \(s) stringr::str_replace_all(s, " ", nbsp))
   words <- stringr::str_split_1(text, " ")
-  visible <- stringr::str_length(stringr::str_remove_all(words, "<[^>]+>|\\*\\*"))
-  width <- c("one-column" = 68, "two-column" = 125)[[layout]]
-  lines <- character()
-  current <- integer()
-  for (i in seq_along(words)) {
-    line_length <- sum(visible[current]) + length(current) + visible[i]
-    if (length(current) > 0 && line_length > width) {
-      lines <- c(lines, stringr::str_c(words[current], collapse = " "))
-      current <- integer()
+  measure <- \(s, weight) systemfonts::string_width(
+    s, family = body_font, weight = weight,
+    size = layouts[[layout]]$base_size * size, res = 7200
+  ) / 100 # points
+  widths <- purrr::map2_dbl(
+    stringr::str_replace_all(stringr::str_remove_all(words, "<[^>]+>|\\*\\*"), nbsp, " "),
+    dplyr::if_else(bold | stringr::str_detect(words, "\\*\\*"), "bold", "normal"),
+    measure
+  )
+  space <- measure(" ", if (bold) "bold" else "normal")
+  # The line of each word when no line is wider than `limit` points.
+  wrap <- function(limit) {
+    line <- integer(length(widths))
+    n <- 1
+    used <- -space
+    for (i in seq_along(widths)) {
+      if (used > 0 && used + space + widths[i] > limit) {
+        n <- n + 1
+        used <- -space
+      }
+      used <- used + space + widths[i]
+      line[i] <- n
     }
-    current <- c(current, i)
+    line
   }
-  lines <- c(lines, stringr::str_c(words[current], collapse = " "))
-  stringr::str_c(lines, collapse = "<br>") |>
+  # The figure less its margins (5.5 pt each side), and 3% to spare.
+  limit <- (layouts[[layout]]$width * 72 - 11) * 0.97
+  lines <- max(wrap(limit))
+  while (limit > max(widths) && max(wrap(limit - 1)) == lines) limit <- limit - 1
+  split(words, wrap(limit)) |>
+    purrr::map_chr(\(w) stringr::str_c(w, collapse = " ")) |>
+    stringr::str_c(collapse = "<br>") |>
     stringr::str_replace_all(nbsp, " ")
 }
 
-# The theme of all figures.
-theme_paper <- function(layout) {
+# The theme of all figures: no grid lines; bold axis titles, tick labels
+# and ticks. `subtitle_face`: bold for F2 to F7, plain for F1.
+theme_paper <- function(layout, subtitle_face = "bold") {
   ggplot2::theme_bw(base_size = layouts[[layout]]$base_size,
                     base_family = body_font) +
     ggplot2::theme(
@@ -216,7 +245,7 @@ theme_paper <- function(layout) {
         size = ggplot2::rel(1.2), margin = ggplot2::margin(0, 0, 3, 0)
       ),
       plot.subtitle = ggtext::element_markdown(
-        colour = "grey25", lineheight = 1.15,
+        face = subtitle_face, colour = "grey25", lineheight = 1.15,
         margin = ggplot2::margin(0, 0, 6, 0)
       ),
       plot.caption.position = "plot",
@@ -224,11 +253,14 @@ theme_paper <- function(layout) {
         colour = "grey35", size = ggplot2::rel(0.8), hjust = 0,
         lineheight = 1.1, margin = ggplot2::margin(6, 0, 0, 0)
       ),
-      panel.grid.minor = ggplot2::element_blank(),
+      panel.grid = ggplot2::element_blank(),
       strip.background = ggplot2::element_rect(fill = "grey95",
                                                colour = "grey70"),
       strip.text = ggplot2::element_text(face = "bold", colour = "grey20"),
-      axis.title = ggplot2::element_text(colour = "grey25")
+      axis.title = ggplot2::element_text(face = "bold", colour = "grey15"),
+      axis.text = ggplot2::element_text(face = "bold", colour = "grey15"),
+      axis.ticks = ggplot2::element_line(colour = "grey15", linewidth = ggplot2::rel(1.6)),
+      axis.ticks.length = ggplot2::unit(3, "pt")
     )
 }
 
@@ -761,16 +793,18 @@ fig_references <- function(layout, paper = FALSE) {
         paint("defective", class_colors[["defective"]]),
         " reference images, two per class (k = 2) for each dataset, drawn ",
         "from the learning set (seed 202610) and center-cropped as sent to the ",
-        "decision models. Small images are enlarged here for display only."
+        "decision models. Small images are enlarged here for display only.",
+        bold = FALSE
       ),
       # Image sources. AutoVI is CC BY-NC-SA 4.0: the pipe staple tiles of
       # this figure keep that license.
       caption = subline(
         layout,
         "Images: Megahed et al. (2026), github.com/fmegahed/qe_genai. ",
-        "Pipe staple: AutoVI (Carvalho et al., 2024), CC BY-NC-SA 4.0."
+        "Pipe staple: AutoVI (Carvalho et al., 2024), CC BY-NC-SA 4.0.",
+        bold = FALSE, size = 0.8
       ),
-      theme = theme_paper(layout)
+      theme = theme_paper(layout, subtitle_face = "plain")
     )
 }
 save_figure(fig_references, "F1_reference_images",
@@ -1315,8 +1349,7 @@ fig_forest <- function(id, title, text) {
         ),
         x = "Difference", y = NULL
       ) +
-      theme_paper(layout) +
-      ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())
+      theme_paper(layout)
   }
 }
 forest_heights <- c("one-column" = 5.6, "two-column" = 3.2)
