@@ -4,7 +4,7 @@
 - Milestone: M3
 - Status: all open items decided (D166 to D180), for approval by fmm
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D136 to D180
+- Decisions in the record: D136 to D182
 - Replaces: `docs/decisionqc_design.md` (draft of 2026-10-20, when the package had the name decisionqc and served only image inspection)
 
 Revision 2 applied D156 to D162: the package is smaller, it manages no spending, and it keeps no cache and no prices. Revision 3 applies D163 to D180: no claim of a first model, calibration with probably, no GUI in the package, and the answers of fmm to the 15 open items (section 12).
@@ -195,10 +195,17 @@ In addition, the key is a secret of the host, never a field of the app.
 
 ### 5.9 Dependencies
 
-- Imports: httr2, S7 (D166), rlang, cli, tibble, jsonlite.
+- Imports: httr2, S7 (D166), rlang, cli, tibble, jsonlite and purrr (the loops, D181).
 - magick is in Suggests (D176). When an image arrives and magick is not installed, the package guides the user: `rlang::check_installed("magick", reason = "to read images")` says why and, in an interactive session, offers to install it.
 - Suggests: probably (calibration), testthat, withr, knitr, rmarkdown, and the packages of the vignettes (rsample, yardstick, dplyr). livelink is not a dependency (D151). shiny is not a dependency: the app chunk of vignette 6 is shown, not run, on CRAN (D165).
 - No compiled code (D139), so the package builds in webR.
+
+### 5.10 Code quality (D181, D182)
+
+- The code is correct, efficient and easy to follow. A simple code base comes before features. fmm chose one model per call (D168) and no GUI (D165) for this reason.
+- Each function does one thing. Internal helpers stay short. No abstraction exists for only one use.
+- The style of fmm applies: httr2 for the APIs, the native pipe, `pkg::fun()` calls, and tidyverse verbs where they are simpler than base R (purrr for loops, as in D168).
+- Every function, exported or internal, has roxygen2 documentation (D182), in the style of the study (`R/industrial_defect_classifier.R`): a title line, `@param` with backticks for values, `@return`, `@details` when needed, `@export` for the 14 exported functions, and `@examples` that run without a key (or are wrapped in `\dontrun{}` when they need one).
 
 ## 6. Build and tests (D153, D158)
 
@@ -275,6 +282,7 @@ One first release, 0.1.0 (D180), with the 14 functions, the skill, the six vigne
 | D164 | calibration with probably, not in the package; tidymodels names for the probability columns | sections 4.1, 5.3 to 5.5 |
 | D165 | no GUI in the package; the Space and a short app in vignette 6 | sections 5.8, 7, 8 |
 | D166 to D180 | the 15 open items, decided by fmm | section 12 |
+| D181, D182 | correct, efficient and easy-to-follow code; roxygen2 for every function | section 5.10 |
 
 ## 11. Left to the builder
 
