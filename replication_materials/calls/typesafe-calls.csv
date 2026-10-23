@@ -8433,3 +8433,13 @@ time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_
 2026-10-21T16:12:58Z,20261021T161258.218-IMG_1470.JPG,fair test jev generic k4 pan_images,jev-1.13.0,,200,339,14548,33,6.11016e-4
 2026-10-21T16:13:00Z,20261021T161300.646-IMG_1473.JPG,fair test jev generic k4 pan_images,jev-1.13.0,,200,421,14548,33,6.11016e-4
 2026-10-21T16:13:03Z,20261021T161303.305-IMG_1474.JPG,fair test jev generic k4 pan_images,jev-1.13.0,,200,332,14548,33,6.11016e-4
+2026-10-23T04:04:12Z,typesafe-noul,decisions-task2-noul,jev-1.13.0,,200,202,313,20,1.3146e-05
+2026-10-23T04:04:12Z,typesafe-choice2,decisions-task2-choice2,jev-1.13.0,,200,79,358,31,1.5036e-05
+2026-10-23T04:04:13Z,typesafe-choice3,decisions-task2-choice3,jev-1.13.0,,200,76,373,38,1.5666e-05
+2026-10-23T04:04:13Z,typesafe-score3,decisions-task2-score3,jev-1.13.0,,200,123,359,18,1.5078e-05
+2026-10-23T04:04:13Z,typesafe-combined,decisions-task2-combined,jev-1.13.0,,200,79,509,99,2.1378e-05
+2026-10-23T04:04:13Z,typesafe-latest,decisions-task2-latest,jev-latest,,200,76,313,20,1.3146e-05
+2026-10-23T04:04:13Z,typesafe-bad-type,decisions-task2-bad-type,jev-1.13.0,,400,45,,,
+2026-10-23T04:04:13Z,typesafe-image,decisions-task2-image,jev-1.13.0,,400,54,,,
+2026-10-23T04:04:38Z,typesafe-image,decisions-task2-image,jev-1.13.0,,400,140,,,
+2026-10-23T04:04:45Z,typesafe-image,decisions-task2-image,jev-1.13.0,,200,212,978,35,4.1076e-05
