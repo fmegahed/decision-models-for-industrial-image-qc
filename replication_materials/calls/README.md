@@ -9,6 +9,11 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-10-23 | typesafe | Package decisions (M3), Task 2: real responses of each question type (noul, choice, score) and of an image request, for the tests of the package (D188) | 400 | 9.5 | fmm |
 | 2026-10-23 | openai | Package decisions (M3), Task 2: the same with the OpenAI Decisions API (gpt-6-luna) (D188) | 400 | 9.5 | fmm |
 | 2026-10-23 | openrouter | Package decisions (M3), Task 2: the same with Jev and Microsoft-Decision-1 through OpenRouter (D188) | 400 | 9.5 | fmm |
+| 2026-10-23 | typesafe | Package decisions (M3), Task 11: saved results of vignettes 1 to 4 and 6 (D191) | 300 | 1 | fmm |
+| 2026-10-23 | openai | Package decisions (M3), Task 11: the same with the OpenAI Decisions API (D191) | 300 | 1 | fmm |
+| 2026-10-23 | openrouter | Package decisions (M3), Task 11: Jev and Microsoft-Decision-1 through OpenRouter for vignette 3 (D191) | 150 | 0.5 | fmm |
+| 2026-10-23 | typesafe | Package decisions (M3), Task 12: vignette 5 repeats the study with Jev (grid, rescoring of the loop wordings, calibration, one test) (D191) | 8000 | 5 | fmm |
+| 2026-10-23 | openai | Package decisions (M3), Task 12: the same with gpt-6-luna (D191) | 8000 | 10 | fmm |
 
 ## Call logs
 
