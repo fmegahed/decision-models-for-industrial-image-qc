@@ -262,3 +262,4 @@ To correct a decision, add one row to this table. Name the person who checked it
 
 | Decision | Field | New value | Checked by | Date | Note |
 |---|---|---|---|---|---|
+| D190 | Decision | The cleaning of the probability column names transliterates as janitor does, with stringi::stri_trans_general(x, "Any-Latin;Latin-ASCII") (café gives cafe, да gives da), and a name that starts with a digit gets the prefix X; stringi goes to Imports. | claude | 2026-10-23 | janitor::make_clean_names() uses Any-Latin before Latin-ASCII and the prefix X; Latin-ASCII alone keeps Cyrillic letters. The intent of D190 (as janitor does) is unchanged. |
