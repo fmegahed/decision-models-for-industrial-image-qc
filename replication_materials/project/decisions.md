@@ -186,6 +186,7 @@
 | D180 | 2026-10-23 | The first CRAN release, 0.1.0, has all 14 functions, the agent skill, the six vignettes and webR example A. | claude | fmm | question | "Everything (Recommended)" (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 03:33 | Code and tooling | - | - |
 | D181 | 2026-10-23 | The code of decisions must be correct, efficient and easy to follow. A simple code base comes before features: this is why fmm chose one model per call (D168) and no GUI in the package (D165). | fmm | fmm | chat | "Note I chose the purrr::map approach and no GUI to simplify the code base." (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 03:34 | Code and tooling | fmm: "This is imprtant; correct, efficient and easy to follow code". | - |
 | D182 | 2026-10-23 | Every function of decisions has roxygen2 documentation. | fmm | fmm | chat | "Also use roxygen2 for function documentation" (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 03:34 | Code and tooling | - | - |
+| D183 | 2026-10-23 | Approve the design of the R package decisions (revision 3, plans/2026-10-23-decisions-package-design.md). The next step is the implementation plan. | claude | fmm | plan-approval | plans/2026-10-23-decisions-package-design.md | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 03:36 | Code and tooling | - | - |
 
 ## Topics
 

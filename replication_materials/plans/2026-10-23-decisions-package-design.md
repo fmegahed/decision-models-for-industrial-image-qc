@@ -2,7 +2,7 @@
 
 - Date: 2026-10-23 (revision 3)
 - Milestone: M3
-- Status: all open items decided (D166 to D180), for approval by fmm
+- Status: approved by fmm on 2026-10-23 (D183)
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
 - Decisions in the record: D136 to D182
 - Replaces: `docs/decisionqc_design.md` (draft of 2026-10-20, when the package had the name decisionqc and served only image inspection)
