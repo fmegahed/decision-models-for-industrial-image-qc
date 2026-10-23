@@ -4,7 +4,7 @@
 - Milestone: M3
 - Status: draft, for review by fmm
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D136 to D151
+- Decisions in the record: D136 to D155
 - Replaces: `docs/decisionqc_design.md` (draft of 2026-10-20, when the package had the name decisionqc and served only image inspection)
 
 In this document, "Claude call" marks an item that Claude Code proposes and fmm did not decide yet. fmm decides these items when fmm approves this document. Section 10 lists them.
@@ -148,6 +148,10 @@ The package follows the style of ellmer, so that ellmer users feel at home: cons
 - `score_setup(setup, inputs, truth, metric = "roc_auc", log = NULL)` scores a setup on labeled inputs that are not references, and returns the metric. With `log`, it adds one line per attempt to a JSON Lines file: the time, the descriptions, the score, the calls and the cost. `read_attempts(log)` reads the file. A person can review each attempt.
 - The skill is in `inst/skills/decisions/` (`SKILL.md` and reference files), as in commons 0.1.1. The description of the skill names the functions of the package, so that an agent loads the skill when a project uses them. A vignette shows how to copy it to `.claude/skills` (Claude Code) or to `.agents/skills` (Posit Assistant, Codex) with `system.file()` and `file.copy()`.
 - Reference files (Claude call): writing questions; tuning descriptions; calibration and evaluation; sharing a setup.
+- The package guards the test data, and the skill gives the rules (D155):
+  - `split_role(inputs, role)` marks rows as `"learning"`, `"calibration"` or `"test"`. `score_setup()` refuses rows marked `"test"`.
+  - `evaluate_once(setup, test_inputs, truth, path)` scores the test rows one time only, as `scripts/evaluate_frozen.R` did. It refuses a second run when its result file exists.
+  - The documentation says plainly that these guards stop mistakes, not an agent that reads files with a shell. In the study, the sandbox still let some reads out (O5).
 - The rules of the description loop of the study go into the skill (`scripts/fair_loop_instructions.md`): keep a change only when the ROC AUC rises by at least 0.02; base each change on what the examples show; do not aim for an AUC of 1; the agent sees only the scores and the learning examples, never the test set; the spending cap applies.
 
 ### 4.9 GUI (D147)
@@ -219,7 +223,7 @@ Claude call:
 - 0.1.0 (first CRAN release): sections 3 and 4.1 to 4.8 (models, questions, inputs, decisions, cache, cap, calibration, report, setups, skill hooks and the skill), vignettes 1 to 6, webR example A.
 - 0.2.0: the GUI (both modes), `write_app()`, the Hugging Face Space, webR example B.
 
-The date of the first CRAN release is open (section 11).
+The first CRAN release has no fixed date. It goes to CRAN when 0.1.0 is complete (D154).
 
 ## 8. Decisions and their impacts
 
@@ -236,6 +240,10 @@ The date of the first CRAN release is open (section 11).
 | D144 | vignette 5 replicates Clef-Flash against JEV and tunes descriptions | section 5 |
 | D145 | the lightest example in webR | section 5.1 |
 | D151 | livelink is not a dependency; it is the fallback for webR | sections 4.11, 5.1 |
+| D152 | keep the name decisions, not decider | all |
+| D153 | live tests with TypeSafe, OpenAI, Foundry or OpenRouter, and local servers | sections 3, 4.12 |
+| D154 | no fixed date for the first CRAN release | section 7 |
+| D155 | a guard for test data in the package, and rules in the skill | section 4.8 |
 | D146 | the name decisions | all |
 | D147 | GUI with build and use modes and a saved setup | sections 4.7, 4.9 |
 | D148 | agent skill in the package, as in commons | section 4.8 |
@@ -268,9 +276,18 @@ The date of the first CRAN release is open (section 11).
 15. Vignette 6 uses sample answers written for the vignette (section 5).
 16. pplx-decider stays out of 0.1.0 until its request format is known (section 3.1).
 
-## 11. Questions for fmm
+## 11. Questions for fmm and the answers
 
-To be filled in after the builder check.
+A fresh reviewer read this design as a builder (2026-10-23). It asked seven questions. Claude Code settled four (section 10, items 12 to 15). fmm answered the others (2026-10-23):
+
+| Question | Answer | ID |
+|---|---|---|
+| The name: decider or decisions? On 2026-10-23, decider was free on CRAN, but Boehringer-Ingelheim/decider (GitHub, 2023) and decideR (R-universe, active) use it. | decisions | D152 |
+| Which providers can fmm call for live tests? | TypeSafe (Jev), the OpenAI Decisions API, Microsoft-Decision-1 through Foundry or OpenRouter, and local servers (Clef-Flash on the GPU, Laya) | D153 |
+| When must the first CRAN release be out? | no fixed date; when 0.1.0 is complete | D154 |
+| How strictly must the package keep a tuning agent away from the test data? | a guard in the package and rules in the skill, not a full sandbox | D155 |
+
+With access to all four providers, the builder records real responses for the mocked tests of each request format. The budget for these live calls is a row in `replication_materials/calls/README.md`, which fmm approves before the first call.
 
 ## Sources
 
