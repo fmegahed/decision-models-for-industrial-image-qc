@@ -36,7 +36,7 @@
 2. Images that are gray, CMYK, PNG with alpha, or rotated by EXIF: they arrive upright, in sRGB, as JPEG, with three channels when `image_format = "images"` (the SGLang server of Clef-Flash fails on one-channel JPEGs). (Task 4)
 3. A rerun with the same `path` after one description changed: `decide()` stops with a message that names the hash mismatch and `ignore_hash`; it never reuses answers made with the old wording. (Task 7)
 4. Text with quotes, newlines, non-ASCII letters and 5,000 characters: the JSON body round-trips exactly, and a provider refusal reaches `.error` word for word, with the model name and the request size. (Tasks 5, 6)
-5. Answer names with spaces or punctuation (for example `"not sure"`): the factor levels equal the allowed answers, and the probability columns keep the exact names (backticked), so `probably` and `yardstick` select them with `dplyr::starts_with(".pred_")`. (Tasks 2, 6)
+5. Answer names with spaces or punctuation (for example `"not sure"`): the factor levels equal the allowed answers, and the probability columns get syntactic names (`.pred_not_sure`, D189), so `probably` (whose logistic method builds a formula) and `yardstick` select them with `dplyr::starts_with(".pred_")`. (Tasks 3, 6)
 
 ---
 

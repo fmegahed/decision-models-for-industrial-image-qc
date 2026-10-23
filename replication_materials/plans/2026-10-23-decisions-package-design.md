@@ -4,7 +4,7 @@
 - Milestone: M3
 - Status: approved by fmm on 2026-10-23 (D183)
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D136 to D182
+- Decisions in the record: D136 to D189
 - Replaces: `docs/decisionqc_design.md` (draft of 2026-10-20, when the package had the name decisionqc and served only image inspection)
 
 Revision 2 applied D156 to D162: the package is smaller, it manages no spending, and it keeps no cache and no prices. Revision 3 applies D163 to D180: no claim of a first model, calibration with probably, no GUI in the package, and the answers of fmm to the 15 open items (section 12).
@@ -142,7 +142,7 @@ A small internal translator for each format builds the request and reads the res
 
 ### 5.3 The output of decide()
 
-- One row per input. For each question: the answer (a factor with the allowed answers) and one probability column per allowed answer. The probability columns use the names of tidymodels (`.pred_<answer>`, with the name of the question as a prefix when there is more than one question), so that probably and yardstick read the output with no extra code (D164).
+- One row per input. For each question: the answer (a factor with the allowed answers) and one probability column per allowed answer. The probability columns use the names of tidymodels (`.pred_<answer>`, with the name of the question as a prefix when there is more than one question), so that probably and yardstick read the output with no extra code (D164). The column names are made syntactic in a janitor-like way (`"not sure"` gives `.pred_not_sure`); `.pred_class` keeps the exact answers as its levels (D189).
 - `.model`, `.input_tokens`, `.cost`, `.seconds`, `.error`.
 - `.cost` (D162) holds only the cost that the provider reports in the response. When a provider does not report it, `.cost` is `NA`, and `decide()` prints one message, for example: "TypeSafe does not report a cost. `.cost` is NA. `.input_tokens` has the input tokens." The package has no prices.
 - An answer outside the allowed answers, or a failed call, gives `NA` answers and the message in `.error`. The error text of the provider is kept word for word, with the model name and the size of the request (D161). The row stays in the output.
