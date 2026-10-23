@@ -149,6 +149,7 @@
 | D143 | 2026-10-23 | Closed-weight models take their credentials the way ellmer does. | fmm | fmm | chat | "For closed weight models, use credentials similar to Elmer." (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 01:35 | Code and tooling | - | - |
 | D144 | 2026-10-23 | The tidymodels vignette replicates the comparison of Clef-Flash and JEV in the paper and shows how to tune the descriptions. | fmm | fmm | chat | "possibly have the example to replicate our clef vs JEV comparison from our paper. This should also show how to tune the descriptions." (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 01:35 | Code and tooling | - | - |
 | D145 | 2026-10-23 | The lightest example runs in the web browser with webR, if possible. | fmm | fmm | chat | "It would be nice to have the lightest weight example run in webr (or livelink)." (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 01:35 | Code and tooling | - | - |
+| D146 | 2026-10-23 | Name the R package decisions, not decisionqc, because it serves any decision about text or images, not only quality control. | fmm | fmm | chat | "Yes unless you recommend dmr" (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 01:45 | Code and tooling | On 2026-10-23, decisions was free on CRAN (also in its archive), Bioconductor and R-universe. CRAN has decision (singular, 2016). The name dmr was used by a package in the CRAN archive, so CRAN does not accept it again. system1 was free, but SystemOne is the API name of TypeSafe. | D39 |
 
 ## Topics
 
