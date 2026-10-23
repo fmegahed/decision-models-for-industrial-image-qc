@@ -24,6 +24,7 @@
 - magick only for images; when it is missing, call `rlang::check_installed("magick", reason = "to read images")` (D176). probably only for calibration, with `rlang::check_installed("probably", reason = "to apply the calibrator of a setup")`.
 - Code: correct, efficient, easy to follow; one job per function; no abstraction with one use; native pipe; `pkg::fun()` calls; purrr for loops (D181). roxygen2 documentation for every function, exported or internal, with `@param` (values in backticks), `@return`, `@details` when needed, `@export` only for the 14, `@examples` that run without a key or sit in `\dontrun{}` (D182).
 - No text says that Jev, or any model, was the first decision model (D163).
+- The package is cleaner and more efficient than the study code (D184). The study code (`fine_tuned_jev/R/`) tells what the package must do, not how to write it: do not copy its structure. In particular: prepare each reference image once per `decide()` call and reuse its bytes for every input (the study prepared them again for each image); keep images in memory (`magick::image_write()` to a raw vector, `jsonlite::base64_enc()`), with no temporary files and no base64enc dependency; send requests in parallel (the study sent them one by one); keep no call log in the package.
 - CRAN: tests and vignettes make no network call and need no key; vignettes read saved results from `inst/extdata` (D177). `R CMD check --as-cran` ends with 0 errors, 0 warnings and at most the "New submission" note.
 - Paid calls: none before fmm approves a row in `fine_tuned_jev/replication_materials/calls/README.md`. Every paid call of the build appends one row to `calls/<service>-calls.csv` (columns `time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_tokens,cost_usd`). The logging lives in `data-raw/`, never in the package.
 - Run R with `"/c/Program Files/R/R-4.6.1/bin/Rscript.exe"`. Write R code to files; do not pass code with backslashes or quotes through `Rscript -e`.
@@ -93,7 +94,7 @@
 
 **Interfaces:**
 - Produces (internal): `prepare_image(image, max_size = 768, upscale = FALSE, crop = "none", rgb = FALSE)` → raw vector of JPEG bytes. `image` is a path, a URL or a magick image. `max_size = NULL` keeps the resolution (D142). `crop` is `"none"`, `"center"`, a numeric box `c(x, y, width, height)`, or a function(magick image) → box.
-- Port from `fine_tuned_jev/R/industrial_defect_classifier.R::prepare_image()`: orient, crop, resize, sRGB, optional TrueColor, JPEG quality 90. Drop its 280 to 1568 checks and its padding (D161).
+- Behavior to keep from `fine_tuned_jev/R/industrial_defect_classifier.R::prepare_image()`: orient, crop, resize, sRGB, optional TrueColor, JPEG quality 90. Write it fresh and in memory (D184); drop its temporary file, its 280 to 1568 checks and its padding (D161).
 
 - [ ] **Step 1: Failing tests** (images made in the test with `magick::image_blank()`; `skip_if_not_installed("magick")`):
   - A 2000 x 1000 image with `max_size = 768` gives 768 x 384.
@@ -272,7 +273,7 @@
 - [ ] **Step 1:** README: what the package does, install, a 10-line example, the six vignettes, the link to the Hugging Face Space (the Space itself is outside the package, D157), and how to copy the skill. No "first" claim.
 - [ ] **Step 2:** webR example A: the calibration on saved probabilities runs in a fresh R session with no network (`withr::local_envvar(ALL_PROXY = "socks5://127.0.0.1:9")`). Put its code in the README. The webR check itself follows after fmm pushes the repository to GitHub and r-universe builds it.
 - [ ] **Step 3:** Run `devtools::check(args = "--as-cran")` and `devtools::test()`. Expected: 0 errors, 0 warnings, at most the "New submission" note; every Review Focus item has a passing test.
-- [ ] **Step 4:** Ask a fresh reviewer on the most capable model to read the whole package against the design and this plan. Fix its findings.
+- [ ] **Step 4:** Ask a fresh reviewer on the most capable model to read the whole package against the design and this plan, and to compare it with the study code for clarity and efficiency (D184): for each part, the package must be at least as clear and do no more work per input. Fix its findings.
 - [ ] **Step 5:** Run the live code of vignette 5 once more from a clean session (with the saved results moved away), to prove that the workflow runs. Then hand the package folder to fmm for the vignette 5 test (D158).
 - [ ] **Step 6:** In `fine_tuned_jev`: add a process row (stage `build`), and at the end of the milestone copy the ledger by the replication-materials procedure.
 

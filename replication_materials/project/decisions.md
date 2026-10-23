@@ -187,6 +187,7 @@
 | D181 | 2026-10-23 | The code of decisions must be correct, efficient and easy to follow. A simple code base comes before features: this is why fmm chose one model per call (D168) and no GUI in the package (D165). | fmm | fmm | chat | "Note I chose the purrr::map approach and no GUI to simplify the code base." (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 03:34 | Code and tooling | fmm: "This is imprtant; correct, efficient and easy to follow code". | - |
 | D182 | 2026-10-23 | Every function of decisions has roxygen2 documentation. | fmm | fmm | chat | "Also use roxygen2 for function documentation" (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 03:34 | Code and tooling | - | - |
 | D183 | 2026-10-23 | Approve the design of the R package decisions (revision 3, plans/2026-10-23-decisions-package-design.md). The next step is the implementation plan. | claude | fmm | plan-approval | plans/2026-10-23-decisions-package-design.md | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 03:36 | Code and tooling | - | - |
+| D184 | 2026-10-23 | The code of the package must be cleaner and more efficient than the study code. The study code tells what the package must do, not how to write it. | fmm | fmm | chat | "Note that I suspect the package to be more efficient and cleaner than the study code." (2026-10-23) | b36ad167-66f5-45af-9d6c-bf3f817c6f58 | 03:41 | Code and tooling | The plan names three gains: reference images prepared once per call, images kept in memory, and parallel requests. | - |
 
 ## Topics
 
