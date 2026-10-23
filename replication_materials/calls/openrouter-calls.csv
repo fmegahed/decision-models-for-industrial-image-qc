@@ -11,3 +11,5 @@ time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_
 2026-10-23T04:05:04Z,openrouter-microsoft-score3,decisions-task2-score3,microsoft/microsoft-decision-1,,200,221,87,1,3.654e-06
 2026-10-23T04:05:04Z,openrouter-microsoft-combined,decisions-task2-combined,microsoft/microsoft-decision-1,,200,429,213,4,8.946e-06
 2026-10-23T04:05:17Z,openrouter-jev-noul-bare,decisions-task2-noul-bare,typesafe/jev-1.14,,200,185,313,20,1.3146e-05
+2026-10-23T05:15:56Z,openrouter-openrouter-microsoft-noul-bare-1,decisions-task6-check-openrouter-microsoft-noul-bare,microsoft/microsoft-decision-1,,200,490,45,,1.89e-06
+2026-10-23T05:15:56Z,openrouter-openrouter-microsoft-noul-bare-2,decisions-task6-check-openrouter-microsoft-noul-bare,microsoft/microsoft-decision-1,,200,488,40,,1.68e-06

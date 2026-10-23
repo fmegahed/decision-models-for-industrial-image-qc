@@ -6,3 +6,6 @@ time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_
 2026-10-23T04:04:55Z,openai-combined,decisions-task2-combined,gpt-6-luna,req_aa0a549e23da4012a2bcb4658542c108,200,185,557,0,5.57e-05
 2026-10-23T04:04:55Z,openai-bad-type,decisions-task2-bad-type,gpt-6-luna,req_f641bdd851e64b19b0e6f5af43b3bafc,400,74,,,
 2026-10-23T04:04:55Z,openai-image,decisions-task2-image,gpt-6-luna,req_7fb04ef2eefe480a86597419057feacc,200,173,401,0,4.01e-05
+2026-10-23T05:15:51Z,openai-openai-predicate-described-1,decisions-task6-check-openai-predicate-described,gpt-6-luna,,200,1048,193,,1.93e-05
+2026-10-23T05:15:51Z,openai-openai-predicate-described-2,decisions-task6-check-openai-predicate-described,gpt-6-luna,,200,1166,190,,1.9e-05
+2026-10-23T05:15:52Z,openai-openai-image-references-1,decisions-task6-check-openai-image-references,gpt-6-luna,,200,373,397,,3.97e-05
