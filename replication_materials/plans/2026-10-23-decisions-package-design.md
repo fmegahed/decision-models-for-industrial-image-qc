@@ -4,14 +4,16 @@
 - Milestone: M3
 - Status: draft, for review by fmm
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D136 to D162
+- Decisions in the record: D136 to D163
 - Replaces: `docs/decisionqc_design.md` (draft of 2026-10-20, when the package had the name decisionqc and served only image inspection)
 
 In this document, "Claude call" marks an item that Claude Code proposes and fmm did not decide yet. fmm decides these items when fmm approves this document. Section 12 lists them. Revision 2 applies D156 to D162: the package is smaller, it manages no spending, and it keeps no cache and no prices.
 
 ## 1. Intent
 
-The reader of the package is an R user who wants to try decision models (D136). A decision model, also called a System One model, does not write text. It reads a state (a text, an image or both) and typed questions, and it returns a probability for each allowed answer. Jev of TypeSafe was the first such model (September 2026). In October 2026, Microsoft, OpenAI, Cloudflare, Convai Innovations and Perplexity released their own. Each API is a little different, and no R package calls them.
+The reader of the package is an R user who wants to try decision models (D136). A decision model, also called a System One model, does not write text. It reads a state (a text, an image or both) and typed questions, and it returns a probability for each allowed answer. TypeSafe released Jev in September 2026. In October 2026, Microsoft, OpenAI, Cloudflare, Convai Innovations and Perplexity released their own.
+
+Writing rule (D163): the package, its documents and its vignettes do not call Jev, or any other model, the first decision model. The System One hub calls Jev the first, but fmm believes that earlier models exist. Each API is a little different, and no R package calls them.
 
 The package `decisions` (D146, D152) makes these models easy to use from R, as ellmer makes chat models easy to use. It is a sister of ellmer, focused on decision models (D139). It is a self-contained package on httr2.
 
@@ -257,6 +259,7 @@ Claude call: one first release, 0.1.0, with the 16 functions, the skill, the six
 | D160 | a small package | section 4 |
 | D161 | the provider is the authority on limits; only input types, dated and overridable | sections 5.1, 5.3 |
 | D162 | only the reported cost; say so when there is none | section 5.3 |
+| D163 | no claim that a model was the first decision model | section 1 |
 
 ## 11. Left to the builder
 
