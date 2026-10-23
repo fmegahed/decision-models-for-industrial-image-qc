@@ -1,19 +1,19 @@
 # The R package decisions: design
 
-- Date: 2026-10-23 (revision 2)
+- Date: 2026-10-23 (revision 3)
 - Milestone: M3
-- Status: draft, for review by fmm
+- Status: all open items decided (D166 to D180), for approval by fmm
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D136 to D165
+- Decisions in the record: D136 to D180
 - Replaces: `docs/decisionqc_design.md` (draft of 2026-10-20, when the package had the name decisionqc and served only image inspection)
 
-In this document, "Claude call" marks an item that Claude Code proposes and fmm did not decide yet. fmm decides these items when fmm approves this document. Section 12 lists them. Revision 2 applies D156 to D162: the package is smaller, it manages no spending, and it keeps no cache and no prices.
+Revision 2 applied D156 to D162: the package is smaller, it manages no spending, and it keeps no cache and no prices. Revision 3 applies D163 to D180: no claim of a first model, calibration with probably, no GUI in the package, and the answers of fmm to the 15 open items (section 12).
 
 ## 1. Intent
 
-The reader of the package is an R user who wants to try decision models (D136). A decision model, also called a System One model, does not write text. It reads a state (a text, an image or both) and typed questions, and it returns a probability for each allowed answer. TypeSafe released Jev in September 2026. In October 2026, Microsoft, OpenAI, Cloudflare, Convai Innovations and Perplexity released their own.
+The reader of the package is an R user who wants to try decision models (D136). A decision model, also called a System One model, does not write text. It reads a state (a text, an image or both) and typed questions, and it returns a probability for each allowed answer. TypeSafe released Jev in September 2026. In October 2026, Microsoft, OpenAI, Cloudflare, Convai Innovations and Perplexity released their own. Each API is a little different, and no R package calls them.
 
-Writing rule (D163): the package, its documents and its vignettes do not call Jev, or any other model, the first decision model. The System One hub calls Jev the first, but fmm believes that earlier models exist. Each API is a little different, and no R package calls them.
+Writing rule (D163): the package, its documents and its vignettes do not call Jev, or any other model, the first decision model. The System One hub calls Jev the first, but fmm believes that earlier models exist.
 
 The package `decisions` (D146, D152) makes these models easy to use from R, as ellmer makes chat models easy to use. It is a sister of ellmer, focused on decision models (D139). It is a self-contained package on httr2.
 
@@ -24,7 +24,7 @@ The package is small (D160). It has a few functions. Its use comes from the vign
 Goals:
 
 - G1. Ask typed questions (noul, choice, score) about a text, an image or both, to any supported decision model (D136, D141).
-- G2. Ask about one input or many inputs, and about several models in one run, with answers restricted to the allowed answers (D137).
+- G2. Ask one model about one input or many inputs, with answers restricted to the allowed answers (D137, D168). The vignettes compare models.
 - G3. Calibrate the probabilities (D137).
 - G4. Give, for each input, the answer, the probabilities, the tokens, the cost that the provider reports and the time. The vignettes turn these into reports of performance, cost and speed.
 - G5. Tune the settings (the descriptions, the number of references, the image size, the model) on learning data, with a guard for the test data (D155).
@@ -86,7 +86,7 @@ Hugging Face has no common way to call decision models. The open decision models
 | choice | `choice` | `choice` | chosen option and a probability per option |
 | score | `score` | `score` | weighted score and a probability per level |
 
-A small internal translator for each format builds the request and reads the response. A new format is a new translator. Each translator puts the parts that all inputs share first (instructions, then references) and the input last. Then the prompt caching of a provider can work (OpenAI caches a shared start of 1,024 tokens or more and charges less for it). Claude call.
+A small internal translator for each format builds the request and reads the response. A new format is a new translator. Each translator puts the parts that all inputs share first (instructions, then references) and the input last. Then the prompt caching of a provider can work (OpenAI caches a shared start of 1,024 tokens or more and charges less for it) (D171).
 
 ## 4. The API
 
@@ -102,10 +102,10 @@ A small internal translator for each format builds the request and reads the res
 | Questions | `question_noul(instructions, true, false)` | a yes-or-no question |
 | | `question_choice(instructions, choices)` | one answer from named options with descriptions |
 | | `question_score(instructions, levels)` | an ordered score with described levels |
-| Asking | `decide(decider, questions, text, image, references, max_size, upscale, crop, max_active, rpm, path, ignore_hash)` | one input or many, one model or a named list of models; returns a tibble |
+| Asking | `decide(decider, questions, text, image, references, max_size, upscale, crop, max_active, rpm, path, ignore_hash)` | one model, one input or many; returns a tibble (D168) |
 | Setups | `decision_setup(decider, questions, references, max_size, upscale, crop, calibrator)` | one complete decision, in memory |
 | | `write_setup(setup, path)`, `read_setup(path)` | save a setup as one JSON file, and read it |
-| Tuning | `score_setup(setup, text, image, truth, role, metric, path)` | score one setup or a named list of setups on learning rows |
+| Tuning | `score_setup(setup, text, image, truth, role, metric, path)` | score one setup on learning rows (D174) |
 | | `evaluate_once(setup, text, image, truth, path)` | score the test rows one time only |
 
 `decide()`, `score_setup()` and `evaluate_once()` also accept a setup in place of `decider` and `questions`.
@@ -134,15 +134,15 @@ A small internal translator for each format builds the request and reads the res
 ### 5.2 decide()
 
 - Inputs: `text` is a character vector; `image` is a vector of file paths or URLs, or a list of magick images. One element is one input. With both, element i of each is one input.
-- Image preparation is set by arguments (D142): `max_size` (default 768), `upscale` (default `FALSE`), and `crop`: `"none"`, `"center"`, a box (x, y, width, height), or a function that takes a magick image and returns a box. The function is the hook for an object detection model. magick is needed only for images.
+- Image preparation is set by arguments (D142): `max_size` (default 768), `upscale` (default `FALSE`), and `crop`: `"none"`, `"center"`, a box (x, y, width, height), or a function that takes a magick image and returns a box. The function is the hook for an object detection model. magick is needed only for images (D176).
 - `references`: reference examples per answer, for models that use them.
-- Several models: `decider` can be a named list of models. All requests of all models go into one parallel pool (`httr2::req_perform_parallel()`), so the models run at the same time. The output has one row per input and model, with the name in `.model`. If a model in the list reads only text and the input has an image, `decide()` stops before any call and names the model.
-- `path` (Claude call, as `ellmer::batch_chat()`): a JSON file that keeps the finished answers. The inputs go out in chunks (a few times `max_active`), and the file is written after each chunk. The file holds a hash of the models, the questions, the references and the image settings. At a new run with the same `path`, `decide()` reads the file, checks the hash (it stops on a different hash unless `ignore_hash = TRUE`), and sends only the inputs that are not in the file. Failed calls do not go into the file, so a new run tries them again. Without `path`, nothing is written.
-- Retries (Claude call): the package retries a call only when the server surely did not process it (HTTP 429, or no connection). After a timeout or an HTTP 5xx error, the row gets an `.error`, and a new run with `path` tries it again.
+- One model per call (D168). The requests of one call go out in parallel (`httr2::req_perform_parallel()`, `max_active`, `rpm`). If the model reads only text and an input has an image, `decide()` stops before any call. The vignettes compare models with `purrr::map()` and `dplyr::bind_rows()`.
+- `path` (D169, as `ellmer::batch_chat()`): a JSON file that keeps the finished answers. The inputs go out in chunks (a few times `max_active`), and the file is written after each chunk. The file holds a hash of the model, the questions, the references and the image settings. At a new run with the same `path`, `decide()` reads the file, checks the hash (it stops on a different hash unless `ignore_hash = TRUE`), and sends only the inputs that are not in the file. Failed calls do not go into the file, so a new run tries them again. Without `path`, nothing is written.
+- Retries (D170): the defaults of httr2 (`httr2::req_retry()`): HTTP 429 and 503, with backoff. A call that still fails gets an `.error`, and a new run with `path` tries it again. A 503 after the server did the work can be paid twice; fmm accepts this.
 
 ### 5.3 The output of decide()
 
-- One row per input (and per model). For each question: the answer (a factor with the allowed answers) and one probability column per allowed answer. The probability columns use the names of tidymodels (`.pred_<answer>`, with the name of the question as a prefix when there is more than one question), so that probably and yardstick read the output with no extra code (D164).
+- One row per input. For each question: the answer (a factor with the allowed answers) and one probability column per allowed answer. The probability columns use the names of tidymodels (`.pred_<answer>`, with the name of the question as a prefix when there is more than one question), so that probably and yardstick read the output with no extra code (D164).
 - `.model`, `.input_tokens`, `.cost`, `.seconds`, `.error`.
 - `.cost` (D162) holds only the cost that the provider reports in the response. When a provider does not report it, `.cost` is `NA`, and `decide()` prints one message, for example: "TypeSafe does not report a cost. `.cost` is NA. `.input_tokens` has the input tokens." The package has no prices.
 - An answer outside the allowed answers, or a failed call, gives `NA` answers and the message in `.error`. The error text of the provider is kept word for word, with the model name and the size of the request (D161). The row stays in the output.
@@ -154,19 +154,19 @@ A small internal translator for each format builds the request and reads the res
 - The "logistic" method of probably is a smooth GAM by default; with `smooth = FALSE` it is a logistic regression on the probability. Neither is exactly the Platt scaling of the study (a logistic regression on logit(p) with the targets of Platt). The numbers of vignette 5 can therefore differ a little from the paper (D156 allows this).
 - Choice questions with three or more options use the multinomial method, so the package has no limit on the number of options.
 
-### 5.5 Setups (D147)
+### 5.5 Setups (D147, D172, D173)
 
 - `decision_setup()` holds one complete decision: the model (name, URL, input types; no key), the questions and their descriptions, the references, the image settings and the calibrator.
-- `write_setup()` writes one JSON file, with the reference images after preparation (base64). Claude call. An agent can edit the descriptions as text, and git shows the changes, as in the diffs of our description loops. `read_setup()` reads it.
+- `write_setup()` writes one JSON file, with the reference images after preparation (base64) (D173). An agent can edit the descriptions as text, and git shows the changes, as in the diffs of our description loops. `read_setup()` reads it.
 - The calibrator in a setup is a probably calibrator (D164), stored in the JSON file as a serialized R object, with a hash of the questions and the references at the time of the fit. When the questions or the references change, `read_setup()` drops the calibrator with a warning, because a calibrator fitted for the old descriptions does not apply to the new ones. `decide()` applies the calibrator of a setup (probably must be installed).
 - Uses: the Space and the app of vignette 6; the agent skill; sharing with a co-author.
 
 ### 5.6 Tuning and the guard for test data (D148, D155)
 
-- Data roles: learning rows (for tuning; the references come from them, and only the other learning rows are scored), calibration rows (for `calibrate()`) and test rows (for `evaluate_once()`).
-- `score_setup()` takes one setup or a named list of setups. It sends all calls in one parallel pool and returns one row per setup: the metric (ROC AUC by default), the number of inputs, the calls, the input tokens, the reported cost, the seconds and the errors, with the answers per input in a list column. With `role`, it refuses rows marked `"test"`. With `path`, it continues a stopped run.
+- Data roles: learning rows (for tuning; the references come from them, and only the other learning rows are scored), calibration rows (for the calibrator of probably) and test rows (for `evaluate_once()`).
+- `score_setup()` takes one setup per call (D174). Its calls go out in parallel, and it returns one row: the metric (ROC AUC by default), the number of inputs, the calls, the input tokens, the reported cost, the seconds and the errors, with the answers per input in a list column. With `role`, it refuses rows marked `"test"`. With `path`, it continues a stopped run.
 - Two ways to tune, both shown in vignette 5:
-  - A grid: a tibble of candidates (for example wordings by k by model), turned into setups and scored in one call. This suits k, the image size, the model and a few written wordings.
+  - A grid: a tibble of candidates (for example wordings by k by model), turned into setups and scored with `purrr::map()` over `score_setup()`. This suits k, the image size, the model and a few written wordings.
   - One change at a time, as in the description loop of the study: a person or an agent looks at the mistakes, writes one new wording, scores it, and keeps it only when the ROC AUC rises by at least 0.02.
 - `evaluate_once()` scores the test rows one time only, as `scripts/evaluate_frozen.R` did. It refuses a second run when its result file exists.
 - The documentation says that these guards stop mistakes, not an agent that reads files with a shell (O5).
@@ -174,7 +174,7 @@ A small internal translator for each format builds the request and reads the res
 ### 5.7 Agent skill (D148)
 
 - The skill is in `inst/skills/decisions/` (`SKILL.md` and reference files), as in commons 0.1.1. Its description names the functions of the package, so that an agent loads it when a project uses them. Vignette 1 shows how to copy it to `.claude/skills` or `.agents/skills` with `system.file()` and `file.copy()`.
-- Reference files (Claude call): writing questions; tuning descriptions; calibration and evaluation; sharing a setup.
+- Reference files (left to the builder, section 11): writing questions; tuning descriptions; calibration and evaluation; sharing a setup.
 - The rules come from the description loop of the study (`scripts/fair_loop_instructions.md`): the 0.02 keep rule; base each change on what the examples show; change one idea at a time; prefer a clear, general description over a long list of special cases; do not aim for an AUC of 1; use only learning rows. The skill has no fixed length limit (D161). When a provider refuses a long candidate, the agent reads the error and shortens the text.
 
 ### 5.8 Apps outside the package (D147, D165)
@@ -184,19 +184,20 @@ The package has no GUI (D165). Two Shiny apps outside the package read its setup
 - The build mode is the Hugging Face Space (D157, section 8): pick text or images, write the questions, choose a model, try a few examples, calibrate, see the answers with tokens, cost and time, and download the setup.
 - The use mode is a short app (about 30 lines) in vignette 6: read a setup, take a text or an image, call `decide()`, and show the answer and how sure the model is. A teacher can share the rubric checker with students on Posit Connect or a Space.
 
-The lessons of querychat 0.3.0 apply to both apps:
+Three lessons of querychat 0.3.0 apply to both apps (D175):
 
-- Show what makes the result: the model, the questions and the descriptions of the setup, and offer the setup file and the R code that repeats the result (querychat shows its SQL "for transparency and reproducibility").
 - Say which provider receives each text or image.
 - Accept a `credentials` function, so a host such as Posit Connect can give the key in each session (querychat added `$server(client = ...)` for this).
 - Give a stop button for long batches.
-- The key is a secret of the host, never a field of the app.
+
+In addition, the key is a secret of the host, never a field of the app.
 - No chat helper: a chat helper needs a chat model, which D136 keeps out.
 
 ### 5.9 Dependencies
 
-- Imports (Claude call): httr2, S7, rlang, cli, tibble, jsonlite.
-- Suggests: magick (images), probably (calibration), testthat, withr, knitr, rmarkdown, and the packages of the vignettes (rsample, yardstick, dplyr). livelink is not a dependency (D151). shiny is not a dependency: the app chunk of vignette 6 is shown, not run, on CRAN (D165).
+- Imports: httr2, S7 (D166), rlang, cli, tibble, jsonlite.
+- magick is in Suggests (D176). When an image arrives and magick is not installed, the package guides the user: `rlang::check_installed("magick", reason = "to read images")` says why and, in an interactive session, offers to install it.
+- Suggests: probably (calibration), testthat, withr, knitr, rmarkdown, and the packages of the vignettes (rsample, yardstick, dplyr). livelink is not a dependency (D151). shiny is not a dependency: the app chunk of vignette 6 is shown, not run, on CRAN (D165).
 - No compiled code (D139), so the package builds in webR.
 
 ## 6. Build and tests (D153, D158)
@@ -215,14 +216,14 @@ The lessons of querychat 0.3.0 apply to both apps:
 |---|---|---|---|
 | 1 | Getting started with text | a text model (Jev or Laya) | the three question types (noul, choice, score) on short texts, such as support tickets; one input, then many; how to copy the agent skill |
 | 2 | Images | Jev, OpenAI, Clef-Flash | the image inputs and arguments (size, resolution, crop, crop function); references per answer; the simulated textiles of the study |
-| 3 | Choosing a model | Jev, Microsoft-Decision-1, OpenAI | credentials as in ellmer; one text task on a list of models in one `decide()` call; performance with yardstick, and the reported cost and time with dplyr |
+| 3 | Choosing a model | Jev, Microsoft-Decision-1, OpenAI | credentials as in ellmer; one text task on each model with `purrr::map()` over `decide()`, bound into one table; performance with yardstick, and the reported cost and time with dplyr |
 | 4 | Open models on your own computer | Laya | no key and no cost per call; only the URL changes |
 | 5 | The study again, with the package | all models that read images: Jev, OpenAI `gpt-6-luna`, Clef-Flash (and Clef 27B if it fits on the GPU) | D156: the pipeline of the study with the package, new paid calls, no CLIP: learning, calibration and test rows; a tuning grid for k, the image size and the model; one change at a time for the wording (by hand or with the skill); calibration; `evaluate_once()`; rsample folds over the learning rows to show how much the AUC moves; yardstick metrics. The results can differ from the paper. |
 | 6 | Grading short answers with a rubric | a text model | each idea of a rubric and each known wrong claim is a noul question; the student sees only rubric text; sample answers written for the vignette set the threshold; questions about the package itself; a short Shiny app that shares the checker as a setup (the use mode, D165) |
 
 - Vignette 6 credits three sources (D150): Jeffrey Biles of PhysicsGraph for the idea to check an explanation while the student types it (https://x.com/JeffreyBiles/status/2107211222320021722, as cited in the README of fmegahed/isa401); the course ISA 401 of fmm at Miami University; and the exam-review game (https://isa401-review.vercel.app, https://github.com/fmegahed/isa401/tree/main/games/exam-review).
 - Microsoft-Decision-1 and Laya read only text. They are in vignettes 1, 3, 4 and 6, not in the image vignettes.
-- Claude call: on CRAN, each vignette reads saved results (small `.rds` files in `inst/extdata`), because CRAN checks run without network and keys. The live code is on the package website. The saved results of vignette 5 come from the validation run of Claude Code (section 6).
+- On CRAN, each vignette reads saved results (D177) (small `.rds` files in `inst/extdata`), because CRAN checks run without network and keys. The live code is on the package website. The saved results of vignette 5 come from the validation run of Claude Code (section 6).
 - Vignette 5 ships numbers and image names, not images. The builder checks that the licence of each dataset (AutoVI is CC BY-NC-SA 4.0) allows this.
 
 ### 7.1 webR (D145, D151)
@@ -241,7 +242,7 @@ The lessons of querychat 0.3.0 apply to both apps:
 
 ## 9. Release plan
 
-Claude call: one first release, 0.1.0, with the 14 functions, the skill, the six vignettes and webR example A. Example B follows when a test confirms it. The release goes to CRAN when it is complete (D154).
+One first release, 0.1.0 (D180), with the 14 functions, the skill, the six vignettes and webR example A. Example B follows when a test confirms it. The release goes to CRAN when it is complete (D154).
 
 ## 10. Decisions and their impacts
 
@@ -273,6 +274,7 @@ Claude call: one first release, 0.1.0, with the 14 functions, the skill, the six
 | D163 | no claim that a model was the first decision model | section 1 |
 | D164 | calibration with probably, not in the package; tidymodels names for the probability columns | sections 4.1, 5.3 to 5.5 |
 | D165 | no GUI in the package; the Space and a short app in vignette 6 | sections 5.8, 7, 8 |
+| D166 to D180 | the 15 open items, decided by fmm | section 12 |
 
 ## 11. Left to the builder
 
@@ -281,22 +283,27 @@ Claude call: one first release, 0.1.0, with the 14 functions, the skill, the six
 - The input types in the table, checked against each provider on the day of the release.
 - The wording of the skill files, in the style of the commons skill.
 
-## 12. Claude calls for fmm to check
+## 12. The open items and the answers of fmm
 
-1. S7 classes and the names of the 14 functions (section 4.1).
-2. `decide()` takes a named list of models and runs them in one pool (section 5.2).
-3. `decide()` has `path` and `ignore_hash`, as `ellmer::batch_chat()` (section 5.2).
-4. Retries only when the server surely did not process the call (section 5.2).
-5. Translators put the shared parts first, for the prompt caching of providers (section 3.2).
-6. A setup stores the probably calibrator as a serialized R object and drops it when the questions change (section 5.5).
-7. A setup is one JSON file with the reference images in it (section 5.5).
-8. `score_setup()` takes a named list of setups (section 5.6).
-9. The lessons of querychat for the two apps outside the package (section 5.8).
-10. The dependencies, with magick in Suggests (section 5.9).
-11. Vignettes read saved results on CRAN (section 7).
-12. Vignette 6 uses sample answers written for it (section 7).
-13. pplx-decider stays out of 0.1.0 until its request format is known (section 3.1).
-14. One first release with all 14 functions (section 9).
+Claude Code proposed these items. fmm decided each one with a multiple-choice question on 2026-10-23.
+
+| Item | Answer of fmm | ID | Section |
+|---|---|---|---|
+| Object system | S7, as in ellmer | D166 | 4.1 |
+| Function names | `decider_*()`, `question_*()`, `decide()` | D167 | 4.1 |
+| Several models in `decide()` | no: one model per call; the vignettes map over models (Claude Code proposed a list of models) | D168 | 5.2 |
+| `path` for `decide()` | yes, with `ignore_hash`, as `ellmer::batch_chat()` | D169 | 5.2 |
+| Retries | the defaults of httr2: HTTP 429 and 503 (Claude Code proposed retries only when the call was surely not processed) | D170 | 5.2 |
+| Order of the request | the shared parts first, for the prompt caching of providers | D171 | 3.2 |
+| The calibrator in a setup | inside the JSON file, with a hash of the questions | D172 | 5.5 |
+| The setup file | one JSON file with the references inside | D173 | 5.5 |
+| `score_setup()` | one setup per call | D174 | 5.6 |
+| Lessons of querychat for the apps | name the provider, session credentials, a stop button (not: show the setup and the R code) | D175 | 5.8 |
+| magick | Suggests, and the package guides the installation | D176 | 5.9 |
+| Vignettes on CRAN | saved results, and the live code on the website | D177 | 7 |
+| Sample answers of vignette 6 | written for the vignette | D178 | 7 |
+| pplx-decider | out of 0.1.0 until its format is known | D179 | 3.1 |
+| First release | everything: 14 functions, the skill, six vignettes, webR example A | D180 | 9 |
 
 ## 13. Builder check and answers
 
