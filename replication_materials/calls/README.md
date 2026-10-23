@@ -1,11 +1,14 @@
 # Paid calls
 
-Claude Code makes no paid call before a row exists for it in this table. The Service of a row is the name of its call log, `<service>-calls.csv`: `typesafe` is the TypeSafe JEV API (D111).
+Claude Code makes no paid call before a row exists for it in this table. The Service of a row is the name of its call log, `<service>-calls.csv`: `typesafe` is the TypeSafe JEV API (D111), `openai` is the OpenAI Decisions API, and `openrouter` is OpenRouter (D188).
 
 | Date | Service | Purpose | Max calls | Max cost (USD) | Approved by |
 |---|---|---|---|---|---|
 | 2026-10-20 | typesafe | All JEV calls of the study, within the free credit for a new user (D44); calls left under the 7,000-call cap of D26 | 2446 | 5 | fmm |
 | 2026-10-21 | typesafe | Fair comparison: description loops, checks, calibration and test runs (design X17, D84) | 50000 | 20 | fmm |
+| 2026-10-23 | typesafe | Package decisions (M3), Task 2: real responses of each question type (noul, choice, score) and of an image request, for the tests of the package (D188) | 400 | 9.5 | fmm |
+| 2026-10-23 | openai | Package decisions (M3), Task 2: the same with the OpenAI Decisions API (gpt-6-luna) (D188) | 400 | 9.5 | fmm |
+| 2026-10-23 | openrouter | Package decisions (M3), Task 2: the same with Jev and Microsoft-Decision-1 through OpenRouter (D188) | 400 | 9.5 | fmm |
 
 ## Call logs
 
