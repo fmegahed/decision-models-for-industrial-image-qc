@@ -4,7 +4,7 @@
 - Milestone: M3
 - Status: draft, for review by fmm
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D136 to D163
+- Decisions in the record: D136 to D164
 - Replaces: `docs/decisionqc_design.md` (draft of 2026-10-20, when the package had the name decisionqc and served only image inspection)
 
 In this document, "Claude call" marks an item that Claude Code proposes and fmm did not decide yet. fmm decides these items when fmm approves this document. Section 12 lists them. Revision 2 applies D156 to D162: the package is smaller, it manages no spending, and it keeps no cache and no prices.
@@ -89,7 +89,7 @@ A small internal translator for each format builds the request and reads the res
 
 ## 4. The API
 
-### 4.1 Exported functions (16)
+### 4.1 Exported functions (15)
 
 | Group | Function | What it does |
 |---|---|---|
@@ -102,7 +102,6 @@ A small internal translator for each format builds the request and reads the res
 | | `question_choice(instructions, choices)` | one answer from named options with descriptions |
 | | `question_score(instructions, levels)` | an ordered score with described levels |
 | Asking | `decide(decider, questions, text, image, references, max_size, upscale, crop, max_active, rpm, path, ignore_hash)` | one input or many, one model or a named list of models; returns a tibble |
-| Calibration | `calibrate(prob, truth, method)` | Platt scaling or isotonic regression; `predict()` applies it |
 | Setups | `decision_setup(decider, questions, references, max_size, upscale, crop, calibrator)` | one complete decision, in memory |
 | | `write_setup(setup, path)`, `read_setup(path)` | save a setup as one JSON file, and read it |
 | Tuning | `score_setup(setup, text, image, truth, role, metric, path)` | score one setup or a named list of setups on learning rows |
@@ -120,7 +119,8 @@ A small internal translator for each format builds the request and reads the res
 - The search for keys: environment variables, or the `credentials` function.
 - Parallel requests and retries with httr2.
 - The `path` files: the hash, the chunks, the reading at a new run.
-- The Platt and isotonic fits, and the ROC AUC of `score_setup()`.
+- The ROC AUC of `score_setup()`.
+- The application of a probably calibrator that a setup holds.
 - The JSON layout of a setup.
 - The Shiny screens.
 
@@ -143,20 +143,23 @@ A small internal translator for each format builds the request and reads the res
 
 ### 5.3 The output of decide()
 
-- One row per input (and per model). For each question: the answer (a factor with the allowed answers; for noul, the probability of yes) and one probability column per allowed answer.
+- One row per input (and per model). For each question: the answer (a factor with the allowed answers) and one probability column per allowed answer. The probability columns use the names of tidymodels (`.pred_<answer>`, with the name of the question as a prefix when there is more than one question), so that probably and yardstick read the output with no extra code (D164).
 - `.model`, `.input_tokens`, `.cost`, `.seconds`, `.error`.
 - `.cost` (D162) holds only the cost that the provider reports in the response. When a provider does not report it, `.cost` is `NA`, and `decide()` prints one message, for example: "TypeSafe does not report a cost. `.cost` is NA. `.input_tokens` has the input tokens." The package has no prices.
 - An answer outside the allowed answers, or a failed call, gives `NA` answers and the message in `.error`. The error text of the provider is kept word for word, with the model name and the size of the request (D161). The row stays in the output.
 
 ### 5.4 Calibration
 
-- `calibrate(prob, truth, method = c("platt", "isotonic"))` returns a calibrator, and `predict()` applies it. The code comes from the tested functions of the study (`R/calibration_functions.R`), so the package needs no new dependency for this.
-- Claude call: release 0.1.0 calibrates noul questions and choice questions with two options.
+- The package does not fit calibrators (D164). The probably package of tidymodels does: `probably::cal_estimate_logistic()`, `cal_estimate_isotonic()`, `cal_estimate_beta()` and `cal_estimate_multinomial()` fit a calibrator, and `probably::cal_apply()` applies it. tailor wraps the same functions as a step of a workflow (`tailor::adjust_probability_calibration()`).
+- probably is in Suggests. It brings about 97 more packages (tune, workflows, ggplot2, furrr and others), so only the users who calibrate install it.
+- The "logistic" method of probably is a smooth GAM by default; with `smooth = FALSE` it is a logistic regression on the probability. Neither is exactly the Platt scaling of the study (a logistic regression on logit(p) with the targets of Platt). The numbers of vignette 5 can therefore differ a little from the paper (D156 allows this).
+- Choice questions with three or more options use the multinomial method, so the package has no limit on the number of options.
 
 ### 5.5 Setups (D147)
 
 - `decision_setup()` holds one complete decision: the model (name, URL, input types; no key), the questions and their descriptions, the references, the image settings and the calibrator.
 - `write_setup()` writes one JSON file, with the reference images after preparation (base64). Claude call. An agent can edit the descriptions as text, and git shows the changes, as in the diffs of our description loops. `read_setup()` reads it.
+- The calibrator in a setup is a probably calibrator (D164), stored in the JSON file as a serialized R object, with a hash of the questions and the references at the time of the fit. When the questions or the references change, `read_setup()` drops the calibrator with a warning, because a calibrator fitted for the old descriptions does not apply to the new ones. `decide()` applies the calibrator of a setup (probably must be installed).
 - Uses: the use mode of the GUI; the agent skill; sharing with a co-author.
 
 ### 5.6 Tuning and the guard for test data (D148, D155)
@@ -230,7 +233,7 @@ A small internal translator for each format builds the request and reads the res
 
 ## 9. Release plan
 
-Claude call: one first release, 0.1.0, with the 16 functions, the skill, the six vignettes and webR example A. Example B follows when a test confirms it. The release goes to CRAN when it is complete (D154).
+Claude call: one first release, 0.1.0, with the 15 functions, the skill, the six vignettes and webR example A. Example B follows when a test confirms it. The release goes to CRAN when it is complete (D154).
 
 ## 10. Decisions and their impacts
 
@@ -260,6 +263,7 @@ Claude call: one first release, 0.1.0, with the 16 functions, the skill, the six
 | D161 | the provider is the authority on limits; only input types, dated and overridable | sections 5.1, 5.3 |
 | D162 | only the reported cost; say so when there is none | section 5.3 |
 | D163 | no claim that a model was the first decision model | section 1 |
+| D164 | calibration with probably, not in the package; tidymodels names for the probability columns | sections 4.1, 5.3 to 5.5 |
 
 ## 11. Left to the builder
 
@@ -270,12 +274,12 @@ Claude call: one first release, 0.1.0, with the 16 functions, the skill, the six
 
 ## 12. Claude calls for fmm to check
 
-1. S7 classes and the names of the 16 functions (section 4.1).
+1. S7 classes and the names of the 15 functions (section 4.1).
 2. `decide()` takes a named list of models and runs them in one pool (section 5.2).
 3. `decide()` has `path` and `ignore_hash`, as `ellmer::batch_chat()` (section 5.2).
 4. Retries only when the server surely did not process the call (section 5.2).
 5. Translators put the shared parts first, for the prompt caching of providers (section 3.2).
-6. Calibration of noul and two-option choice questions only in 0.1.0 (section 5.4).
+6. A setup stores the probably calibrator as a serialized R object and drops it when the questions change (section 5.5).
 7. A setup is one JSON file with the reference images in it (section 5.5).
 8. `score_setup()` takes a named list of setups (section 5.6).
 9. Shiny forms for the GUI, with no chat helper (section 5.8).
@@ -283,7 +287,7 @@ Claude call: one first release, 0.1.0, with the 16 functions, the skill, the six
 11. Vignettes read saved results on CRAN (section 7).
 12. Vignette 6 uses sample answers written for it (section 7).
 13. pplx-decider stays out of 0.1.0 until its request format is known (section 3.1).
-14. One first release with all 16 functions (section 9).
+14. One first release with all 15 functions (section 9).
 
 ## 13. Builder check and answers
 
