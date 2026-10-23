@@ -4,7 +4,7 @@
 - Milestone: M3
 - Status: draft, for review by fmm
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D136 to D164
+- Decisions in the record: D136 to D165
 - Replaces: `docs/decisionqc_design.md` (draft of 2026-10-20, when the package had the name decisionqc and served only image inspection)
 
 In this document, "Claude call" marks an item that Claude Code proposes and fmm did not decide yet. fmm decides these items when fmm approves this document. Section 12 lists them. Revision 2 applies D156 to D162: the package is smaller, it manages no spending, and it keeps no cache and no prices.
@@ -28,7 +28,7 @@ Goals:
 - G3. Calibrate the probabilities (D137).
 - G4. Give, for each input, the answer, the probabilities, the tokens, the cost that the provider reports and the time. The vignettes turn these into reports of performance, cost and speed.
 - G5. Tune the settings (the descriptions, the number of references, the image size, the model) on learning data, with a guard for the test data (D155).
-- G6. A GUI with a build mode and a use mode that share a saved setup file (D147).
+- G6. Saved setup files that a Shiny app outside the package can read: the Hugging Face Space (the build mode) and a short app in vignette 6 (the use mode) (D147, D165).
 - G7. An agent skill in the package that tunes the descriptions (D148).
 - G8. Six vignettes (D140, D149), and the lightest example in the web browser with webR (D145, D151).
 - G9. A release on CRAN when release 0.1.0 is complete (D154).
@@ -43,6 +43,7 @@ Non-goals:
 - A tidymodels engine, a report function and provider batch jobs (revision 1 had them; D160 removes them).
 - Fine-tuning of model weights, and a built-in object detector (the package has a hook for one, D142).
 - A replication record in the repository of the package (D158).
+- A GUI in the package (D165). The Space is the build mode, and vignette 6 has a short app for the use mode.
 
 Anti-goals. The work fails if one of these is true, even if all code runs:
 
@@ -89,7 +90,7 @@ A small internal translator for each format builds the request and reads the res
 
 ## 4. The API
 
-### 4.1 Exported functions (15)
+### 4.1 Exported functions (14)
 
 | Group | Function | What it does |
 |---|---|---|
@@ -106,7 +107,6 @@ A small internal translator for each format builds the request and reads the res
 | | `write_setup(setup, path)`, `read_setup(path)` | save a setup as one JSON file, and read it |
 | Tuning | `score_setup(setup, text, image, truth, role, metric, path)` | score one setup or a named list of setups on learning rows |
 | | `evaluate_once(setup, text, image, truth, path)` | score the test rows one time only |
-| GUI | `decisions_app(setup = NULL)` | the build mode without a setup, the use mode with one |
 
 `decide()`, `score_setup()` and `evaluate_once()` also accept a setup in place of `decider` and `questions`.
 
@@ -122,7 +122,6 @@ A small internal translator for each format builds the request and reads the res
 - The ROC AUC of `score_setup()`.
 - The application of a probably calibrator that a setup holds.
 - The JSON layout of a setup.
-- The Shiny screens.
 
 ## 5. Behavior
 
@@ -160,7 +159,7 @@ A small internal translator for each format builds the request and reads the res
 - `decision_setup()` holds one complete decision: the model (name, URL, input types; no key), the questions and their descriptions, the references, the image settings and the calibrator.
 - `write_setup()` writes one JSON file, with the reference images after preparation (base64). Claude call. An agent can edit the descriptions as text, and git shows the changes, as in the diffs of our description loops. `read_setup()` reads it.
 - The calibrator in a setup is a probably calibrator (D164), stored in the JSON file as a serialized R object, with a hash of the questions and the references at the time of the fit. When the questions or the references change, `read_setup()` drops the calibrator with a warning, because a calibrator fitted for the old descriptions does not apply to the new ones. `decide()` applies the calibrator of a setup (probably must be installed).
-- Uses: the use mode of the GUI; the agent skill; sharing with a co-author.
+- Uses: the Space and the app of vignette 6; the agent skill; sharing with a co-author.
 
 ### 5.6 Tuning and the guard for test data (D148, D155)
 
@@ -178,17 +177,26 @@ A small internal translator for each format builds the request and reads the res
 - Reference files (Claude call): writing questions; tuning descriptions; calibration and evaluation; sharing a setup.
 - The rules come from the description loop of the study (`scripts/fair_loop_instructions.md`): the 0.02 keep rule; base each change on what the examples show; change one idea at a time; prefer a clear, general description over a long list of special cases; do not aim for an AUC of 1; use only learning rows. The skill has no fixed length limit (D161). When a provider refuses a long candidate, the agent reads the error and shortens the text.
 
-### 5.8 GUI (D147)
+### 5.8 Apps outside the package (D147, D165)
 
-- `decisions_app()` without a setup opens the build mode: pick text or images, write the questions, choose a model, try a few examples, calibrate on labeled examples, see the answers with tokens, cost and time, save the setup.
-- `decisions_app(setup)` opens the use mode: colleagues who do not code give a text or an image and see the answer and how sure the model is.
-- The key is an environment variable of the host, never a field of the app.
-- Claude call: Shiny with bslib, in Suggests, with no chat helper (a chat helper needs a chat model, which D136 keeps out).
+The package has no GUI (D165). Two Shiny apps outside the package read its setup files:
+
+- The build mode is the Hugging Face Space (D157, section 8): pick text or images, write the questions, choose a model, try a few examples, calibrate, see the answers with tokens, cost and time, and download the setup.
+- The use mode is a short app (about 30 lines) in vignette 6: read a setup, take a text or an image, call `decide()`, and show the answer and how sure the model is. A teacher can share the rubric checker with students on Posit Connect or a Space.
+
+The lessons of querychat 0.3.0 apply to both apps:
+
+- Show what makes the result: the model, the questions and the descriptions of the setup, and offer the setup file and the R code that repeats the result (querychat shows its SQL "for transparency and reproducibility").
+- Say which provider receives each text or image.
+- Accept a `credentials` function, so a host such as Posit Connect can give the key in each session (querychat added `$server(client = ...)` for this).
+- Give a stop button for long batches.
+- The key is a secret of the host, never a field of the app.
+- No chat helper: a chat helper needs a chat model, which D136 keeps out.
 
 ### 5.9 Dependencies
 
 - Imports (Claude call): httr2, S7, rlang, cli, tibble, jsonlite.
-- Suggests: magick (images), shiny, bslib, testthat, withr, knitr, rmarkdown, and the packages of the vignettes (rsample, yardstick, probably, dplyr). livelink is not a dependency (D151).
+- Suggests: magick (images), probably (calibration), testthat, withr, knitr, rmarkdown, and the packages of the vignettes (rsample, yardstick, dplyr). livelink is not a dependency (D151). shiny is not a dependency: the app chunk of vignette 6 is shown, not run, on CRAN (D165).
 - No compiled code (D139), so the package builds in webR.
 
 ## 6. Build and tests (D153, D158)
@@ -210,7 +218,7 @@ A small internal translator for each format builds the request and reads the res
 | 3 | Choosing a model | Jev, Microsoft-Decision-1, OpenAI | credentials as in ellmer; one text task on a list of models in one `decide()` call; performance with yardstick, and the reported cost and time with dplyr |
 | 4 | Open models on your own computer | Laya | no key and no cost per call; only the URL changes |
 | 5 | The study again, with the package | all models that read images: Jev, OpenAI `gpt-6-luna`, Clef-Flash (and Clef 27B if it fits on the GPU) | D156: the pipeline of the study with the package, new paid calls, no CLIP: learning, calibration and test rows; a tuning grid for k, the image size and the model; one change at a time for the wording (by hand or with the skill); calibration; `evaluate_once()`; rsample folds over the learning rows to show how much the AUC moves; yardstick metrics. The results can differ from the paper. |
-| 6 | Grading short answers with a rubric | a text model | each idea of a rubric and each known wrong claim is a noul question; the student sees only rubric text; sample answers written for the vignette set the threshold; questions about the package itself |
+| 6 | Grading short answers with a rubric | a text model | each idea of a rubric and each known wrong claim is a noul question; the student sees only rubric text; sample answers written for the vignette set the threshold; questions about the package itself; a short Shiny app that shares the checker as a setup (the use mode, D165) |
 
 - Vignette 6 credits three sources (D150): Jeffrey Biles of PhysicsGraph for the idea to check an explanation while the student types it (https://x.com/JeffreyBiles/status/2107211222320021722, as cited in the README of fmegahed/isa401); the course ISA 401 of fmm at Miami University; and the exam-review game (https://isa401-review.vercel.app, https://github.com/fmegahed/isa401/tree/main/games/exam-review).
 - Microsoft-Decision-1 and Laya read only text. They are in vignettes 1, 3, 4 and 6, not in the image vignettes.
@@ -227,13 +235,13 @@ A small internal translator for each format builds the request and reads the res
 
 ## 8. Outside the package
 
-- The Hugging Face Space (D157): the build mode of the GUI on a free CPU Space, with Laya on the same CPU, so a visitor can try text decisions with no key. Image decisions need a hosted model and the key of the visitor, which the Space never stores. The Space is not part of the package. The documentation of the package links to it. The speed of Laya on the 2 vCPUs of a free Space is not known yet.
+- The Hugging Face Space (D157, D165): the build mode, a Shiny app on a free CPU Space, with Laya on the same CPU, so a visitor can try text decisions with no key. Image decisions need a hosted model and the key of the visitor, which the Space never stores. The Space is not part of the package. The documentation of the package links to it. The speed of Laya on the 2 vCPUs of a free Space is not known yet.
 - The repository of the package: fmm makes it (section 6).
 - The paper: one sentence about the package; fmm writes it.
 
 ## 9. Release plan
 
-Claude call: one first release, 0.1.0, with the 15 functions, the skill, the six vignettes and webR example A. Example B follows when a test confirms it. The release goes to CRAN when it is complete (D154).
+Claude call: one first release, 0.1.0, with the 14 functions, the skill, the six vignettes and webR example A. Example B follows when a test confirms it. The release goes to CRAN when it is complete (D154).
 
 ## 10. Decisions and their impacts
 
@@ -250,7 +258,7 @@ Claude call: one first release, 0.1.0, with the 15 functions, the skill, the six
 | D144, D156 | vignette 5 does the study again with the package, all image models, no CLIP | section 7 |
 | D145, D151 | webR first; livelink only as a fallback, not a dependency | section 7.1 |
 | D146, D152 | the name decisions | all |
-| D147 | GUI with build and use modes and a saved setup | sections 5.5, 5.8 |
+| D147, D165 | build and use modes share a saved setup; both apps are outside the package | sections 5.5, 5.8 |
 | D148 | agent skill in the package, as in commons | section 5.7 |
 | D150 | vignette 6 as a grading option, with credits | section 7 |
 | D153 | live tests with all four providers | section 6 |
@@ -264,6 +272,7 @@ Claude call: one first release, 0.1.0, with the 15 functions, the skill, the six
 | D162 | only the reported cost; say so when there is none | section 5.3 |
 | D163 | no claim that a model was the first decision model | section 1 |
 | D164 | calibration with probably, not in the package; tidymodels names for the probability columns | sections 4.1, 5.3 to 5.5 |
+| D165 | no GUI in the package; the Space and a short app in vignette 6 | sections 5.8, 7, 8 |
 
 ## 11. Left to the builder
 
@@ -274,7 +283,7 @@ Claude call: one first release, 0.1.0, with the 15 functions, the skill, the six
 
 ## 12. Claude calls for fmm to check
 
-1. S7 classes and the names of the 15 functions (section 4.1).
+1. S7 classes and the names of the 14 functions (section 4.1).
 2. `decide()` takes a named list of models and runs them in one pool (section 5.2).
 3. `decide()` has `path` and `ignore_hash`, as `ellmer::batch_chat()` (section 5.2).
 4. Retries only when the server surely did not process the call (section 5.2).
@@ -282,12 +291,12 @@ Claude call: one first release, 0.1.0, with the 15 functions, the skill, the six
 6. A setup stores the probably calibrator as a serialized R object and drops it when the questions change (section 5.5).
 7. A setup is one JSON file with the reference images in it (section 5.5).
 8. `score_setup()` takes a named list of setups (section 5.6).
-9. Shiny forms for the GUI, with no chat helper (section 5.8).
+9. The lessons of querychat for the two apps outside the package (section 5.8).
 10. The dependencies, with magick in Suggests (section 5.9).
 11. Vignettes read saved results on CRAN (section 7).
 12. Vignette 6 uses sample answers written for it (section 7).
 13. pplx-decider stays out of 0.1.0 until its request format is known (section 3.1).
-14. One first release with all 15 functions (section 9).
+14. One first release with all 14 functions (section 9).
 
 ## 13. Builder check and answers
 
