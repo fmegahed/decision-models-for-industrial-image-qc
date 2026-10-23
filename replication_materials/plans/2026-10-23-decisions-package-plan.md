@@ -48,7 +48,7 @@
 **Interfaces:**
 - Produces: an installable, checkable empty package.
 
-- [ ] **Step 1:** Make the folder and `git init -b main`. Write `DESCRIPTION`: `Package: decisions`, `Version: 0.0.0.9000`, `Title: Typed Decisions from Decision Models`, `Authors@R: person("Fadel M.", "Megahed", role = c("aut", "cre"), email = "fmegahed@miamioh.edu")` (fmm adds co-authors), `License: MIT + file LICENSE`, `Depends: R (>= 4.1)`, the Imports and Suggests of the Global Constraints, `Config/testthat/edition: 3`, `Encoding: UTF-8`, `Roxygen: list(markdown = TRUE)`, `VignetteBuilder: knitr`.
+- [ ] **Step 1:** Make the folder and `git init -b main`. Write `DESCRIPTION`: `Package: decisions`, `Version: 0.0.0.9000`, `Title: Typed Decisions from Decision Models`, `Authors@R: c(person("Fadel M.", "Megahed", role = c("aut", "cre"), email = "fmegahed@miamioh.edu"), person("Ying-Ju", "Chen", role = "aut"))` (D185; fmm adds an email or ORCID if wanted), `License: MIT + file LICENSE`, `Depends: R (>= 4.1)`, the Imports and Suggests of the Global Constraints, `Config/testthat/edition: 3`, `Encoding: UTF-8`, `Roxygen: list(markdown = TRUE)`, `VignetteBuilder: knitr`.
 - [ ] **Step 2:** `R/decisions-package.R` holds the package doc (`"_PACKAGE"`) and `@importFrom S7 new_class new_object` style imports only where used. `.Rbuildignore`: `^data-raw$`, `^\.git`, `^README\.Rmd$`.
 - [ ] **Step 3:** Run `devtools::document()` then `devtools::check(args = "--as-cran", error_on = "warning")`. Expected: 0 errors, 0 warnings.
 - [ ] **Step 4:** Commit: `git add -A && git commit -m "Package skeleton"`.
@@ -260,7 +260,7 @@
   - `evaluate_once()` on the test rows;
   - `rsample::vfold_cv()` over the learning rows, to show how much the ROC AUC moves.
   It logs each paid call and saves the results (numbers and image names only) to `inst/extdata`. No CLIP.
-- [ ] **Step 3:** Write the vignette: the live code shown, the saved results read, yardstick metrics by model and dataset, the reported cost and the time. Say that the numbers can differ from the paper (probably's logistic method is a GAM, not the Platt scaling of the study).
+- [ ] **Step 3:** Write the vignette so that it stands on its own (D186): readers may not have seen our paper, which is still in progress. The vignette itself explains the question (can a decision model with a few reference images detect defects, with calibrated probabilities?), the five datasets and where they come from (cite the published CLIP study, Megahed et al., 2026, doi:10.1080/00224065.2026.2640171, for the datasets), the three kinds of rows (learning, calibration, test) and why the test rows are scored once, what the 0.02 keep rule protects against, and where the candidate descriptions come from (an agent wrote them while it looked at the learning images; link the public description-loops page of the replication record for the detail). It shows the live code, reads the saved results, and reports yardstick metrics by model and dataset, the reported cost and the time. It does not compare its numbers with the paper, and it does not need the paper to be read.
 - [ ] **Step 4:** Check the licence of each dataset before the image names ship (AutoVI is CC BY-NC-SA 4.0). Record the result in `data-raw/formats.md`.
 - [ ] **Step 5:** Commit.
 
