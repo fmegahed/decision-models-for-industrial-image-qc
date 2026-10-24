@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | M1 | Tune JEV on validation, test once, compare with CLIP and Clef-Flash (MSEC 2027 abstract) | done | - | - |
 | M2 | Full MSEC 2027 paper: fmm and yjc write the text and make the method figure (D93, D106). Claude Code makes the data figures and the LaTeX tables in the style of fmm (D96, D97, D107), helps with the literature search and gives each reference in the .bib file a doi field (D93). Following the ASME position statement on AI, Claude Code writes no text of the paper and no observations (D105), and the paper discloses how AI tools were used. The paper is in the private repository fmegahed/decision-models-paper, linked to Overleaf (D94) | now | - | - |
-| M3 | R package decisions (named decisionqc until D146; design D183, plan D187) | now | plans/2026-10-23-decisions-package-plan.md | - |
+| M3 | R package decisions (named decisionqc until D146; design D183, plan D187) | done | plans/2026-10-23-decisions-package-plan.md | plans/2026-10-23-decisions-package-ledger.md |
 | M4 | Record additions: releases, results, timeline and contributions (replication-materials 1.2.0) | done | plans/2026-10-20-record-additions-plan.md | plans/2026-10-20-record-additions-ledger.md |
 | M5 | Fair comparison: shared label budget, blind description loop, calibration of all methods (v0.0.2) | done | plans/2026-10-20-fair-comparison-plan.md | plans/2026-10-20-fair-comparison-ledger.md |
 
