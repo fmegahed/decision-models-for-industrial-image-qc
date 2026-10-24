@@ -164,11 +164,17 @@ The bundle is one zip file, `<name>-<date>.zip`:
 | `<name>.R` | the code above |
 | `<name>-setup.json` | the setup from `write_setup()`: model, question, references and image settings |
 | `<name>-answers.csv` | the answers of section 5.5 |
+| `references/<answer>/<file>` | the reference images of the run (at most 2 for each answer), so that the code runs with its relative paths; none for the samples, which use `system.file()` |
 | `README.md` | what each file is; the versions (app, decisions commit, model) and the date; how to install decisions; how to cite; how to set `TYPESAFE_API_KEY` |
 
-The bundle holds no image of the visitor (only the references, inside the setup file) and no key.
+The bundle holds no input image of the visitor and no key. (Claude Code's call: the references go in as files, so the code of section 5.6 needs no change for an imported setup.)
 
-Import takes a bundle zip file or a setup JSON file and restores the question, the answers and the references. It makes no call. The model of the file must be the model of the app; if not, the app says so and uses its own model.
+Import takes a bundle zip file or a setup JSON file that this Space made, and restores the question, the answers and the references. It makes no call. Rules (Claude Code's call, after the builder check):
+
+- The app parses the JSON itself (jsonlite). It never calls `read_setup()` on an upload and never unserializes anything: `read_setup()` unserializes a stored calibrator, and its help says to read only trusted files.
+- The app accepts a file with one question, no calibrator, and image settings `max_size = 768`, `upscale = TRUE`, `crop = "none"`. It refuses any other file with a short message.
+- The model of the file must be the model of the app; if not, the app says so and uses its own model.
+- Imported references have no file names. The app names them `ref_1.jpg`, `ref_2.jpg` in `references/<answer>/`, and the code uses these names.
 
 ### 5.7 Help (D235, D237)
 
@@ -222,7 +228,7 @@ Import takes a bundle zip file or a setup JSON file and restores the question, t
 ## 9. Repository, build and deploy (D228, D230)
 
 - Folder: `C:\Users\megahefm\Dropbox\Miami\Code\claude\decisions-space`, its own git repository.
-- GitHub: `fmegahed/decisions-space` (public, MIT). Space: `fmegahed/decisions` (Claude Code's call for both names).
+- GitHub: `fmegahed/decisions-space` (public, MIT). Space: `fmegahed/decisions` (Claude Code's call for both names). The Space is private until it passes the gate of section 12 and fmm makes it public.
 - Files, after app 1: `app.R`, `R/config.R` (the model, the limits, the versions, `VIDEO_URL`), `R/` (one file for each part: data, questions, runs, answers, code, bundle, spending, status, help), `www/` (theme, fonts, logo, `app.js`), `samples/` (the saved answers of section 5.1), `tests/`, `status/status.csv`, `Dockerfile`, `README.md` (with the metadata of the Space: `sdk: docker`, `app_port: 7860`).
 - Dockerfile: `rocker/shiny:4.6.1`; decisions from `url::https://github.com/fmegahed/decisions/archive/b25fc9ffa7908e9a6a2d9833f080de1456c9d50a.tar.gz` (the commit of the CRAN submission of 0.1.0) with pak; the other packages at fixed versions; the last line of the build loads each package. After CRAN accepts decisions, the Dockerfile installs `decisions` 0.1.0 from CRAN.
 - GitHub workflows:
@@ -252,9 +258,10 @@ Import takes a bundle zip file or a setup JSON file and restores the question, t
 
 - A new milestone M6, "Hugging Face Space of decisions", goes into `roadmap.md` when fmm approves the plan.
 - Budget rows to propose before the first paid call (none exist yet):
-  - typesafe: the build and the smoke tests by Claude Code, about 300 calls and USD 0.50.
-  - typesafe: the calls of visitors on the public Space, USD 20 each month (D227). The Space enforces it.
+  - typesafe: the build and the smoke tests by Claude Code, about 300 calls and USD 0.50. These calls go in `calls/typesafe-calls.csv`, as before.
+  - typesafe-space: the calls of visitors on the public Space, USD 20 each month (D227). The Space enforces it. A separate service name keeps the calls of visitors out of the log of the study. Its log, `calls/typesafe-space-calls.csv`, holds one row for each day (the totals of the usage dataset). Claude Code copies the rows from the dataset when it updates the record: at the end of M6 and in each later session about the Space. (Claude Code's call, after the builder check.)
   - elevenlabs: the narration of the video (D239). The cost depends on the plan of fmm; Claude Code proposes the row with the length of the script.
+- Gate before the Space goes public: the Space is first private (section 9). Claude Code runs "Try on 5" on each sample there, under the build budget row, and reads the usage dataset (with the Hugging Face login of fmm on this computer) to check that the day and month totals are written and survive a restart.
 - The record of the Space (decisions, process, ledger) stays in this repository (D230).
 
 ## 13. Decisions and their impacts
@@ -288,7 +295,14 @@ Import takes a bundle zip file or a setup JSON file and restores the question, t
 
 ## 15. Builder check and answers
 
-To be added after the builder check.
+A fresh reviewer read revision 1 as a builder (2026-10-24) and asked four questions.
+
+| Question | Answer | Where |
+|---|---|---|
+| What may Claude Code do alone in the new repository and on Hugging Face, and how is the real usage store tested? | The test of the usage store: Claude Code's call (a private Space first, then a check of the dataset). The rest: for fmm. | section 12; open |
+| Is USD 0.042 per million input tokens confirmed, and does the USD 20 limit apply to the estimate or to the bill? | For fmm: only fmm can see the TypeSafe account. | open |
+| Must Import accept any setup file, or only the files of this Space? | Only the files of this Space, parsed without `read_setup()` and with no unserialize; the bundle holds the references as files. Claude Code's call. | section 5.6 |
+| How do the calls of visitors enter the record? | A budget row and a log of daily totals under the service name `typesafe-space`. Claude Code's call. | section 12 |
 
 ## Sources
 
