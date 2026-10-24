@@ -2,7 +2,7 @@
 
 Fadel M. Megahed ([fmegahed](https://github.com/fmegahed)) and Ying-Ju (Tessa) Chen ([ying-ju](https://github.com/ying-ju))
 
-Status: ongoing work. An abstract is submitted to MSEC 2027 (`paper/msec2027_submitted.md`). An R package, `decisionqc`, is in design (`docs/decisionqc_design.md`).
+Status: ongoing work. An abstract is submitted to MSEC 2027 (`paper/msec2027_submitted.md`). The R package `decisions` (milestone M3) is built and in test: it calls decision models (Jev, the OpenAI Decisions API, OpenRouter, Microsoft Foundry, and SystemOne servers such as Clef-Flash and Laya) with typed questions, and returns tidymodels-style probabilities. Its vignette "The study again" repeats this study with the package. Its design and plan are in `replication_materials/plans/` (`2026-10-23-decisions-package-design.md`, `2026-10-23-decisions-package-plan.md`). The package repository is not public yet.
 
 Analysis: [all paper tables and figures, with their code](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/beyond_clip_analysis.html) (`beyond_clip_analysis.html`, rendered from `beyond_clip_analysis.qmd`). Description loops: [every candidate description, against the text it revised](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html) (`description_loops.html`, rendered from `description_loops.qmd`). Replication record: [website](https://fmegahed.github.io/decision-models-for-industrial-image-qc/).
 
@@ -72,7 +72,7 @@ Raw JEV probabilities are not calibrated (expected calibration error 0.11 to 0.2
 | `experiments/` | Inputs chosen during the v0.0.1 tuning (criteria and reference sets) and one-time data scripts (leakage check, duplicate removal) |
 | `results/` | Split manifest; `fair/`: the sets, score files, loop logs, frozen descriptions and summaries of the fair comparison; v0.0.1: reference manifests, trial outputs (`optimization/`), frozen configurations, test results (`final_test/`) and CLIP results (`clip/`, `clip_paper/`) |
 | `paper/` | MSEC 2027 abstract (v0.0.1 results): draft and submitted versions, with the source of each number |
-| `docs/` | The original task (`GOAL.md`) and the draft design of the `decisionqc` package |
+| `docs/` | The original task (`GOAL.md`) and the first draft design of the package (`decisionqc_design.md`); the package is now `decisions`, and its design is in `replication_materials/plans/` |
 | `archive/` | The first analysis script, kept for the record |
 
 ## Data
