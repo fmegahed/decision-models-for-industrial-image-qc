@@ -6,7 +6,7 @@ The researchers write this account. Claude Code can draft it. It is not complete
 |---|---|
 | Status | approved |
 | Written by | Claude Code (draft) |
-| Approved by | fmm (2026-10-22) |
+| Approved by | fmm (2026-10-22); section "R package decisions": fmm (2026-10-24) |
 
 This draft lists only decisions that a researcher proposed (Proposed by fmm or yjc in `decisions.md`). The researchers can rewrite it, add what the record does not show, and remove what is wrong.
 
@@ -50,3 +50,20 @@ This draft lists only decisions that a researcher proposed (Proposed by fmm or y
 - Keep a replication record (D1), and make it an honest guide that shows the contributions of the researchers, with a timeline, tags and results (D72, D73).
 - Tag v0.0.1 before the redesign, and do the redesign on a branch (D64, D65).
 - Write R code in tidyverse style with yardstick (D66).
+
+## R package decisions
+
+Ying-Ju (Tessa) Chen is an author of the package decisions (milestone M3). The ideas of the package came from discussions between Fadel M. Megahed and Tessa Chen, and the package builds on their joint work:
+
+- the adaptation of CLIP for few-shot image inspection in manufacturing quality control (Megahed et al., 2026);
+- the working paper of this project, Beyond CLIP (Megahed & Chen, 2026a);
+- the Python packages conformal-clip and conformal-clip-data (Megahed & Chen, 2025, 2026b).
+
+These discussions took place outside the Claude Code sessions. So the decisions of this record show fmm as the person who proposed most of them. The package website shows the part of this record about the package at https://fmegahed.github.io/decisions/record/ (D224).
+
+References:
+
+- Megahed, F. M., & Chen, Y.-J. (2025). *conformal-clip-data* (Version 0.1.4) [Data set]. Python Package Index. https://pypi.org/project/conformal-clip-data/
+- Megahed, F. M., & Chen, Y.-J. (2026a). *Beyond CLIP: Calibrated few-shot defect detection with structured decision models* [Manuscript in preparation]. https://github.com/fmegahed/decision-models-for-industrial-image-qc
+- Megahed, F. M., & Chen, Y.-J. (2026b). *conformal-clip* (Version 0.2.2) [Computer software]. Python Package Index. https://pypi.org/project/conformal-clip/
+- Megahed, F. M., Chen, Y.-J., Colosimo, B. M., Grasso, M., Jones-Farmer, L. A., Knoth, S., Sun, H., & Zwetsloot, I. M. (2026). Adapting OpenAI's CLIP model for few-shot image inspection in manufacturing quality control: An expository case study with multiple application examples. *Journal of Quality Technology, 58*(4), 415–441. https://doi.org/10.1080/00224065.2026.2640171
