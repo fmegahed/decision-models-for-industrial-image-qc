@@ -1,10 +1,12 @@
 # The Hugging Face Space of decisions: design
 
-- Date: 2026-10-24 (revision 1)
+- Date: 2026-10-24 (revision 2)
 - Milestone: M6
 - Status: draft for the review of fmm
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
-- Decisions in the record: D225 to D240, with the earlier D147, D157, D165 and D175
+- Decisions in the record: D225 to D241, with the earlier D147, D157, D165 and D175
+
+Revision 2 adds the answers to the builder check (section 15) and D241 (the TypeSafe account has no credit card; no price check before launch).
 - Replaces: section 8 of `plans/2026-10-23-decisions-package-design.md` (a Space with Laya and the key of the visitor)
 
 ## 1. Intent
@@ -56,7 +58,7 @@ Anti-goals (a failure even if the app works):
 - Each push to the Space rebuilds and restarts it. A Space on free CPU sleeps after 48 hours with no visitor.
 - The package decisions 0.1.0 is on its way to CRAN. Until CRAN accepts it, the Docker image installs it from GitHub at a fixed commit.
 - TypeSafe refuses images smaller than 280 pixels. The package sends images at `max_size = 768` with `upscale = TRUE`, as the images vignette does.
-- TypeSafe reports input tokens, not a cost (D162). The app estimates the cost as input tokens times USD 0.042 per million (the price of the record, `calls/README.md`; D79 checks it against the account).
+- TypeSafe reports input tokens, not a cost (D162). The app estimates the cost as input tokens times USD 0.042 per million (the price of the record, `calls/README.md`). The price is not checked against the account; the account has no credit card, so the spend cannot go over its credit (D241). The TypeSafe console shows no usage per key and has no cap per key.
 - Writing rules: short noun labels in the app (D237); 80% ASD-STE100 in the README and the help; no claim that any model was the first (D163).
 
 ## 4. Layout (D235, D237, D240)
@@ -208,6 +210,7 @@ Import takes a bundle zip file or a setup JSON file that this Space made, and re
 - After each chunk, the app adds the reported tokens to the totals.
 - The day and month totals must survive a restart. The app keeps them in a private Hugging Face dataset, `fmegahed/decisions-space-usage`, as one CSV row for each day (date, calls, input tokens, estimated cost). It reads the file at start and writes it after each run. A second Space secret, `HF_USAGE_TOKEN`, is a token that can write only to this dataset. (Claude Code's call; another store is acceptable if it survives restarts and holds no inputs.)
 - A page reload starts a new session, so the session limit only shapes normal use; the day and month limits bound the cost (D227).
+- The credit of the TypeSafe account is the last guard (D241). When TypeSafe refuses a call for lack of credit, the app shows "The credit of this demo is used up. Try again later." makes no more calls that day, and writes the event (with no input) to its log. A test with the mock decider covers this answer.
 
 ## 7. Accessibility and look
 
@@ -237,6 +240,13 @@ Import takes a bundle zip file or a setup JSON file that this Space made, and re
   - status: section 8.
 - Secrets of the Space: `HF_JEV_API`, `HF_USAGE_TOKEN`. fmm sets them; Claude Code never sees them. Secret of the GitHub repository: `HF_TOKEN` (write to the Space).
 - Locally, the key stays in the `.Renviron` of fine_tuned_jev (D229). A local run reads it with `readRenviron()` on that file.
+
+Roles (proposed by Claude Code; open until fmm approves this design):
+
+- Claude Code creates the GitHub repository with `gh`. After fmm runs `hf auth login` on this computer, Claude Code creates the Space and the usage dataset, both private.
+- fmm makes the three tokens and sets the secrets (`HF_JEV_API` and `HF_USAGE_TOKEN` in the Space, `HF_TOKEN` in the GitHub repository). Claude Code never sees a value.
+- While the Space is private, Claude Code may push to `main` of decisions-space without asking; each push redeploys only the private Space.
+- fmm makes the Space public after the gate of section 12 and his review. After that, Claude Code asks before each push to `main`.
 
 ## 10. Privacy
 
@@ -299,8 +309,8 @@ A fresh reviewer read revision 1 as a builder (2026-10-24) and asked four questi
 
 | Question | Answer | Where |
 |---|---|---|
-| What may Claude Code do alone in the new repository and on Hugging Face, and how is the real usage store tested? | The test of the usage store: Claude Code's call (a private Space first, then a check of the dataset). The rest: for fmm. | section 12; open |
-| Is USD 0.042 per million input tokens confirmed, and does the USD 20 limit apply to the estimate or to the bill? | For fmm: only fmm can see the TypeSafe account. | open |
+| What may Claude Code do alone in the new repository and on Hugging Face, and how is the real usage store tested? | The test of the usage store: Claude Code's call (a private Space first, then a check of the dataset). The roles: proposed in section 9, for fmm to approve with this design. | sections 9, 12 |
+| Is USD 0.042 per million input tokens confirmed, and does the USD 20 limit apply to the estimate or to the bill? | fmm: the console has no usage or cap per key, and the account has no credit card, so no check is needed (D241). The limits use the estimate; the credit is the last guard. | sections 3, 6 |
 | Must Import accept any setup file, or only the files of this Space? | Only the files of this Space, parsed without `read_setup()` and with no unserialize; the bundle holds the references as files. Claude Code's call. | section 5.6 |
 | How do the calls of visitors enter the record? | A budget row and a log of daily totals under the service name `typesafe-space`. Claude Code's call. | section 12 |
 
