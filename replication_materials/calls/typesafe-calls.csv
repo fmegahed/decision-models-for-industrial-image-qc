@@ -13461,3 +13461,5 @@ time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_
 2026-10-24T01:34:58Z,study-jev_textiles.rds.state-20261023T213457.968-198,decisions-task12-study-test-jev-textiles,jev-1.14.0,,200,965,14607,,0.000613494
 2026-10-24T01:34:58Z,study-jev_textiles.rds.state-20261023T213457.968-199,decisions-task12-study-test-jev-textiles,jev-1.14.0,,200,959,14607,,0.000613494
 2026-10-24T01:34:58Z,study-jev_textiles.rds.state-20261023T213457.968-200,decisions-task12-study-test-jev-textiles,jev-1.14.0,,200,1029,14607,,0.000613494
+2026-10-25T15:41:05Z,nominal_textile_0080.jpg,space-smoke,jev-1.14.0,,200,379,8253,,0.00034663
+2026-10-25T15:41:05Z,2025032634,space-smoke,jev-1.14.0,,200,96,471,,1.9782e-05
