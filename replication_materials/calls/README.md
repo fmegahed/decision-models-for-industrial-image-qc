@@ -14,6 +14,7 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-10-23 | openrouter | Package decisions (M3), Task 11: Jev and Microsoft-Decision-1 through OpenRouter for vignette 3 (D191) | 150 | 0.5 | fmm |
 | 2026-10-23 | typesafe | Package decisions (M3), Task 12: vignette 5 repeats the study with Jev (grid, rescoring of the loop wordings, calibration, one test) (D191) | 8000 | 5 | fmm |
 | 2026-10-23 | openai | Package decisions (M3), Task 12: the same with gpt-6-luna (D191) | 8000 | 10 | fmm |
+| 2026-10-25 | typesafe | Space decisions (M6): smoke test and the gate on the private Space (D244) | 1000 | 0.05 | fmm |
 
 ## Call logs
 
