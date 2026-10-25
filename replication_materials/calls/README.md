@@ -51,6 +51,19 @@ Budget row of 2026-10-21 (D84). Each call has a row in `typesafe-calls.csv`. The
 - Left under the budget row: 41,566 calls and about USD 19.27.
 - Clef-Flash and CLIP ran on a local GPU. They had no API cost.
 
+## Calls of the Space gate
+
+Budget row of 2026-10-25 (D244). The Space counts its own calls in the private dataset `fmegahed/decisions-space-usage` (file `usage.csv`, one row for each day). It does not write `typesafe-calls.csv`. The cost is an estimate: input tokens times USD 0.042 per million.
+
+| Step | Calls | Input tokens | Estimated cost (USD) |
+|---|---|---|---|
+| Smoke test (`tests/live_smoke.R`, rows in `typesafe-calls.csv`) | 2 | 8,724 | 0.0004 |
+| Tests of fmm on the private Space (`usage.csv`, 2026-10-25) | 177 | 877,933 | 0.0369 |
+| Total | 179 | 886,657 | 0.0372 |
+
+- Left under the budget row: 821 calls and about USD 0.013.
+- At about 21:45 UTC, the usage page of TypeSafe showed 8,822 tokens for the day, about the smoke test alone. fmm checks the page again (open).
+
 ## Rule
 
 Do not put a key, a token or an authorization header in any file in this folder.
