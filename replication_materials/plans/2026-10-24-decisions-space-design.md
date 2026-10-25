@@ -2,7 +2,7 @@
 
 - Date: 2026-10-24 (revision 2)
 - Milestone: M6
-- Status: draft for the review of fmm
+- Status: approved by fmm on 2026-10-24 (D242)
 - Written by: Claude Code (Opus 5.5), from the chat with fmm in session b36ad167-66f5-45af-9d6c-bf3f817c6f58
 - Decisions in the record: D225 to D241, with the earlier D147, D157, D165 and D175
 
@@ -241,7 +241,7 @@ Import takes a bundle zip file or a setup JSON file that this Space made, and re
 - Secrets of the Space: `HF_JEV_API`, `HF_USAGE_TOKEN`. fmm sets them; Claude Code never sees them. Secret of the GitHub repository: `HF_TOKEN` (write to the Space).
 - Locally, the key stays in the `.Renviron` of fine_tuned_jev (D229). A local run reads it with `readRenviron()` on that file.
 
-Roles (proposed by Claude Code; open until fmm approves this design):
+Roles (proposed by Claude Code; approved by fmm with this design, D242):
 
 - Claude Code creates the GitHub repository with `gh`. After fmm runs `hf auth login` on this computer, Claude Code creates the Space and the usage dataset, both private.
 - fmm makes the three tokens and sets the secrets (`HF_JEV_API` and `HF_USAGE_TOKEN` in the Space, `HF_TOKEN` in the GitHub repository). Claude Code never sees a value.
