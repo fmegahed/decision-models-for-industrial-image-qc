@@ -65,7 +65,9 @@ Budget row of 2026-10-25 (D244). The Space counts its own calls in the private d
 | Total | 179 | 886,657 | 0.0372 |
 
 - Left under the budget row: 821 calls and about USD 0.013.
-- At about 21:45 UTC, the usage page of TypeSafe showed 8,822 tokens for the day, about the smoke test alone. fmm checks the page again (open).
+- At about 21:45 UTC, the usage page of TypeSafe showed 8,822 tokens for the day, about the smoke test alone. The page has a delay.
+- On 2026-10-26 at about 00:18 UTC, the usage page of the key `huggingface-decisions` showed 179 requests, 886,657 input tokens and USD 0.0372. These numbers are the same as the table above. The estimate of the app (input tokens times USD 0.042 per million) is the same as the spend of TypeSafe.
+- The balance of the TypeSafe account was USD 21.12. The account has no card (D241), so the balance is a hard limit for all calls of the account.
 
 ## Rule
 
