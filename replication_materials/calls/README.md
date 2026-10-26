@@ -15,12 +15,15 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-10-23 | typesafe | Package decisions (M3), Task 12: vignette 5 repeats the study with Jev (grid, rescoring of the loop wordings, calibration, one test) (D191) | 8000 | 5 | fmm |
 | 2026-10-23 | openai | Package decisions (M3), Task 12: the same with gpt-6-luna (D191) | 8000 | 10 | fmm |
 | 2026-10-25 | typesafe | Space decisions (M6): smoke test and the gate on the private Space (D244) | 1000 | 0.05 | fmm |
+| 2026-10-26 | typesafe-space | Space decisions (M6): the calls of visitors on the public Space, for each month (D227, D251). The app stops at USD 0.25 for each visit, USD 2 each day and USD 20 each month. It limits the cost, not the number of calls. Max calls is USD 20 at 8,253 tokens for each image call. | 57700 | 20 | fmm |
 
 ## Call logs
 
 Each service has one log: `<service>-calls.csv`. The columns are:
 
 `time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_tokens,cost_usd`
+
+The log of `typesafe-space` is different. The Space keeps no log of single calls. It keeps one row for each day in `usage.csv` of the private dataset `fmegahed/decisions-space-usage`: date, calls, input tokens and cost. Claude Code copies these rows into the record at the end of M6 and in each later session about the Space. The rows start on the day the Space is public; the calls before that day are under D244. The file `typesafe-space-calls.csv` does not exist yet: the site of the record counts one row of a log as one call, so a row for each day needs a change of the record tools first (open).
 
 ## Paid calls before the record
 
