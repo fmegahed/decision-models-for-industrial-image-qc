@@ -94,7 +94,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
 
 ## Figure and table style
 
-Figures use `theme_bw()` with no grid lines, bold axis titles and tick labels, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Five colors mark the models, the calibration and the defective class: teal for JEV, gold for Clef-Flash, blue for CLIP, plum for Platt scaling and the Accent Red of Miami University for defective images. Each color has a contrast of 4.5:1 or more on white (WCAG 2.2 AA for text), and each pair of colors stays apart in normal vision and in simulated protan, deutan and tritan vision [@machado2009physiologically]. `scripts/palette_check.R` compares them with published palettes. Colored words in the subtitle replace the legend. Subtitles are bold (F2 to F7) and wrap in lines of about the same length. No figure has a title: the caption takes its place, and the subtitle reads on its own. Small labels give the values on a fixed side of each mark: in F3 to F5, the difference over each point and the 2.5% and 97.5% bounds over the ends of its interval, above JEV and below Clef-Flash; in F2, F6 and F7, the value of each point. A label that would overlap a mark or another label is left out. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+Figures use `theme_bw()` with no grid lines, bold axis titles and tick labels, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Five colors mark the models, the calibration and the defective class: teal for JEV, gold for Clef-Flash, blue for CLIP, plum for Platt scaling and the Accent Red of Miami University for defective images. Each color has a contrast of 4.5:1 or more on white (WCAG 2.2 AA for text), and each pair of colors stays apart in normal vision and in simulated protan, deutan and tritan vision [@machado2009physiologically]. `scripts/palette_check.R` compares them with published palettes. Colored words in the subtitle replace the legend. Subtitles are bold (F2 to F7) and wrap in lines of about the same length; the subtitle and the caption of F1 fill each line to the width of the figure. No figure has a title: the caption takes its place, and the subtitle reads on its own. Small labels give the values on a fixed side of each mark: in F3 to F5, the difference over each point and the 2.5% and 97.5% bounds over the ends of its interval, above JEV and below Clef-Flash; in F2, F6 and F7, the value of each point. A label that would overlap a mark or another label is left out. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
 
 ```{r}
 #| label: fonts-and-colors
@@ -186,8 +186,10 @@ layouts <- list(
 # width that keeps that number of lines, so the lines are about the same
 # length. A colored span or "k = 2" never breaks across lines (its spaces
 # become no-break spaces first). `bold`: the text outside the bold spans is
-# bold; `size`: the text size relative to the base size.
-subline <- function(layout, ..., bold = TRUE, size = 1) {
+# bold; `size`: the text size relative to the base size; `width`: the width
+# of the figure in inches; `balance = FALSE` fills each line to that width.
+subline <- function(layout, ..., bold = TRUE, size = 1,
+                    width = layouts[[layout]]$width, balance = TRUE) {
   nbsp <- " "
   text <- stringr::str_c(...) |>
     stringr::str_replace_all("<span[^>]*>.*?</span>|k = \\d",
@@ -219,9 +221,9 @@ subline <- function(layout, ..., bold = TRUE, size = 1) {
     line
   }
   # The figure less its margins (5.5 pt each side), and 3% to spare.
-  limit <- (layouts[[layout]]$width * 72 - 11) * 0.97
+  limit <- (width * 72 - 11) * 0.97
   lines <- max(wrap(limit))
-  while (limit > max(widths) && max(wrap(limit - 1)) == lines) limit <- limit - 1
+  while (balance && limit > max(widths) && max(wrap(limit - 1)) == lines) limit <- limit - 1
   split(words, wrap(limit)) |>
     purrr::map_chr(\(w) stringr::str_c(w, collapse = " ")) |>
     stringr::str_c(collapse = "<br>") |>
@@ -755,9 +757,20 @@ row_label <- function(text, layout) {
     ggplot2::theme_void()
 }
 
+# Width of the column of dataset names: the widest line of a name, and a gap
+# of 6 pt to the images. The image columns share the rest of the width, so
+# the images move to the left and spread out.
+label_width <- function(layout) {
+  names <- if (layout == "one-column") short_labels else dataset_labels
+  lines <- unlist(stringr::str_split(names, "\n"))
+  widths <- systemfonts::string_width(lines, family = title_font, weight = "bold",
+                                      size = layouts[[layout]]$base_size, res = 7200) / 100
+  max(widths) + 6
+}
+
 # Figure F1: one row per dataset, nominal images first.
 refs_main <- dplyr::filter(sets$references, rank <= k_main)
-fig_references <- function(layout, paper = FALSE, ...) {
+fig_references <- function(layout, paper = FALSE, width = layouts[[layout]]$width, ...) {
   tiles <- purrr::map(dataset_order, function(ds) {
     refs <- refs_main |>
       dplyr::filter(dataset == ds) |>
@@ -770,24 +783,28 @@ fig_references <- function(layout, paper = FALSE, ...) {
     c(list(row_label(name, layout)), row)
   })
   patchwork::wrap_plots(unlist(tiles, recursive = FALSE), ncol = 1 + 2 * k_main,
-                        widths = c(1.1, rep(1, 2 * k_main))) +
+                        widths = grid::unit(c(label_width(layout), rep(1, 2 * k_main)),
+                                            c("pt", rep("null", 2 * k_main)))) +
     patchwork::plot_annotation(
+      # Subtitle and caption fill each line to the width of the figure (fmm).
       subtitle = subline(
         layout,
-        paint("Nominal", class_colors[["nominal"]]), " and ",
+        "Two ", paint("nominal", class_colors[["nominal"]]), " and two ",
         paint("defective", class_colors[["defective"]]),
-        " reference images, two per class (k = 2) for each dataset, drawn ",
-        "from the learning set (seed 202610) and center-cropped as sent to the ",
-        "decision models. Small images are enlarged here for display only.",
-        bold = FALSE
+        " reference images, drawn from the learning set and center-cropped.",
+        bold = FALSE, width = width, balance = FALSE
       ),
-      # Image sources. AutoVI is CC BY-NC-SA 4.0: the pipe staple tiles of
-      # this figure keep that license.
-      caption = subline(
-        layout,
-        "Images: Megahed et al. (2026), github.com/fmegahed/qe_genai. ",
-        "Pipe staple: AutoVI (Carvalho et al., 2024), CC BY-NC-SA 4.0.",
-        bold = FALSE, size = 0.8
+      # Image sources, one sentence on each line. AutoVI is CC BY-NC-SA 4.0:
+      # the pipe staple tiles of this figure keep that license. The license
+      # name does not break across lines (no-break spaces).
+      caption = stringr::str_c(
+        subline(layout,
+                "**Images** from Megahed et al. (2026), github.com/fmegahed/qe_genai.",
+                bold = FALSE, size = 0.8, width = width, balance = FALSE),
+        "<br>",
+        subline(layout,
+                "Pipe staple images sampled from AutoVI (Carvalho et al., 2024), CC BY-NC-SA 4.0.",
+                bold = FALSE, size = 0.8, width = width, balance = FALSE)
       ),
       theme = theme_paper(layout, subtitle_face = "plain")
     )
