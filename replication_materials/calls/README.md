@@ -85,13 +85,16 @@ Budget row of 2026-10-28 (D269): USD 1 and 2,000 calls, model `jev-1.14.0`. Each
 | Spike round 2 with reference images (D276): direct requests | 20 | 0 | 100,763 | 0.0042 |
 | Spike round 2: scans of the regions | 35 | 0 | 774,249 | 0.0325 |
 | Spike round 2: a Box in the kept regions | 20 | 0 | 87,712 | 0.0037 |
-| Total | 166 | 7 | 1,739,795 | 0.0731 |
+| Round 3, top-down search (D277): Noul of the regions, one request for each size | 160 | 0 | 954,781 | 0.0401 |
+| Round 3: a Box in the final regions | 20 | 0 | 63,526 | 0.0027 |
+| Total | 346 | 7 | 2,758,102 | 0.1158 |
 
 - The first try failed with HTTP 400 "Invalid image request": the base64 text of the script had line breaks (`jsonlite::base64_enc()` adds them). The responses report no input tokens. The second try removed the line breaks, as the package decisions does.
 - Image tokens: input tokens = 353 + 0.00253 x pixels (5 sizes, 280 to 1176 px high). One token is about 395 pixels. An image of 280 x 280 px is about 200 tokens; the largest image (2,458,624 px) is about 6,200 tokens.
 - The spike failed twice before it ran: a scan without a `state` (HTTP 422, "Field required") and a scan of about 44,000 tokens (HTTP 400, "max_tokens_exceeded"). Neither reports input tokens. A scan of 33,155 tokens passed, so the spike sends the regions in requests of about 30,000 tokens. Two direct requests ran twice, because the first image was saved only at its end.
 - Both rounds of the spike have the purpose prefix `box spike`: the first round ran from 02:54 to 02:56 UTC, round 2 from 03:14 to 03:16 UTC (2026-10-28).
-- Left under the budget row: 1,834 calls and about USD 0.927.
+- Round 3 has the purpose prefix `box topdown` (04:02 to 04:04 UTC, 2026-10-28).
+- Left under the budget row: 1,654 calls and about USD 0.884.
 
 ## Rule
 
