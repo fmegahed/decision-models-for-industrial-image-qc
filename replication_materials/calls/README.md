@@ -17,6 +17,7 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-10-25 | typesafe | Space decisions (M6): smoke test and the gate on the private Space (D244) | 1000 | 0.05 | fmm |
 | 2026-10-26 | typesafe-space | Space decisions (M6): the calls of visitors on the public Space, for each month (D227, D251). The app stops at USD 0.25 for each visit, USD 2 each day and USD 20 each month. It limits the cost, not the number of calls. Max calls is USD 20 at 8,253 tokens for each image call. | 57700 | 20 | fmm |
 | 2026-10-28 | typesafe | Box study (M7), pilot with jev-1.14.0: the input tokens of one image at several sizes, the form of the Box answer, and the first Box answers on FabriD, tank screw and pipe clip (D269) | 2000 | 1 | fmm |
+| 2026-10-28 | typesafe | Box study (M7): the search for an agentic strategy (plans/2026-10-28-box-agentic-plan.md): answer bank and live runs on the development sets, the frozen strategy on the test sets (D278) | 6000 | 3 | fmm |
 
 ## Call logs
 
