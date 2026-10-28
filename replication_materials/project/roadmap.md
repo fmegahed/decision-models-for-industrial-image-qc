@@ -17,6 +17,7 @@
 | M4 | Record additions: releases, results, timeline and contributions (replication-materials 1.2.0) | done | plans/2026-10-20-record-additions-plan.md | plans/2026-10-20-record-additions-ledger.md |
 | M5 | Fair comparison: shared label budget, blind description loop, calibration of all methods (v0.0.2) | done | plans/2026-10-20-fair-comparison-plan.md | plans/2026-10-20-fair-comparison-ledger.md |
 | M6 | Hugging Face Space of decisions: a Shiny app in Docker that asks Jev a question about each image or text, with the R code and a bundle of the run (design D242, plan D243) | now | plans/2026-10-24-decisions-space-plan.md | - |
+| M7 | Box study, then Box in decisions 0.2.0 and the Space: find defects with the TypeSafe Box primitive (Jev 1.14) on FabriD and the AutoVI classes tank screw and pipe clip, with a search over regions of several sizes that overlap, as in imageST (D268 to D274) | now | - | - |
 
 ## Open items
 
