@@ -70,6 +70,21 @@ Budget row of 2026-10-25 (D244). The Space counts its own calls in the private d
 - On 2026-10-26 at about 00:18 UTC, the usage page of the key `huggingface-decisions` showed 179 requests, 886,657 input tokens and USD 0.0372. These numbers are the same as the table above. The estimate of the app (input tokens times USD 0.042 per million) is the same as the spend of TypeSafe.
 - The balance of the TypeSafe account was USD 21.12. The account has no card (D241), so the balance is a hard limit for all calls of the account.
 
+## Calls of the Box study
+
+Budget row of 2026-10-28 (D269): USD 1 and 2,000 calls, model `jev-1.14.0`. Each call has a row in `typesafe-calls.csv` (purpose prefix `box pilot`). The cost is an estimate: input tokens times USD 0.042 per million.
+
+| Step | Calls | Failed | Input tokens | Estimated cost (USD) |
+|---|---|---|---|---|
+| Image tokens: one tank screw image at 5 sizes, first try | 5 | 5 | 0 | 0 |
+| Image tokens: the same, second try | 5 | 0 | 10,344 | 0.0004 |
+| Box answers on 3 FabriD test images | 3 | 0 | 3,547 | 0.0001 |
+| Total | 13 | 5 | 13,891 | 0.0006 |
+
+- The first try failed with HTTP 400 "Invalid image request": the base64 text of the script had line breaks (`jsonlite::base64_enc()` adds them). The responses report no input tokens. The second try removed the line breaks, as the package decisions does.
+- Image tokens: input tokens = 353 + 0.00253 x pixels (5 sizes, 280 to 1176 px high). One token is about 395 pixels. An image of 280 x 280 px is about 200 tokens; the largest image (2,458,624 px) is about 6,200 tokens.
+- Left under the budget row: 1,987 calls and about USD 0.999.
+
 ## Rule
 
 Do not put a key, a token or an authorization header in any file in this folder.
