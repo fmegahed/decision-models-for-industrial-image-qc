@@ -94,7 +94,7 @@ knitr::opts_chunk$set(dev = "ragg_png", dpi = 150)
 
 ## Figure and table style
 
-Figures use `theme_bw()` with no grid lines, bold axis titles and tick labels, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Five colors mark the models, the calibration and the defective class: teal for JEV, gold for Clef-Flash, blue for CLIP, plum for Platt scaling and the Accent Red of Miami University for defective images. Each color has a contrast of 4.5:1 or more on white (WCAG 2.2 AA for text), and each pair of colors stays apart in normal vision and in simulated protan, deutan and tritan vision [@machado2009physiologically]. `scripts/palette_check.R` compares them with published palettes. Colored words in the subtitle replace the legend. Subtitles are bold (F2 to F7) and wrap in lines of about the same length; the subtitle and the caption of F1 fill each line to the width of the figure. No figure has a title: the caption takes its place, and the subtitle reads on its own. Small labels give the values on a fixed side of each mark: in F3 to F5, the difference over each point and the 2.5% and 97.5% bounds over the ends of its interval, above JEV and below Clef-Flash; in F2, F6 and F7, the value of each point. A label that would overlap a mark or another label is left out. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
+Figures use `theme_bw()` with no grid lines, bold axis titles and tick labels, Outfit for titles and Cabin for all other text (both under the SIL Open Font License, in `fonts/`). Five colors mark the models, the calibration and the defective class: teal for JEV, gold for Clef-Flash, blue for CLIP, plum for Platt scaling and the Accent Red of Miami University for defective images. Each color has a contrast of 4.5:1 or more on white (WCAG 2.2 AA for text), and each pair of colors stays apart in normal vision and in simulated protan, deutan and tritan vision [@machado2009physiologically]. `scripts/palette_check.R` compares them with published palettes. Colored words in the subtitle replace the legend. Subtitles are bold and centered over the panels, in lines of about the same length; the subtitle of F1 fills each line over the image columns, and its caption fills each line of the figure. Panel titles are bold and near-black. No figure has a title: the caption takes its place, and the subtitle reads on its own. Small labels give the values on a fixed side of each mark: in F3 to F5 and F8, the difference over each point and the 2.5% and 97.5% bounds over the ends of its interval, above JEV and below Clef-Flash; in F2, F6 and F7, the value of each point. A label that would overlap a mark or another label is left out. Each figure is saved as PNG (600 dpi), PDF and SVG, in a one-column size (3.4 in wide) and a two-column size (7 in wide) for a two-column letter page. For the paper, each figure is also saved as a PDF at the column width (3.56 in) and the text width (7.5 in) of the ASME class `asmeconf`, in `figs/paper/`. The paper reports fewer metrics than this document: accuracy where this document gives balanced accuracy (the two are equal on the balanced test sets), and no MCC. PDF and SVG files hold the text as outlines, so they look the same on every computer. Each table is saved as CSV and LaTeX and shown here as an interactive table.
 
 ```{r}
 #| label: fonts-and-colors
@@ -231,16 +231,18 @@ subline <- function(layout, ..., bold = TRUE, size = 1,
 }
 
 # The theme of all figures: no grid lines; bold axis titles, tick labels
-# and ticks. `subtitle_face`: bold for F2 to F7, plain for F1.
-theme_paper <- function(layout, subtitle_face = "bold") {
+# and ticks; bold subtitles, each line centered (center_subtitle() below
+# centers them over the panels); bold panel titles in near-black, 90% of
+# the base size.
+theme_paper <- function(layout) {
   ggplot2::theme_bw(base_size = layouts[[layout]]$base_size,
                     base_family = body_font) +
     ggplot2::theme(
       legend.position = "none",
-      plot.title.position = "plot", # the subtitle starts at the left edge
+      plot.title.position = "plot",
       plot.subtitle = ggtext::element_markdown(
-        face = subtitle_face, colour = "grey25", lineheight = 1.15,
-        margin = ggplot2::margin(0, 0, 6, 0)
+        face = "bold", colour = "grey10", lineheight = 1.15,
+        hjust = 0.5, halign = 0.5, margin = ggplot2::margin(0, 0, 6, 0)
       ),
       plot.caption.position = "plot",
       plot.caption = ggtext::element_markdown(
@@ -250,7 +252,8 @@ theme_paper <- function(layout, subtitle_face = "bold") {
       panel.grid = ggplot2::element_blank(),
       strip.background = ggplot2::element_rect(fill = "grey95",
                                                colour = "grey70"),
-      strip.text = ggplot2::element_text(face = "bold", colour = "grey20"),
+      strip.text = ggplot2::element_text(face = "bold", colour = "grey10",
+                                         size = ggplot2::rel(0.9)),
       axis.title = ggplot2::element_text(face = "bold", colour = "grey15"),
       axis.text = ggplot2::element_text(face = "bold", colour = "grey15"),
       axis.ticks = ggplot2::element_line(colour = "grey15", linewidth = ggplot2::rel(1.6)),
@@ -269,7 +272,30 @@ source("R/figure_labels.R")
 # Small labels, so that they do not draw the eye from the data.
 label_size <- c("one-column" = 5.5, "two-column" = 6)
 add_labels <- function(plot, spec, layout, width, height) {
+  plot <- center_subtitle(plot, layout, width, height)
   annotate_plot(plot, spec, width, height, size_pt = label_size[[layout]], family = body_font)
+}
+
+# Center the subtitle over the panels: wrap it again to the width of the
+# panel area (the figure less the axes and margins left and right of the
+# panels) and place it there. The axes do not depend on the subtitle, and
+# the labels above are placed after this step, at the final panel height.
+center_subtitle <- function(plot, layout, width, height) {
+  file <- tempfile(fileext = ".png")
+  ragg::agg_png(file, width = width, height = height, units = "in", res = 72)
+  on.exit({
+    grDevices::dev.off()
+    unlink(file)
+  }, add = TRUE)
+  gtable <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plot))
+  panels <- gtable$layout[grepl("^panel", gtable$layout$name), ]
+  outside <- setdiff(seq_along(gtable$widths), min(panels$l):max(panels$r))
+  span <- width - sum(grid::convertWidth(gtable$widths[outside], "in", valueOnly = TRUE))
+  # subline() takes the figure width and keeps 11 pt for the plot margins.
+  text <- stringr::str_replace_all(plot$labels$subtitle, "<br>", " ")
+  plot +
+    ggplot2::labs(subtitle = subline(layout, text, width = span + 11 / 72)) +
+    ggplot2::theme(plot.title.position = "panel")
 }
 
 # Text as outlines in a PDF or SVG file (showtext).
@@ -786,13 +812,14 @@ fig_references <- function(layout, paper = FALSE, width = layouts[[layout]]$widt
                         widths = grid::unit(c(label_width(layout), rep(1, 2 * k_main)),
                                             c("pt", rep("null", 2 * k_main)))) +
     patchwork::plot_annotation(
-      # Subtitle and caption fill each line to the width of the figure (fmm).
+      # Subtitle and caption fill each line (fmm): the subtitle, bold and
+      # centered, over the image columns; the caption over the whole width.
       subtitle = subline(
         layout,
         "Two ", paint("nominal", class_colors[["nominal"]]), " and two ",
         paint("defective", class_colors[["defective"]]),
         " reference images, drawn from the learning set and center-cropped.",
-        bold = FALSE, width = width, balance = FALSE
+        width = width - label_width(layout) / 72, balance = FALSE
       ),
       # Image sources, one sentence on each line. AutoVI is CC BY-NC-SA 4.0:
       # the pipe staple tiles of this figure keep that license. The license
@@ -806,7 +833,11 @@ fig_references <- function(layout, paper = FALSE, width = layouts[[layout]]$widt
                 "Pipe staple images sampled from AutoVI (Carvalho et al., 2024), CC BY-NC-SA 4.0.",
                 bold = FALSE, size = 0.8, width = width, balance = FALSE)
       ),
-      theme = theme_paper(layout, subtitle_face = "plain")
+      # The left margin of the subtitle is the column of dataset names.
+      theme = theme_paper(layout) +
+        ggplot2::theme(plot.subtitle = ggtext::element_markdown(
+          margin = ggplot2::margin(0, 0, 6, label_width(layout))
+        ))
     )
 }
 save_figure(fig_references, "F1_reference_images",
@@ -1427,8 +1458,10 @@ On microstructure, the JEV difference is `r diff_text("P1", "jev", "microstructu
 # Figure F3.
 save_figure(
   fig_forest("P1",
-             "Decision model (final description, k = 2 references per class) minus the CLIP baseline; both use Platt scaling on the calibration set C."),
-  "F3_paired_P1", height = forest_heights, paper_height = forest_paper_heights
+             "Decision model (k = 2 references per class; final description, pans: generic) minus the CLIP baseline (k = 50; pans: k = 10); both use Platt scaling on the calibration set C."),
+  "F3_paired_P1", height = forest_heights,
+  # The subtitle names the k of both sides: 5 lines in one column.
+  paper_height = c("one-column" = 4.1, "two-column" = 3.3)
 )
 ```
 
@@ -1472,6 +1505,75 @@ save_figure(
              "Two references per class (k = 2) minus none (k = 0), both with the final description (pans: generic)."),
   "F5_paired_P3", height = forest_heights, paper_height = forest_paper_heights
 )
+```
+
+## Figure of the three comparisons
+
+@fig-paired-all shows the difference in accuracy of P1, P2 and P3 in one figure. It uses the word of the paper, accuracy: on the balanced test sets, accuracy and balanced accuracy are equal. The figure leaves out MCC and AUC to show fewer marks; @tbl-paired gives all three metrics.
+
+```{r}
+#| label: fig-paired-all
+#| fig-cap: "P1, P2 and P3: difference in accuracy and its paired 95% bootstrap interval."
+#| fig-width: 7
+#| fig-height: 3.3
+#| eval: !expr has_paired
+#| include: !expr has_paired
+# Figure F8: one panel per comparison, accuracy only (equal to balanced
+# accuracy on the balanced test sets), in this document and in the paper.
+# All panels share the x scale, so that the sizes of the differences compare
+# across the comparisons. The panels stand side by side, and one above the
+# other in the one-column sizes. The panel titles tell the two sides of
+# each comparison, after the letter of the panel, (a) to (c); the subtitle
+# only names the colors.
+comparison_labels <- c(
+  P1 = "(a) P1: decision model (k = 2) minus\nCLIP baseline (k = 50; pans: k = 10)\n(final description; pans: generic)",
+  P2 = "(b) P2: final minus generic description\n(both at k = 2; no pans)",
+  P3 = "(c) P3: k = 2 minus k = 0\nreferences per class\n(final description; pans: generic)"
+)
+# `paper` is not used: both versions show the same figure.
+fig_paired_all <- function(layout, paper = FALSE, width, height) {
+  d <- paired |>
+    dplyr::filter(comparison %in% names(comparison_labels), metric == "bal_accuracy") |>
+    dplyr::mutate(
+      model = factor(model_labels[model], names(model_colors)),
+      comparison = factor(comparison_labels[comparison], comparison_labels)
+    )
+  present <- intersect(dataset_order, d$dataset)
+  # Datasets top to bottom; JEV just above Clef-Flash in each row.
+  d <- dplyr::mutate(d, y = match(dataset, present) +
+                       dplyr::if_else(model == "JEV", -0.12, 0.12))
+  labels <- if (layout == "one-column") short_labels[present] else dataset_labels[present]
+  plot <- ggplot2::ggplot(d, ggplot2::aes(difference, y, colour = model)) +
+    ggplot2::geom_vline(xintercept = 0, colour = "grey55", linewidth = 0.3) +
+    ggplot2::geom_linerange(ggplot2::aes(xmin = low, xmax = high), linewidth = 0.6) +
+    ggplot2::geom_point(size = 1.8) +
+    ggplot2::scale_colour_manual(values = model_colors) +
+    # Room at both ends for a bound beside its difference label.
+    ggplot2::scale_x_continuous(
+      expand = ggplot2::expansion(mult = if (layout == "one-column") 0.12 else 0.08)
+    ) +
+    # Room for the labels above the first row and below the last one.
+    ggplot2::scale_y_continuous(breaks = seq_along(present), labels = labels,
+                                transform = "reverse",
+                                expand = ggplot2::expansion(add = 0.45)) +
+    ggplot2::facet_wrap(ggplot2::vars(comparison),
+                        ncol = if (layout == "one-column") 1 else 3,
+                        axes = "all_x", axis.labels = "margins") +
+    ggplot2::labs(
+      subtitle = subline(
+        layout,
+        "Difference and paired 95% bootstrap interval for ",
+        paint("JEV", model_colors[["JEV"]]), " and ",
+        paint("Clef-Flash", model_colors[["Clef-Flash"]]), "."
+      ),
+      x = "Difference in accuracy", y = NULL
+    ) +
+    theme_paper(layout) +
+    ggplot2::theme(panel.spacing.x = ggplot2::unit(10, "pt"))
+  add_labels(plot, forest_labels(d, label_size[[layout]]), layout, width, height)
+}
+paired_all_heights <- c("one-column" = 7.5, "two-column" = 3.3)
+save_figure(fig_paired_all, "F8_paired_P1_P2_P3", height = paired_all_heights)
 ```
 
 ## Table of the comparisons

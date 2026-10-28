@@ -3,7 +3,7 @@
 # few-shot protocol of Megahed et al. (2026): 10 reference images per class for
 # pans, 50 for the other datasets, and the text of no description. Reads the
 # score files and metrics.csv only (no API call, no GPU). The style is that of
-# the figures of beyond_clip_analysis.qmd; F1 to F7 are not touched.
+# the figures of beyond_clip_analysis.qmd; F1 to F8 are not touched.
 #
 # Rscript scripts/paper_figure_f0.R
 #   F0_clip_compression: two panels, the full 0 to 1 scale and a zoom from
@@ -92,12 +92,14 @@ theme_f0 <- function(spec) {
   ggplot2::theme_bw(base_size = spec$base_size, base_family = body_font) +
     ggplot2::theme(
       legend.position = "none",
-      plot.title.position = "plot",
-      plot.subtitle = ggtext::element_markdown(face = "bold", colour = "grey25",
+      # The subtitle is one line, centered over the two panels.
+      plot.title.position = "panel",
+      plot.subtitle = ggtext::element_markdown(face = "bold", colour = "grey10", hjust = 0.5,
                                                margin = ggplot2::margin(0, 0, 6, 0)),
       panel.grid = ggplot2::element_blank(),
       strip.background = ggplot2::element_rect(fill = "grey95", colour = "grey70"),
-      strip.text = ggplot2::element_text(face = "bold", colour = "grey20"),
+      strip.text = ggplot2::element_text(face = "bold", colour = "grey10",
+                                         size = ggplot2::rel(0.9)),
       axis.title = ggplot2::element_text(face = "bold", colour = "grey15"),
       axis.title.y = ggplot2::element_blank(),
       axis.text = ggplot2::element_text(face = "bold", colour = "grey15"),
