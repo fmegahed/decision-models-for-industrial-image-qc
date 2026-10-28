@@ -79,11 +79,15 @@ Budget row of 2026-10-28 (D269): USD 1 and 2,000 calls, model `jev-1.14.0`. Each
 | Image tokens: one tank screw image at 5 sizes, first try | 5 | 5 | 0 | 0 |
 | Image tokens: the same, second try | 5 | 0 | 10,344 | 0.0004 |
 | Box answers on 3 FabriD test images | 3 | 0 | 3,547 | 0.0001 |
-| Total | 13 | 5 | 13,891 | 0.0006 |
+| Spike of the region scan (D275), 20 images: direct requests | 22 | 0 | 30,155 | 0.0013 |
+| Spike: scans of the regions | 36 | 2 | 688,335 | 0.0289 |
+| Spike: a Box in the kept regions | 20 | 0 | 44,690 | 0.0019 |
+| Total | 91 | 7 | 777,071 | 0.0326 |
 
 - The first try failed with HTTP 400 "Invalid image request": the base64 text of the script had line breaks (`jsonlite::base64_enc()` adds them). The responses report no input tokens. The second try removed the line breaks, as the package decisions does.
 - Image tokens: input tokens = 353 + 0.00253 x pixels (5 sizes, 280 to 1176 px high). One token is about 395 pixels. An image of 280 x 280 px is about 200 tokens; the largest image (2,458,624 px) is about 6,200 tokens.
-- Left under the budget row: 1,987 calls and about USD 0.999.
+- The spike failed twice before it ran: a scan without a `state` (HTTP 422, "Field required") and a scan of about 44,000 tokens (HTTP 400, "max_tokens_exceeded"). Neither reports input tokens. A scan of 33,155 tokens passed, so the spike sends the regions in requests of about 30,000 tokens. Two direct requests ran twice, because the first image was saved only at its end.
+- Left under the budget row: 1,909 calls and about USD 0.967.
 
 ## Rule
 
