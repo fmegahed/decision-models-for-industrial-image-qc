@@ -1910,6 +1910,80 @@ fig_reliability <- function(layout, paper = FALSE, width, height) {
 save_figure(fig_reliability, "F7_reliability", height = reliability_heights)
 ```
 
+@fig-reliability-3x3 shows the diagrams of textiles, pipe staple and microstructure in a 3 x 3 grid with larger panels: one row per method and one column per dataset. Each panel gives its test ECE before and after Platt scaling in its lower right corner.
+
+```{r}
+#| label: fig-reliability-3x3
+#| fig-cap: "Reliability diagrams on the test sets of textiles, pipe staple and microstructure: observed defect rate against the mean probability in 10 equal bins, for the raw scores and after Platt scaling on C."
+#| fig-width: 7
+#| fig-height: 6.6
+# Figure F7b: the reliability diagrams of three datasets in a 3 x 3 grid,
+# one row per method and one column per dataset, with larger panels and
+# points than F7. The strips hold only the names; the test ECE before and
+# after Platt goes in the lower right corner of each panel, where no curve
+# passes (a curve there would give a high probability to nominal images).
+grid_datasets <- c("textiles", "pipe_staple", "microstructure")
+grid_methods <- c("JEV, k = 2" = "JEV, k = 2", "Clef-Flash, k = 2" = "Clef-Flash, k = 2",
+                  "CLIP baseline" = "CLIP baseline, k = 50")
+grid_panels <- function(d) {
+  d |>
+    dplyr::filter(dataset %in% grid_datasets, method %in% names(grid_methods)) |>
+    dplyr::mutate(row = factor(grid_methods[method], grid_methods),
+                  col = factor(dataset_labels[dataset], dataset_labels[grid_datasets]))
+}
+fig_reliability_grid <- function(layout, paper = FALSE, width, height) {
+  d <- grid_panels(reliability)
+  # In the narrow one-column size the label has no "ECE" and the size of
+  # the value labels, so that it covers less of the panel.
+  one <- layout == "one-column"
+  ece <- grid_panels(ece_rows) |>
+    dplyr::mutate(label = stringr::str_c(
+      if (one) "" else "ECE ", paint(fmt(ece_raw), calibration_colors[["raw"]]), " to ",
+      paint(fmt(ece_platt), calibration_colors[["Platt"]])
+    ))
+  point_size <- if (layout == "one-column") 0.9 else 1.3
+  # The radius of a point in pt: its size and half its stroke (0.5).
+  radius <- (point_size * ggplot2::.pt + 0.5 * ggplot2::.stroke / 2) / 2
+  labels <- d |>
+    dplyr::arrange(calibration != "Platt") |>
+    dplyr::transmute(row, col, x = mean_p, y = observed, label = fmt(observed),
+                     colour = unname(calibration_colors[as.character(calibration)]),
+                     side = dplyr::if_else(calibration == "Platt", "above", "below"),
+                     id = dplyr::row_number(), gap_pt = radius + 0.1)
+  plot <- ggplot2::ggplot(d, ggplot2::aes(mean_p, observed, colour = calibration)) +
+    ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey70", linewidth = 0.3) +
+    ggplot2::geom_line(linewidth = 0.55) +
+    ggplot2::geom_point(size = point_size) +
+    ggtext::geom_richtext(
+      ggplot2::aes(x = 0.98, y = 0.02, label = label), data = ece, inherit.aes = FALSE,
+      hjust = 1, vjust = 0, fill = "white", label.colour = NA,
+      label.padding = grid::unit(rep(1, 4), "pt"), colour = "grey15", family = body_font,
+      size = label_size[[layout]] * (if (one) 1 else 1.15) / ggplot2::.pt
+    ) +
+    ggplot2::scale_colour_manual(values = calibration_colors) +
+    ggplot2::scale_x_continuous(limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+    ggplot2::scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.5, 1)) +
+    ggplot2::facet_grid(rows = ggplot2::vars(row), cols = ggplot2::vars(col)) +
+    ggplot2::labs(
+      subtitle = subline(
+        layout,
+        paint("Raw", calibration_colors[["raw"]]), " scores and ",
+        paint("Platt", calibration_colors[["Platt"]]),
+        " probabilities on the test images (Platt fitted on the calibration ",
+        "set C). Calibrated curves follow the diagonal. Lower right: the ",
+        "test ECE before and after Platt scaling."
+      ),
+      x = "Mean predicted defect probability (10 bins)",
+      y = "Observed defect rate"
+    ) +
+    theme_paper(layout) +
+    ggplot2::theme(panel.spacing = ggplot2::unit(if (one) 5 else 8, "pt"))
+  add_labels(plot, labels, layout, width, height)
+}
+save_figure(fig_reliability_grid, "F7b_reliability_3x3",
+            height = c("one-column" = 4.6, "two-column" = 6.6))
+```
+
 ## Lower defect rates {#sec-prevalence}
 
 ```{r}
