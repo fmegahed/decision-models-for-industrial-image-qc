@@ -29,7 +29,7 @@ Each service has one log: `<service>-calls.csv`. The columns are:
 
 The log of `typesafe-space` is different. The Space keeps no log of single calls. It keeps one row for each day in `usage.csv` of the private dataset `fmegahed/decisions-space-usage`: date, calls, input tokens and cost. Claude Code copies these rows into the record at the end of M6 and in each later session about the Space. The rows start on the day the Space is public; the calls before that day are under D244. The file `typesafe-space-calls.csv` does not exist yet: the site of the record counts one row of a log as one call, so a row for each day needs a change of the record tools first (open).
 
-The log of `elevenlabs` holds one row for each request of speech. The column `input_tokens` holds the characters of the request, `output_tokens` is 0, and `cost_usd` is the characters times USD 0.0001 (the list price of D282).
+The log of `elevenlabs` holds one row for each request of speech. The column `input_tokens` holds the characters of the request, `output_tokens` is 0, and `cost_usd` is the characters times USD 0.00008 (the API price of Eleven v4, D286). A request that failed has 0 characters.
 
 ## Paid calls before the record
 
@@ -121,3 +121,21 @@ Budget row of 2026-10-28 (D278): USD 3 and 6,000 calls. Purpose prefix `box bank
 ## Rule
 
 Do not put a key, a token or an authorization header in any file in this folder.
+
+## Calls of the Space video
+
+Budget rows of 2026-10-29 (D282, D285). The runs go through the public Space, so the Space counts them in `usage.csv` of `fmegahed/decisions-space-usage` (2026-10-29). They are not in `typesafe-calls.csv`. The numbers are the stats line of the app after each run. The cost is an estimate: input tokens times USD 0.042 per million.
+
+| Take (UTC) | Run | Calls | Answers | Estimated cost (USD) |
+|---|---|---|---|---|
+| 2026-10-29T17:20Z, upload, take 1 | Try on 5 | 5 | AUC 1.00, accuracy 1.00 | 0.002 |
+| 2026-10-29T17:20Z, upload, take 1 | Run all | 16 | AUC 1.00, accuracy 1.00 | 0.006 |
+| 2026-10-29T17:22Z, text Score | Run all | 6 | no labels | 0.000 |
+| 2026-10-29T18:17Z, upload, take 2 | Try on 5 | 5 | AUC 1.00, accuracy 1.00 | 0.002 |
+| 2026-10-29T18:17Z, upload, take 2 | Run all | 16 | AUC 1.00, accuracy 1.00 | 0.006 |
+| Total | | 48 | | 0.016 |
+
+- Take 2 replaced take 1, because the screen of take 1 did not show the answers while the narration named them. The video uses take 2.
+- The probabilities of Jev changed a little between the takes: the missing staples got 0.58 to 0.69 in take 1 and 0.56 to 0.67 in take 2. The order did not change.
+- Left under the budget row of D285: 252 calls and about USD 0.084.
+- ElevenLabs (D282): see `elevenlabs-calls.csv`. Left under the cap: about 15,600 characters.
