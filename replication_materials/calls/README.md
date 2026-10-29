@@ -18,6 +18,8 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-10-26 | typesafe-space | Space decisions (M6): the calls of visitors on the public Space, for each month (D227, D251). The app stops at USD 0.25 for each visit, USD 2 each day and USD 20 each month. It limits the cost, not the number of calls. Max calls is USD 20 at 8,253 tokens for each image call. | 57700 | 20 | fmm |
 | 2026-10-28 | typesafe | Box study (M7), pilot with jev-1.14.0: the input tokens of one image at several sizes, the form of the Box answer, and the first Box answers on FabriD, tank screw and pipe clip (D269) | 2000 | 1 | fmm |
 | 2026-10-28 | typesafe | Box study (M7): the search for an agentic strategy (plans/2026-10-28-box-agentic-plan.md): answer bank and live runs on the development sets, the frozen strategy on the test sets (D278) | 6000 | 3 | fmm |
+| 2026-10-29 | elevenlabs | Space decisions (M6): the narration of the demo video, at most 20,000 characters (D282). Max cost is 20,000 characters at USD 0.10 for each 1,000 characters, the API list price of Multilingual v2. The characters come from the plan of fmm. Max calls is the limit of Claude Code for the requests. | 200 | 2 | fmm |
+| 2026-10-29 | typesafe | Space decisions (M6): the runs of the demo video on the public Space, an upload of pipe staple images and a score question on text (D285) | 300 | 0.1 | fmm |
 
 ## Call logs
 
@@ -26,6 +28,8 @@ Each service has one log: `<service>-calls.csv`. The columns are:
 `time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_tokens,cost_usd`
 
 The log of `typesafe-space` is different. The Space keeps no log of single calls. It keeps one row for each day in `usage.csv` of the private dataset `fmegahed/decisions-space-usage`: date, calls, input tokens and cost. Claude Code copies these rows into the record at the end of M6 and in each later session about the Space. The rows start on the day the Space is public; the calls before that day are under D244. The file `typesafe-space-calls.csv` does not exist yet: the site of the record counts one row of a log as one call, so a row for each day needs a change of the record tools first (open).
+
+The log of `elevenlabs` holds one row for each request of speech. The column `input_tokens` holds the characters of the request, `output_tokens` is 0, and `cost_usd` is the characters times USD 0.0001 (the list price of D282).
 
 ## Paid calls before the record
 
