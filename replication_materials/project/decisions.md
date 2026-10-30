@@ -293,6 +293,7 @@
 | D287 | 2026-10-29 | The narrator says "noul" as "nool". The narration strip shows "noul". | claude | fmm | question | "nool (rhymes with tool)" (2026-10-29) | b9454786-0fb2-49ee-9eca-0a5e68a9b816 | 18:02 | Code and tooling | - | - |
 | D288 | 2026-10-29 | The video has no background music. | claude | fmm | question | "No music (Recommended)" (2026-10-29) | b9454786-0fb2-49ee-9eca-0a5e68a9b816 | 18:02 | Code and tooling | The outro credits no music. | - |
 | D289 | 2026-10-29 | Voice the draft script of the video (26 beats, about 4.5 minutes) with no edit by fmm first. | claude | fmm | question | "Voice it as drafted" (2026-10-29) | b9454786-0fb2-49ee-9eca-0a5e68a9b816 | 18:02 | Code and tooling | fmm reviews the first cut, and changes single beats after that. | - |
+| D290 | 2026-10-30 | The narrator says the full name "Automotive Visual Inspection data set" in place of "Auto V I". The narration strip shows "Automotive Visual Inspection data set (AutoVI)". | fmm | fmm | chat | "AutoVI (is not Auto 5 1 but rather short for The Automotive Visual Inspection Dataset)" (2026-10-30) | b9454786-0fb2-49ee-9eca-0a5e68a9b816 | 01:09 | Code and tooling | Only beat v20_card is voiced again (191 characters). The captures stay. | - |
 
 ## Topics
 

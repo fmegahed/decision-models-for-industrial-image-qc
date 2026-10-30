@@ -31,3 +31,4 @@ time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_
 2026-10-29T18:18:27Z,v20_card,Space video (D282),eleven_v4,hzXUBnG0YkT8WzbXwkS1,200,3315,171,0,0.0137
 2026-10-29T18:18:29Z,v21_noul,Space video (D282),eleven_v4,AaL3ZwXT23MBpRHLNaYC,200,2178,100,0,0.0080
 2026-10-29T18:26:00Z,v26_calib,Space video (D282),eleven_v4,5dwutPlw1b4ytqxUwT2N,200,3367,202,0,0.0162
+2026-10-30T01:09:45Z,v20_card,Space video (D282),eleven_v4,1oQxL7PE85hySwK3Zy3r,200,2790,191,0,0.0153

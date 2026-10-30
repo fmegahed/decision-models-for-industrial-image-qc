@@ -138,4 +138,4 @@ Budget rows of 2026-10-29 (D282, D285). The runs go through the public Space, so
 - Take 2 replaced take 1, because the screen of take 1 did not show the answers while the narration named them. The video uses take 2.
 - The probabilities of Jev changed a little between the takes: the missing staples got 0.58 to 0.69 in take 1 and 0.56 to 0.67 in take 2. The order did not change.
 - Left under the budget row of D285: 252 calls and about USD 0.084.
-- ElevenLabs (D282): see `elevenlabs-calls.csv`. Left under the cap: about 15,600 characters.
+- ElevenLabs (D282): see `elevenlabs-calls.csv`. Left under the cap: about 15,400 characters.
