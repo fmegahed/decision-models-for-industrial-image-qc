@@ -1,8 +1,8 @@
-# Beyond CLIP: Calibrated (Few-Shot) Defect Detection With Structured Decision Models
+# Beyond CLIP: Calibrated (Few-Shot) Defect Detection With System One Decision Models
 
 Fadel M. Megahed ([fmegahed](https://github.com/fmegahed)) and Ying-Ju (Tessa) Chen ([ying-ju](https://github.com/ying-ju))
 
-Status: ongoing work. An abstract is submitted to MSEC 2027 (`paper/msec2027_submitted.md`). The R package `decisions` (milestone M3, done) is on [CRAN](https://CRAN.R-project.org/package=decisions) as version 0.1.0 (submitted 2026-10-24, published 2026-11-08). Install it with `install.packages("decisions")`. It calls decision models (Jev, the OpenAI Decisions API, OpenRouter, Microsoft Foundry, and SystemOne servers such as Clef-Flash and Laya) with typed questions, and returns tidymodels-style probabilities. Its vignette "Case study: industrial image inspection" repeats this study with the package. Its design, plan and build ledger are in `replication_materials/plans/` (`2026-10-23-decisions-package-design.md`, `-plan.md` and `-ledger.md`). The package is at [fmegahed/decisions](https://github.com/fmegahed/decisions), with its [website](https://fmegahed.github.io/decisions/) and the [part of this record about the package](https://fmegahed.github.io/decisions/record/).
+Status: ongoing work. The paper is on arXiv: [2610.41199](https://arxiv.org/abs/2610.41199) (2026-10-30; Megahed & Chen, 2026). An abstract is submitted to MSEC 2027 (`paper/msec2027_submitted.md`). The R package `decisions` (milestone M3, done) is on [CRAN](https://CRAN.R-project.org/package=decisions) as version 0.1.0 (submitted 2026-10-24, published 2026-11-08). Install it with `install.packages("decisions")`. It calls decision models (Jev, the OpenAI Decisions API, OpenRouter, Microsoft Foundry, and SystemOne servers such as Clef-Flash and Laya) with typed questions, and returns tidymodels-style probabilities. Its vignette "Case study: industrial image inspection" repeats this study with the package. Its design, plan and build ledger are in `replication_materials/plans/` (`2026-10-23-decisions-package-design.md`, `-plan.md` and `-ledger.md`). The package is at [fmegahed/decisions](https://github.com/fmegahed/decisions), with its [website](https://fmegahed.github.io/decisions/) and the [part of this record about the package](https://fmegahed.github.io/decisions/record/).
 
 Analysis: [all paper tables and figures, with their code](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/beyond_clip_analysis.html) (`beyond_clip_analysis.html`, rendered from `beyond_clip_analysis.qmd`). Description loops: [every candidate description, against the text it revised](https://fmegahed.github.io/decision-models-for-industrial-image-qc/pages/description_loops.html) (`description_loops.html`, rendered from `description_loops.qmd`). Replication record: [website](https://fmegahed.github.io/decision-models-for-industrial-image-qc/).
 
@@ -114,6 +114,8 @@ v0.0.1: the other scripts reproduce tag [`v0.0.1`](https://github.com/fmegahed/d
 ## References
 
 Carvalho, P., Lafou, M., Durupt, A., Leblanc, A., & Grandvalet, Y. (2024). *The Automotive Visual Inspection Dataset (AutoVI): A genuine industrial production dataset for unsupervised anomaly detection* [Data set]. Zenodo. https://doi.org/10.5281/zenodo.10459003
+
+Megahed, F. M., & Chen, Y.-J. (2026). *Beyond CLIP: Calibrated (few-shot) defect detection with System One decision models*. arXiv. https://doi.org/10.48550/arXiv.2610.41199
 
 Megahed, F. M., Chen, Y.-J., Colosimo, B. M., Grasso, M., Jones-Farmer, L. A., Knoth, S., Sun, H., & Zwetsloot, I. M. (2026). Adapting OpenAI's CLIP model for few-shot image inspection in manufacturing quality control: An expository case study with multiple application examples. *Journal of Quality Technology, 58*(4), 415–441. https://doi.org/10.1080/00224065.2026.2640171 (Open access, CC BY 4.0. Preprint: https://arxiv.org/abs/2501.12596.)
 
