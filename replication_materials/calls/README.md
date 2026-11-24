@@ -161,7 +161,7 @@ Budget row of 2026-11-24 (D301): USD 15 and 30,000 calls, model `gemini-decision
 | Step | Purpose prefix | Calls | Failed | Input tokens | Estimated cost (USD) |
 |---|---|---|---|---|---|
 | Spike: the request format (2026-11-24) | `decisions-gemini-probe` | 8 | 1 (on purpose) | 5,377 | 0.0005 |
-| Package, part 1: fixtures of the tests | `decisions-0.2.0-gemini-` | 9 | 1 (on purpose) | 4,348 | 0.0005 |
+| Package, part 1: fixtures of the tests | `decisions-0.2.0-gemini-` | 9 | 1 (on purpose) | 4,448 | 0.0005 |
 | Package, part 2: vignette "Choosing a model" (75 injury reports) | `decisions-0.2.0-choosing-a-model` | 75 | 0 | 17,346 | 0.0017 |
 | Package, part 2: vignette "Images" (46 textiles, with and without references) | `decisions-0.2.0-images` | 92 | 0 | 314,686 | 0.0315 |
 
