@@ -1,6 +1,6 @@
 # decisions: locate(), the Box functions (short design)
 
-Date: 2026-11-24. Decisions: D317 (Box passes its gate), D319 (locate() only), D320 (ship local_textile_0199), D310 (Box does not hold 0.2.0). Status: draft for the approval of fmm.
+Date: 2026-11-24. Decisions: D317 (Box passes its gate), D319 (locate() only), D320 (ship local_textile_0199), D310 (Box does not hold 0.2.0). Status: approved by fmm on 2026-11-24 (D321).
 
 ## Intent
 

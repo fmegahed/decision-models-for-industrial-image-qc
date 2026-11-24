@@ -22,6 +22,7 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-10-29 | typesafe | Space decisions (M6): the runs of the demo video on the public Space, an upload of pipe staple images and a score question on text (D285) | 300 | 0.1 | fmm |
 | 2026-11-24 | gemini | Package decisions: tests of the Decisions API of Gemini (gemini-decision-1): the request format, images and references, real responses for the tests of the package, and the runs of the vignettes, as for gpt-6-luna (D301, D302) | 30000 | 15 | fmm |
 | 2026-11-24 | typesafe | Box in decisions (D307): strategies T and Z of D303 on the textile images of the package, to decide if Box goes into version 0.2.0 | 400 | 0.1 | fmm |
+| 2026-11-24 | typesafe | locate() in decisions (D321): the run of the vignette section on the 46 textile inputs, and the fixture calls of the tests | 150 | 0.05 | fmm |
 
 ## Call logs
 
