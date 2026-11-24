@@ -7,3 +7,12 @@ time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_
 2026-11-24T19:18:08Z,20261124T191808.431-image,decisions-gemini-probe image,gemini-decision-1,,200,516,1197,0,0.0001197
 2026-11-24T19:18:08Z,20261124T191808.950-image_refs,decisions-gemini-probe image_refs,gemini-decision-1,,200,1312,3399,0,0.0003399
 2026-11-24T19:18:10Z,20261124T191810.264-bad_type,decisions-gemini-probe bad_type,gemini-decision-1,,400,60,,,
+2026-11-24T21:34:57Z,manual-gemini-noul,decisions-0.2.0-gemini-noul (row added by hand: the logger failed on usage$input_tokens),gemini-decision-1,,200,313,,,1.23e-05
+2026-11-24T21:35:02Z,gemini-noul,decisions-0.2.0-gemini-noul,gemini-decision-1,,200,418,123,0,1.23e-05
+2026-11-24T21:35:02Z,gemini-choice2,decisions-0.2.0-gemini-choice2,gemini-decision-1,,200,186,133,0,1.33e-05
+2026-11-24T21:35:02Z,gemini-choice3,decisions-0.2.0-gemini-choice3,gemini-decision-1,,200,201,142,0,1.42e-05
+2026-11-24T21:35:02Z,gemini-score3,decisions-0.2.0-gemini-score3,gemini-decision-1,,200,313,154,0,1.54e-05
+2026-11-24T21:35:03Z,gemini-combined,decisions-0.2.0-gemini-combined,gemini-decision-1,,200,195,324,0,3.24e-05
+2026-11-24T21:35:03Z,gemini-noul-described,decisions-0.2.0-gemini-noul-described,gemini-decision-1,,200,195,159,0,1.59e-05
+2026-11-24T21:35:03Z,gemini-bad-type,decisions-0.2.0-gemini-bad-type,gemini-decision-1,,400,59,,,
+2026-11-24T21:35:03Z,gemini-image,decisions-0.2.0-gemini-image,gemini-decision-1,,200,568,3413,0,0.0003413
