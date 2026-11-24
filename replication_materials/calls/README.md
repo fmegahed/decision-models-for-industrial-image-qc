@@ -1,6 +1,6 @@
 # Paid calls
 
-Claude Code makes no paid call before a row exists for it in this table. The Service of a row is the name of its call log, `<service>-calls.csv`: `typesafe` is the TypeSafe JEV API (D111), `openai` is the OpenAI Decisions API, and `openrouter` is OpenRouter (D188).
+Claude Code makes no paid call before a row exists for it in this table. The Service of a row is the name of its call log, `<service>-calls.csv`: `typesafe` is the TypeSafe JEV API (D111), `openai` is the OpenAI Decisions API, `openrouter` is OpenRouter (D188), and `gemini` is the Decisions API of Gemini (D301).
 
 | Date | Service | Purpose | Max calls | Max cost (USD) | Approved by |
 |---|---|---|---|---|---|
@@ -20,6 +20,7 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-10-28 | typesafe | Box study (M7): the search for an agentic strategy (plans/2026-10-28-box-agentic-plan.md): answer bank and live runs on the development sets, the frozen strategy on the test sets (D278) | 6000 | 3 | fmm |
 | 2026-10-29 | elevenlabs | Space decisions (M6): the narration of the demo video, at most 20,000 characters (D282). Max cost is 20,000 characters at USD 0.10 for each 1,000 characters, the API list price of Multilingual v2. The characters come from the plan of fmm. Max calls is the limit of Claude Code for the requests. | 200 | 2 | fmm |
 | 2026-10-29 | typesafe | Space decisions (M6): the runs of the demo video on the public Space, an upload of pipe staple images and a score question on text (D285) | 300 | 0.1 | fmm |
+| 2026-11-24 | gemini | Package decisions: tests of the Decisions API of Gemini (gemini-decision-1): the request format, images and references, real responses for the tests of the package, and the runs of the vignettes, as for gpt-6-luna (D301, D302) | 30000 | 15 | fmm |
 
 ## Call logs
 
