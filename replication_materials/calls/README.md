@@ -154,6 +154,20 @@ Budget row of 2026-11-24 (D307): USD 0.10 and 400 calls, model `jev-1.14.0`. Pur
 - The 46 failed calls (HTTP 403, "Must supply an API key") came from a first run whose script did not load the key. They report no tokens and cost nothing. The script now loads the key and checks it, and the second run answered every call.
 - Left under the budget row of D307: 201 calls and about USD 0.054.
 
+## Calls of the Gemini Decisions API (D301)
+
+Budget row of 2026-11-24 (D301): USD 15 and 30,000 calls, model `gemini-decision-1`. The cost is an estimate: input tokens times USD 0.10 per million. Gemini reports none.
+
+| Step | Purpose prefix | Calls | Failed | Input tokens | Estimated cost (USD) |
+|---|---|---|---|---|---|
+| Spike: the request format (2026-11-24) | `decisions-gemini-probe` | 8 | 1 (on purpose) | 5,377 | 0.0005 |
+| Package, part 1: fixtures of the tests | `decisions-0.2.0-gemini-` | 9 | 1 (on purpose) | 4,348 | 0.0005 |
+| Package, part 2: vignette "Choosing a model" (75 injury reports) | `decisions-0.2.0-choosing-a-model` | 75 | 0 | 17,346 | 0.0017 |
+| Package, part 2: vignette "Images" (46 textiles, with and without references) | `decisions-0.2.0-images` | 92 | 0 | 314,686 | 0.0315 |
+
+- The fixture calls of part 1 hold one row added by hand: the logger failed on the first call (`usage$input_tokens` matched `input_tokens_by_modality`), and the call was made again.
+- Venn calls are local and free; they are not logged.
+
 ## Rule
 
 Do not put a key, a token or an authorization header in any file in this folder.
