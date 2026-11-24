@@ -119,6 +119,24 @@ Budget row of 2026-10-28 (D278): USD 3 and 6,000 calls. Purpose prefix `box bank
 - The 31 failed calls (HTTP 400 "Invalid image dimensions") had a crop of a thin candidate box that cannot have both sides in 280 to 1568 px. They report no input tokens. The crops now are at most 5.5 times as long as wide, and the second run asked only the missing questions.
 - Left under the budget row of D278: 5,208 calls and about USD 2.694.
 
+### Calls of the check of D303
+
+Budget row of 2026-10-28 (D278). A subagent (Fable) made these calls on 2026-11-24, from 19:20 to 19:51 UTC, with a cap of 1,500 calls and USD 0.50. Purpose prefix `box d303`. All calls used the 65 images of the development set; no call used a test image.
+
+| Step | Calls | Failed | Input tokens | Estimated cost (USD) |
+|---|---|---|---|---|
+| Version probe: the aliases and four unknown model IDs (HTTP 400) | 7 | 4 | 864 | 0.0000 |
+| Repeat of the request W0 of 2026-10-28, twice on 15 images | 30 | 0 | 44,780 | 0.0018 |
+| Box on the whole image, at native size and enlarged | 130 | 0 | 465,294 | 0.0195 |
+| Box in crops of 3 and 6 times the true defect, at two sizes, without and with references | 250 | 0 | 921,587 | 0.0388 |
+| Tiles then Box: Choice over 9 tiles, Box, Noul check, and a second Box in the crop | 325 | 0 | 2,993,749 | 0.1257 |
+| Noul of the regions at 768 px | 45 | 0 | 827,497 | 0.0348 |
+| Occlusion of tiles, and a picture as the Box target | 55 | 0 | 475,705 | 0.0200 |
+| Agent runs of the strategies T and Z, and the Noul check | 316 | 0 | 1,880,475 | 0.0791 |
+| Total | 1,158 | 4 | 7,609,951 | 0.3196 |
+
+- Left under the budget row of D278: 4,050 calls and about USD 2.374.
+
 ## Rule
 
 Do not put a key, a token or an authorization header in any file in this folder.
