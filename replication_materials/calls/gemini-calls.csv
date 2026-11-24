@@ -1,0 +1,9 @@
+time_utc,call_id,purpose,model,request_id,status,latency_ms,input_tokens,output_tokens,cost_usd
+2026-11-24T19:18:02Z,20261124T191802.737-noul,decisions-gemini-probe noul,gemini-decision-1,,200,584,123,0,1.23e-05
+2026-11-24T19:18:07Z,20261124T191807.320-noul_criteria,decisions-gemini-probe noul_criteria,gemini-decision-1,,200,285,159,0,1.59e-05
+2026-11-24T19:18:07Z,20261124T191807.610-choice,decisions-gemini-probe choice,gemini-decision-1,,200,225,134,0,1.34e-05
+2026-11-24T19:18:07Z,20261124T191807.837-score,decisions-gemini-probe score,gemini-decision-1,,200,217,142,0,1.42e-05
+2026-11-24T19:18:08Z,20261124T191808.057-multi,decisions-gemini-probe multi,gemini-decision-1,,200,370,223,0,2.23e-05
+2026-11-24T19:18:08Z,20261124T191808.431-image,decisions-gemini-probe image,gemini-decision-1,,200,516,1197,0,0.0001197
+2026-11-24T19:18:08Z,20261124T191808.950-image_refs,decisions-gemini-probe image_refs,gemini-decision-1,,200,1312,3399,0,0.0003399
+2026-11-24T19:18:10Z,20261124T191810.264-bad_type,decisions-gemini-probe bad_type,gemini-decision-1,,400,60,,,
