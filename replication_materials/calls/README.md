@@ -164,9 +164,17 @@ Budget row of 2026-11-24 (D301): USD 15 and 30,000 calls, model `gemini-decision
 | Package, part 1: fixtures of the tests | `decisions-0.2.0-gemini-` | 9 | 1 (on purpose) | 4,448 | 0.0005 |
 | Package, part 2: vignette "Choosing a model" (75 injury reports) | `decisions-0.2.0-choosing-a-model` | 75 | 0 | 17,346 | 0.0017 |
 | Package, part 2: vignette "Images" (46 textiles, with and without references) | `decisions-0.2.0-images` | 92 | 0 | 314,686 | 0.0315 |
+| Package, part 3: the four description loops of the case study | `decisions-0.2.0-gemini-loop-` | 1,728 | 0 | 9,839,136 | 0.9839 |
+| Package, part 3: case study, run 1: grid | `decisions-0.2.0-study-grid-` | 2,280 | 0 | 14,604,280 | 1.4604 |
+| Package, part 3: case study, run 1: calibration | `decisions-0.2.0-study-calibration-` | 202 | 0 | 1,692,398 | 0.1692 |
+| Package, part 3: case study, run 1: the one-time test | `decisions-0.2.0-study-test-` | 1,029 | 3 | 8,944,794 | 0.8945 |
+| Package, part 3: one debug call of the refused test image | `decisions-0.2.0-study-debug` | 1 | 1 | 0 | 0.0000 |
+| Package, part 3: the rerun of D311 (wording, grid, calibration, test) | `decisions-0.2.0-study-rerun-` | 5,237 | 1 | 35,080,608 | 3.5081 |
 
 - The fixture calls of part 1 hold one row added by hand: the logger failed on the first call (`usage$input_tokens` matched `input_tokens_by_modality`), and the call was made again.
 - Venn calls are local and free; they are not logged.
+- The failed calls of part 3 are one extrusion test image (`extrusion_images/over/frame351.jpg`) that the safety filter of Gemini refused each time (HTTP 400, `prohibited_content`): the test, two sends of the failed row, one debug call, and the test of the rerun. The case study keeps it as a row with an error.
+- Total of the budget row of D301 on 2026-11-24: 10,661 calls, about USD 7.05 of USD 15.
 
 ## Rule
 
