@@ -138,6 +138,21 @@ Budget row of 2026-10-28 (D278). A subagent (Fable) made these calls on 2026-11-
 
 - Left under the budget row of D278: 4,050 calls and about USD 2.374.
 
+### Calls of the Box test on the textiles (D307)
+
+Budget row of 2026-11-24 (D307): USD 0.10 and 400 calls, model `jev-1.14.0`. Purpose prefix `box d307`. Claude Code made the calls on 2026-11-24, from 21:30 to 21:32 UTC, on the 46 textile inputs of decisions, with the inputs that fmm accepted (D315).
+
+| Step | Calls | Failed | Input tokens | Estimated cost (USD) |
+|---|---|---|---|---|
+| T1: Choice over 9 tiles with the reference crops | 92 | 46 | 475,277 | 0.0200 |
+| T2: Box in the two best tiles, with two wordings | 15 | 0 | 208,384 | 0.0088 |
+| Z1: Noul and Box on the whole image at 1568 px | 46 | 0 | 303,644 | 0.0128 |
+| Z2: Box in a crop of 3 times the Z1 box | 46 | 0 | 117,546 | 0.0049 |
+| Total | 199 | 46 | 1,104,851 | 0.0464 |
+
+- The 46 failed calls (HTTP 403, "Must supply an API key") came from a first run whose script did not load the key. They report no tokens and cost nothing. The script now loads the key and checks it, and the second run answered every call.
+- Left under the budget row of D307: 201 calls and about USD 0.054.
+
 ## Rule
 
 Do not put a key, a token or an authorization header in any file in this folder.
