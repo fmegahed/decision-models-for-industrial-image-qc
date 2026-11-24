@@ -19,7 +19,7 @@
 | M6 | Hugging Face Space of decisions: a Shiny app in Docker that asks Jev a question about each image or text, with the R code and a bundle of the run (design D242, plan D243) | now | plans/2026-10-24-decisions-space-plan.md | - |
 | M7 | Box study, then Box in decisions 0.2.0 and the Space: find defects with the TypeSafe Box primitive (Jev 1.14) on FabriD and the AutoVI classes tank screw and pipe clip, with a search over regions of several sizes that overlap, as in imageST (D268 to D274) | now | plans/2026-10-28-box-agentic-plan.md | - |
 | M8 | decisions 0.1.1: the fix for S7 1.0.0, which stops the installation on 7 CRAN platforms (D305, D308, D309) | now | plans/2026-11-24-decisions-0.1.1-plan.md | - |
-| M9 | decisions 0.2.0: Gemini (D302), Venn (D306) and, if it works well on the textiles, Box (D307); to CRAN when Gemini and Venn are done (D310) | next | - | - |
+| M9 | decisions 0.2.0: Gemini (D302), Venn (D306) and, if it works well on the textiles, Box (D307); to CRAN when Gemini and Venn are done (D310); part 1, the deciders, has a plan (D314) | next | plans/2026-11-24-decisions-0.2.0-deciders-plan.md | - |
 
 ## Open items
 
