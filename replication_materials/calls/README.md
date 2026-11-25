@@ -154,6 +154,21 @@ Budget row of 2026-11-24 (D307): USD 0.10 and 400 calls, model `jev-1.14.0`. Pur
 - The 46 failed calls (HTTP 403, "Must supply an API key") came from a first run whose script did not load the key. They report no tokens and cost nothing. The script now loads the key and checks it, and the second run answered every call.
 - Left under the budget row of D307: 201 calls and about USD 0.054.
 
+### Calls of locate() in decisions (D321)
+
+Budget row of 2026-11-24 (D321): USD 0.05 and 150 calls, model `jev-1.14.0`. Purpose prefix `decisions-0.2.0-locate-`. Claude Code made the calls on 2026-11-25, from 00:52 to 01:02 UTC. Two calls made the test fixtures (`probe_locate()`). Then `locate()` ran on the 46 textile inputs of the package (`case_images_locate()`).
+
+| Run | Step | Calls | Failed | Input tokens | Estimated cost (USD) |
+|---|---|---|---|---|---|
+| Fixtures | 1: Choice over 9 tiles | 1 | 0 | 10,259 | 0.0004 |
+| Fixtures | 2: Box in the two best tiles | 1 | 0 | 13,857 | 0.0006 |
+| Images | 1: Choice over 9 tiles | 46 | 0 | 471,914 | 0.0198 |
+| Images | 2: Box in the two best tiles | 16 | 0 | 221,712 | 0.0093 |
+| Total | | 64 | 0 | 717,742 | 0.0301 |
+
+- The script of the images run logs one row for each request. It stops before call 93 (`with_logged_calls()` in `data-raw/vignette_results.R`).
+- Left under the budget row of D321: 86 calls and about USD 0.020.
+
 ## Calls of the Gemini Decisions API (D301)
 
 Budget row of 2026-11-24 (D301): USD 15 and 30,000 calls, model `gemini-decision-1`. The cost is an estimate: input tokens times USD 0.10 per million. Gemini reports none.
