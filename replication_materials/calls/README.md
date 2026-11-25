@@ -170,6 +170,22 @@ Budget row of 2026-11-24 (D321): USD 0.05 and 150 calls, model `jev-1.14.0`. Pur
 - The script of the images run logs one row for each request. It stops before call 93 (`with_logged_calls()` in `data-raw/vignette_results.R`).
 - Left under the budget row of D321: 86 calls and about USD 0.020.
 
+### Calls of the Box test on FabriD and AutoVI (D335)
+
+Budget row of 2026-11-25 (D335): USD 20 and 6,000 calls, model `jev-1.14.0`; the plan capped the work at USD 2 and 3,000 calls. Purpose prefix `box d336`. Claude Code made the calls on 2026-11-25: two smoke runs on 4 images that are not test images (16:20 and 16:43 UTC), then the test run on the 158 test images (16:44 to 16:52 UTC).
+
+| Run | Strategy | Calls | Failed | Input tokens | Estimated cost (USD) |
+|---|---|---|---|---|---|
+| Smoke (2 runs) | L, locate() | 16 | 0 | 182,200 | 0.0077 |
+| Smoke (2 runs) | TD, top-down with Box | 58 | 0 | 241,051 | 0.0101 |
+| Smoke (2 runs) | Z, one Box on the whole image | 8 | 0 | 46,516 | 0.0020 |
+| Test | L, locate() | 287 | 0 | 3,220,401 | 0.1353 |
+| Test | TD, top-down with Box | 1,033 | 0 | 4,787,252 | 0.2011 |
+| Test | Z, one Box on the whole image | 158 | 0 | 911,750 | 0.0383 |
+| Total | | 1,560 | 0 | 9,389,170 | 0.3943 |
+
+- Left under the budget row of D335: 4,440 calls and about USD 19.61.
+
 ## Calls of the Gemini Decisions API (D301)
 
 Budget row of 2026-11-24 (D301): USD 15 and 30,000 calls, model `gemini-decision-1`. The cost is an estimate: input tokens times USD 0.10 per million. Gemini reports none.
