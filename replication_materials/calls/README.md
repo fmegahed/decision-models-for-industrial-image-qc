@@ -24,6 +24,7 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-11-24 | typesafe | Box in decisions (D307): strategies T and Z of D303 on the textile images of the package, to decide if Box goes into version 0.2.0 | 400 | 0.1 | fmm |
 | 2026-11-24 | typesafe | locate() in decisions (D321): the run of the vignette section on the 46 textile inputs, and the fixture calls of the tests | 150 | 0.05 | fmm |
 | 2026-11-25 | typesafe | Box study (M7), test (D335 to D337): locate() and the two older strategies (top-down with Box, and one Box on the whole image) on the one-time test sets of FabriD, tank screw and pipe clip, and on one held-out AutoVI class | 6000 | 20 | fmm |
+| 2026-11-25 | typesafe | Box study (M7), pixel study (D340 to D344): pure-Jev and hybrid map methods on the development pool (223 images; cap 5,000 calls and USD 4, prefix box px dev) and one final test after the go of fmm (cap 7,000 calls and USD 6, prefix box px final) | 12000 | 10 | fmm |
 
 ## Call logs
 
