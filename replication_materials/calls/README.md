@@ -25,6 +25,7 @@ Claude Code makes no paid call before a row exists for it in this table. The Ser
 | 2026-11-24 | typesafe | locate() in decisions (D321): the run of the vignette section on the 46 textile inputs, and the fixture calls of the tests | 150 | 0.05 | fmm |
 | 2026-11-25 | typesafe | Box study (M7), test (D335 to D337): locate() and the two older strategies (top-down with Box, and one Box on the whole image) on the one-time test sets of FabriD, tank screw and pipe clip, and on one held-out AutoVI class | 6000 | 20 | fmm |
 | 2026-11-25 | typesafe | Box study (M7), pixel study (D340 to D344): pure-Jev and hybrid map methods on the development pool (223 images; cap 5,000 calls and USD 4, prefix box px dev) and one final test after the go of fmm (cap 7,000 calls and USD 6, prefix box px final) | 12000 | 10 | fmm |
+| 2026-11-27 | typesafe | Box study (M7), pixel study, the confirmatory test of the refined map (D351 to D353): locate(), the TTA request and the gate of TTA_vote_G1 on 514 fresh images of 4 datasets, once (prefix box px confirm; at most USD 0.01 for each image) | 3000 | 2 | fmm |
 
 ## Call logs
 
