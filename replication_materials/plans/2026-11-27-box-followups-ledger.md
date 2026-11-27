@@ -1,0 +1,53 @@
+| Item | Value |
+|---|---|
+| Status | Closed |
+| Version | 1.0 (2026-11-27) |
+| Written by | Claude Code |
+
+This ledger is a copy of the working ledger for the plan `replication_materials/plans/2026-11-27-box-followups-plan.md`. It was copied on 2026-11-27 at the end of the work. Internal agent IDs are removed.
+
+# SDD ledger — plan: replication_materials/plans/2026-11-27-box-followups-plan.md
+
+Executor: inline (executing-plans), Claude Code (Opus 5.5). Spec: D351 ("Do the two follow ups", fmm, 2026-11-27) and the plan; no separate spec file.
+Pre-flight: Track C and Track D share no interface. One coupling: run_guard() of Track D refuses any change of box/R, box/scripts or box/python after its pre-registration, so all Track C code is committed first (c36fcb6d).
+Ruling: the 70,000-step EfficientAD-S is a third method key (efficientad70k, EfficientAD_full_70k, own run folder) — the 35,000-step runs and their committed rows stay as the record of H19 — cost if wrong: one more method column in the full-shot tables.
+Ruling: the guard of the confirmatory test is the development rule of D342 (no dataset gain below -0.03), not "significantly worse on none" as in Stage 5 — Stage 6 showed FabriD at -0.025 (interval -0.038 to -0.012), so a significance guard tests FabriD alone, and D342 is the rule that chose REF_dino_l100 — cost if wrong: a C1 verdict that a stricter guard would refuse; the per-dataset intervals are reported.
+Ruling: the confirmatory test has two pre-registered tests with Holm: C1 the 4-dataset mean, C2 the 3-dataset mean without underbody_pipes — H19 says the Stage 6 candidates were written after the Stage 5 underbody_pipes results were known — cost if wrong: less power for C1 (Holm over 2).
+Task C1: complete (commits 9869eb66..c36fcb6d on m7-box: c36fcb6d; tests: test-fullshot.R → 45/45 pass, RED 4 failures first)
+Task D1: complete (commit in 4b..: confirm.R, test-confirm.R; tests: test-confirm.R → 40/40 pass, RED first: no confirm.R)
+Task D2: Ruling: the name check of px_40 leaves out px_final/candidates.csv and px_final/dropped.csv besides px_confirm/ and px_fullshot/ — both list images that were never sent (all test images; the kept twin in column matched: 3 pipe_clip twins), and the MD5 and pixel-MD5 checks cover every image Stage 5 sent — cost if wrong: a fresh image named only in a list of sent images in those two files would pass; none such exists (sends are in sets.csv, zcal_images.csv, gate_refs.csv, sent_md5.csv).
+Task D2: inputs written: 514 images (fabrid 96/14, pipe_clip 24/60, engine_wiring 100/60, underbody_pipes 100/60); fresh pool dropped 29 FabriD by the 30 s rule, 0 by dHash, MD5 or pixels; banks: engine_wiring 282 of 285 (3 twins of scored images left out).
+Task D4: check mode on the 546 Stage 5 images: the 4 dataset gains equal final_refine_compare.csv (max difference 6.9e-18); on those images C1 +0.107 (Holm p 0.0008) and C2 +0.031 (0.0008), lowest fabrid -0.025 (guard -0.03 holds). Ruling: the check rebuilds the REF rows from the stored Stage 5 maps because Stage 6 saved no per-image REF rows (minor M6 of Stage 6) — cost if wrong: none; the gains match to 1e-17.
+Task D4: Ruling: boxes_per_good() labels its pooled row family_mean_5; px_42 renames it "pooled 4", and drops the keep column of box_rule() (the Stage 6 dev rule) from confirm_boxes.csv — cost if wrong: none (labels only).
+Task D3: replay-check (0 calls) on the 546 Stage 5 images: L_box and TTA_vote_G1 maps and scores identical on 546; REF_dino_l100 AU-sPRO@0.05 equal to Stage 6 on 6 datasets (1.1e-16). px_final/ unchanged.
+Pre-run review (fresh reviewer, Opus 5.5, read only; report pre-run-review.md): 0 Critical, 2 Important, 9 Minor, 4 declined.
+Final: Ruling: M1 to M4 re-graded to Important — the pre-registration is written once; a gap in what it pins (the locate() crops and the FUSE constants of underbody_pipes, the image files outside git, the cap numbers, the rule text of the plan commit) cannot be repaired after the run — cost if wrong: four small checks more than needed.
+Final: fixed I1 (prereg.json committed before the run) — test "confirm_committed passes a committed file and stops on an untracked or changed one" RED→GREEN; px_41 test calls confirm_committed() before run_guard(); suite 1279/1279
+Final: fixed I2 (analysis bound to the pre-registered code) — test "confirm_same_code stops when a file differs from the commit" RED→GREEN; px_42 results checks done$code_commit == pre$code_commit and confirm_same_code() on the 9 analysis files; suite 1279/1279
+Final: fixed M1 (re-graded) — px_40 prereg pins the locate() crops of inputs.json and px_final/zcal/z_constants_new.csv by git blob, and the MD5 of decisions/data-raw/log_call.R; px_41 test checks the logger MD5 (script wiring; blob pinning checked by run_guard())
+Final: fixed M2 (re-graded) — tests "confirm_md5 stops when a file outside git changed or is missing" and "confirm_digest is one value for a set of files" RED→GREEN; px_41 test checks the MD5 of the 514 images and the gate references, and the digest of the DINO bank images; suite 1279/1279
+Final: fixed M3 (re-graded) — prereg.json run holds cap_calls 3000 and cap_usd 2 and the true variable names; px_41 test compares them with final_cap_calls and final_cap_usd (script wiring)
+Final: fixed M4 (re-graded) — test "confirm_rule_text takes the rule section of the plan" RED→GREEN; px_40 prereg reads the plan with git show <plan commit>:<path>; suite 1279/1279
+Final: after the fixes, replay-check again: 0 calls, identical on 546, REF equal to Stage 6 (1.1e-16); px_42 check again: the 4 gains equal Stage 6 (6.9e-18).
+Final: minor (deferred): M5 the cap override relies on top-level evaluation of px_41 (true under Rscript, checked by the reviewer); px_final_common.R first prints the Stage 5 number of allowed calls.
+Final: minor (deferred): M6 the failure path of the REF rows has no unit test (correct by reading: a failed TTA_vote_G1 map is 0, so REF is 0, and failed/error are copied).
+Final: minor (deferred): M7 replay_check.csv carries the D336 post hoc label of write_post_hoc().
+Final: minor (deferred): M8 px_42 writes confirm_three_levels.csv, confirm_boxes.csv and confirm_boxes_per_good.csv, not confirm_descriptive.csv as plan Task D4 names.
+Final: Ruling: M9 (Track C code must stop before the prereg) — no code commit on m7-box between the prereg and done.json; the confirm run (about 15 min) ends long before the EfficientAD training; Track C needs no more code — cost if wrong: a Track C fix waits until done.json.
+Final: Ruling: declined 1 (guard and C2 set after the Stage 6 results) — stands: fmm chose the guard with the Stage 5 numbers in front of them (D353) — cost if wrong: a borderline FabriD verdict.
+Final: Ruling: declined 2 (24 FabriD pairs within 30 s inside the confirm set; the bootstrap treats images as independent) — stands: the Stage 5 rule, unchanged; the summary names it — cost if wrong: a FabriD interval a little too narrow.
+Final: Ruling: declined 3 (DINO path and decisions::locate() outside the diff) — stands: the same code ran Stage 5; the replay check covers locate(), and px_19 checked the DINO step — cost if wrong: none found.
+Final: Ruling: declined 4 (the per-image cost check runs before TTA and gate, not before locate(); jev_ask() can send one call above the cap) — stands: Stage 5 code, unchanged as the plan requires; Stage 5 maximum USD 0.0025 per image — cost if wrong: at most one call over the cap.
+Ruling: a stray file C:\Program Files\Git\check2.log (15 bytes, "check exit=139") came from a wrong shell line of mine; a safety check refused its removal, so it is left for fmm.
+Task D5: the one-time run (2026-11-27 12:01 to 12:24 UTC): 514 images, 1,974 calls, USD 1.0763, 0 failed steps, max USD 0.0025 per image; done.json at 68990931 (code 589aeba8). px_42 results: C1 +0.1027 (0.0917 to 0.1141), C2 +0.0282 (0.0165 to 0.0415), Holm p 0.0008 each, lowest fabrid -0.0159; both confirmed. Box AP@0.3 descriptive +0.033 (-0.025 to 0.092).
+Task D5: complete (commits 589aeba8..ca8a9490: prereg 68990931, run and results ca8a9490; tests: box suite 1279/1279; replay-check and px_42 check 0 calls, identical)
+Ruling: H20 is the confirmatory test and H21 will be the 70,000-step EfficientAD (the plan named them the other way) — the IDs follow the order of the results in results.md — cost if wrong: none (labels).
+Process slip: the record commit 975e9cf2 was pushed while the build check failed (a pipe into tail hid the exit status; Source of H20 not a repository path). Fixed in 599ea076 with the check run on its own exit status.
+Task C2: run efficientad70k (2026-11-27 05:50 to 10:49 local): 6 datasets, run.json max_steps 70000 on each (fit 38 to 60 min). The Rscript process then stopped with a parse error ("unexpected symbol" at line 208): c36fcb6d changed px_30_fullshot.R at 05:56, after the run started, and Rscript reads its file as a stream. The run block was already running, so the models are not affected; parse() of the file passes.
+Ruling: keep the 6 trained models and do not train again — the run code (inputs, fullshot.py, steps) did not change after the start; only the summary block changed — cost if wrong: 5 h of GPU time to train again.
+Task C2: score patchcore efficientad efficientad70k, then summary: the PatchCore_full and EfficientAD_full rows of fullshot_check1, _compare, _constants and _three_levels are identical to ca8a9490 (tolerance 0). EfficientAD_full_70k on the full AutoVI test split (5 classes): macro image AUROC 0.683 (35,000 steps: 0.703; published 0.94 +- 0.04), macro AU-sPRO@0.05 0.515 (0.477).
+Task C2: Ruling: the summary gets one sentence, written only when the 70k macro image AUROC is below the published range, that the rows against EfficientAD_full_70k also measure a gap to this model, not to EfficientAD as published; fullshot_note() stays as Task C1 pinned it ("" at 70,000 steps) — the empty note alone would read as "the published EfficientAD" — cost if wrong: one sentence in a post hoc summary.
+Task C2: complete (commits c36fcb6d..b9f54ded; tests: box suite test_dir(stop_on_failure = TRUE) → exit 0; old rows identical)
+Ruling: no second whole-branch review for b9f54ded — the pre-run review covered the Track C code (c36fcb6d); b9f54ded adds 7 lines of summary text and result files whose old rows are identical — cost if wrong: a wording error in a post hoc summary.
+Task C3: complete (record on main: H21, the evaluate row, this ledger copy; build check passes)
+Check: px_42 results rerun at b9f54ded (0 calls): the 4 CSV files identical to ca8a9490; confirm_summary.md differs only in the HEAD stamp (restored).
